@@ -44,6 +44,7 @@ export const bindPlaylistToTerminals = (payload: { terminalIds: number[]; playli
   http.post('/terminals/bind-playlist', payload);
 export const fetchTerminalHeartbeats = (id: number, page = 1, size = 20) =>
   http.get(`/terminals/${id}/heartbeats`, { params: { page, size } });
+export const fetchTerminalPlaylists = (id: number) => http.get(`/terminals/${id}/playlists`);
 
 export const fetchContent = (page = 1, size = 10, categoryId?: number, published?: boolean) =>
   http.get('/content', { params: { page, size, categoryId, published } });

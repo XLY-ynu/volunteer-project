@@ -25,9 +25,10 @@
       <el-table-column prop="groupName" label="分组" width="120" />
       <el-table-column prop="status" label="状态" width="100" />
       <el-table-column prop="lastHeartbeat" label="心跳" width="180" />
-      <el-table-column label="操作" width="140">
+      <el-table-column label="操作" width="200">
         <template #default="scope">
           <el-button size="small" @click="viewHeartbeats(scope.row.id)">心跳</el-button>
+          <el-button size="small" @click="viewBindings(scope.row.id)">绑定</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -36,6 +37,14 @@
       <el-select v-model="selectedPlaylist" placeholder="选择播放列表" style="width: 240px">
         <el-option v-for="p in playlists" :key="p.id" :label="p.name" :value="p.id" />
       </el-select>
+      <el-date-picker
+        v-model="startEnd"
+        type="datetimerange"
+        start-placeholder="开始时间"
+        end-placeholder="结束时间"
+        value-format="YYYY-MM-DD HH:mm:ss"
+        style="width: 360px"
+      />
       <el-button type="success" @click="bind">绑定播放列表</el-button>
     </div>
 
@@ -45,22 +54,45 @@
         <el-table-column prop="createdAt" label="时间" />
       </el-table>
     </el-dialog>
+
+    <el-dialog v-model="bindingDialog" title="绑定记录" width="560px">
+      <el-table :data="bindings">
+        <el-table-column prop="playlistId" label="播放列表ID" width="140" />
+        <el-table-column prop="startTime" label="开始" />
+        <el-table-column prop="endTime" label="结束" />
+        <el-table-column prop="active" label="激活" width="80">
+          <template #default="scope">
+            <el-tag :type="scope.row.active ? 'success' : 'info'">{{ scope.row.active ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { ElMessage } from 'element-plus';
-import { bindPlaylistToTerminals, fetchPlaylists, fetchTerminals, fetchTerminalHeartbeats, registerTerminal } from '../api';
+import {
+  bindPlaylistToTerminals,
+  fetchPlaylists,
+  fetchTerminals,
+  fetchTerminalHeartbeats,
+  fetchTerminalPlaylists,
+  registerTerminal
+} from '../api';
 
 const terminals = ref<any[]>([]);
 const playlists = ref<any[]>([]);
 const selectedTerminalIds = ref<number[]>([]);
 const selectedPlaylist = ref<number | null>(null);
+const startEnd = ref<[string, string] | null>(null);
 
 const form = ref({ code: '', name: '', groupName: '' });
 const heartbeatDialog = ref(false);
 const heartbeats = ref<any[]>([]);
+const bindingDialog = ref(false);
+const bindings = ref<any[]>([]);
 
 const loadTerminals = async () => {
   const resp = await fetchTerminals(1, 50);
@@ -98,7 +130,12 @@ const bind = async () => {
     ElMessage.warning('请选择终端');
     return;
   }
-  await bindPlaylistToTerminals({ playlistId: selectedPlaylist.value, terminalIds: selectedTerminalIds.value });
+  const payload: any = { playlistId: selectedPlaylist.value, terminalIds: selectedTerminalIds.value };
+  if (startEnd.value) {
+    payload.startTime = startEnd.value[0];
+    payload.endTime = startEnd.value[1];
+  }
+  await bindPlaylistToTerminals(payload);
   ElMessage.success('绑定成功');
 };
 
@@ -107,6 +144,13 @@ const viewHeartbeats = async (id: number) => {
   // @ts-ignore
   heartbeats.value = resp.data?.data?.records || [];
   heartbeatDialog.value = true;
+};
+
+const viewBindings = async (id: number) => {
+  const resp = await fetchTerminalPlaylists(id);
+  // @ts-ignore
+  bindings.value = resp.data?.data || [];
+  bindingDialog.value = true;
 };
 
 onMounted(() => {
