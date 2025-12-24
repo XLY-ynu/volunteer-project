@@ -36,7 +36,7 @@ public class SecurityConfig {
             .httpBasic(basic -> basic.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/ping", "/api/auth/**").permitAll()
+                .requestMatchers("/api/ping", "/api/auth/**", "/api/public/**").permitAll()
                 .requestMatchers("/api/users/**", "/api/ops/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/ops/**").hasAuthority("ADMIN")
                 .anyRequest().authenticated()

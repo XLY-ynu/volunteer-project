@@ -12,6 +12,8 @@ import Broadcasts from '../views/Broadcasts.vue';
 import OperationLogs from '../views/OperationLogs.vue';
 import Users from '../views/Users.vue';
 import System from '../views/System.vue';
+import PublicContent from '../views/PublicContent.vue';
+import TerminalPreview from '../views/TerminalPreview.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: Login },
@@ -30,7 +32,9 @@ const routes: RouteRecordRaw[] = [
       { path: '/broadcasts', component: Broadcasts },
       { path: '/ops', component: OperationLogs },
       { path: '/users', component: Users },
-      { path: '/system', component: System }
+      { path: '/system', component: System },
+      { path: '/public-content', component: PublicContent },
+      { path: '/terminal-preview', component: TerminalPreview }
     ]
   }
 ];

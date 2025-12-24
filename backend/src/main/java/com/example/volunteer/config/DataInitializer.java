@@ -1,7 +1,9 @@
 package com.example.volunteer.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.example.volunteer.entity.MenuCategory;
 import com.example.volunteer.entity.User;
+import com.example.volunteer.mapper.MenuCategoryMapper;
 import com.example.volunteer.mapper.UserMapper;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +16,7 @@ import java.time.LocalDateTime;
 public class DataInitializer {
 
     @Bean
-    public CommandLineRunner initAdmin(UserMapper userMapper, PasswordEncoder passwordEncoder) {
+    public CommandLineRunner initAdmin(UserMapper userMapper, MenuCategoryMapper menuCategoryMapper, PasswordEncoder passwordEncoder) {
         return args -> {
             User existing = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, "admin"));
             if (existing == null) {
@@ -27,6 +29,26 @@ public class DataInitializer {
                 admin.setCreatedAt(LocalDateTime.now());
                 admin.setUpdatedAt(LocalDateTime.now());
                 userMapper.insert(admin);
+            }
+            // seed six main categories if not present
+            String[][] categories = {
+                    {"文明XX", "wenming"},
+                    {"XX志愿者APP", "app"},
+                    {"XX志愿者网", "web"},
+                    {"雷锋热线", "leifeng"},
+                    {"公益活动", "gongyi"},
+                    {"公益广告", "ad"}
+            };
+            for (String[] c : categories) {
+                MenuCategory exists = menuCategoryMapper.selectOne(new LambdaQueryWrapper<MenuCategory>()
+                        .eq(MenuCategory::getCode, c[1]));
+                if (exists == null) {
+                    MenuCategory mc = new MenuCategory();
+                    mc.setName(c[0]);
+                    mc.setCode(c[1]);
+                    mc.setSortOrder(0);
+                    menuCategoryMapper.insert(mc);
+                }
             }
         };
     }

@@ -5,18 +5,26 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.dto.HeartbeatRequest;
 import com.example.volunteer.dto.TerminalPlaylistBindRequest;
 import com.example.volunteer.dto.TerminalRequest;
+import com.example.volunteer.dto.TerminalPlaybackDto;
 import com.example.volunteer.entity.Terminal;
 import com.example.volunteer.entity.TerminalPlaylist;
 import com.example.volunteer.entity.TerminalHeartbeat;
+import com.example.volunteer.entity.Playlist;
+import com.example.volunteer.entity.PlaylistItem;
+import com.example.volunteer.entity.Layout;
 import com.example.volunteer.mapper.TerminalMapper;
 import com.example.volunteer.mapper.TerminalPlaylistMapper;
 import com.example.volunteer.mapper.TerminalHeartbeatMapper;
+import com.example.volunteer.mapper.PlaylistMapper;
+import com.example.volunteer.mapper.PlaylistItemMapper;
+import com.example.volunteer.mapper.LayoutMapper;
 import com.example.volunteer.service.TerminalService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class TerminalServiceImpl implements TerminalService {
@@ -24,12 +32,21 @@ public class TerminalServiceImpl implements TerminalService {
     private final TerminalMapper terminalMapper;
     private final TerminalPlaylistMapper terminalPlaylistMapper;
     private final TerminalHeartbeatMapper terminalHeartbeatMapper;
+    private final PlaylistMapper playlistMapper;
+    private final PlaylistItemMapper playlistItemMapper;
+    private final LayoutMapper layoutMapper;
 
     public TerminalServiceImpl(TerminalMapper terminalMapper, TerminalPlaylistMapper terminalPlaylistMapper,
-                               TerminalHeartbeatMapper terminalHeartbeatMapper) {
+                               TerminalHeartbeatMapper terminalHeartbeatMapper,
+                               PlaylistMapper playlistMapper,
+                               PlaylistItemMapper playlistItemMapper,
+                               LayoutMapper layoutMapper) {
         this.terminalMapper = terminalMapper;
         this.terminalPlaylistMapper = terminalPlaylistMapper;
         this.terminalHeartbeatMapper = terminalHeartbeatMapper;
+        this.playlistMapper = playlistMapper;
+        this.playlistItemMapper = playlistItemMapper;
+        this.layoutMapper = layoutMapper;
     }
 
     @Override
@@ -142,5 +159,36 @@ public class TerminalServiceImpl implements TerminalService {
         } catch (Exception ignored) {
         }
         return 300L;
+    }
+
+    @Override
+    public List<TerminalPlaybackDto> playbackForTerminal(String code) {
+        Terminal terminal = terminalMapper.selectOne(new LambdaQueryWrapper<Terminal>().eq(Terminal::getCode, code));
+        if (terminal == null) {
+            return List.of();
+        }
+        LocalDateTime now = LocalDateTime.now();
+        List<TerminalPlaylist> binds = terminalPlaylistMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TerminalPlaylist>()
+                        .eq(TerminalPlaylist::getTerminalId, terminal.getId())
+                        .eq(TerminalPlaylist::getActive, true)
+                        .and(w -> w.isNull(TerminalPlaylist::getStartTime).or().le(TerminalPlaylist::getStartTime, now))
+                        .and(w -> w.isNull(TerminalPlaylist::getEndTime).or().ge(TerminalPlaylist::getEndTime, now))
+                        .orderByDesc(TerminalPlaylist::getStartTime)
+        );
+        return binds.stream().map(b -> {
+            Playlist p = playlistMapper.selectById(b.getPlaylistId());
+            List<PlaylistItem> items = playlistItemMapper.selectList(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PlaylistItem>()
+                            .eq(PlaylistItem::getPlaylistId, b.getPlaylistId())
+                            .orderByAsc(PlaylistItem::getSortOrder)
+            );
+            Layout layout = p != null && p.getLayoutId() != null ? layoutMapper.selectById(p.getLayoutId()) : null;
+            TerminalPlaybackDto dto = new TerminalPlaybackDto();
+            dto.setPlaylist(p);
+            dto.setItems(items);
+            dto.setLayout(layout);
+            return dto;
+        }).collect(Collectors.toList());
     }
 }
