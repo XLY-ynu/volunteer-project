@@ -29,6 +29,8 @@ export const uploadMedia = (file: File, type?: string) => {
   return http.post('/media/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
 
+export const deleteMedia = (id: number) => http.delete(`/media/${id}`);
+
 export const createPlaylist = (payload: any) => http.post('/playlists', payload);
 export const fetchPlaylists = () => http.get('/playlists');
 export const fetchPlaylistItems = (playlistId: number) => http.get(`/playlists/${playlistId}/items`);

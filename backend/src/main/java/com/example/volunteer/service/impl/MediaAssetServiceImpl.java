@@ -56,7 +56,18 @@ public class MediaAssetServiceImpl implements MediaAssetService {
 
     @Override
     public void delete(Long id) {
+        MediaAsset asset = mediaAssetMapper.selectById(id);
         mediaAssetMapper.deleteById(id);
+        if (asset != null && asset.getUrl() != null && asset.getUrl().startsWith("/uploads/")) {
+            try {
+                Path root = Paths.get(storageRoot).toAbsolutePath();
+                String filename = asset.getUrl().replaceFirst("^/uploads/", "");
+                Path dest = root.resolve(filename);
+                Files.deleteIfExists(dest);
+            } catch (Exception ignored) {
+                // 删除物理文件失败不影响主流程
+            }
+        }
     }
 
     @Override

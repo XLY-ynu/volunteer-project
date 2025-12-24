@@ -14,15 +14,24 @@
     <el-table :data="list" style="width: 100%">
       <el-table-column prop="name" label="名称" />
       <el-table-column prop="type" label="类型" width="120" />
-      <el-table-column prop="url" label="访问路径" />
+      <el-table-column prop="url" label="访问路径">
+        <template #default="scope">
+          <a :href="scope.row.url" target="_blank">{{ scope.row.url }}</a>
+        </template>
+      </el-table-column>
       <el-table-column prop="createdAt" label="创建时间" width="180" />
+      <el-table-column label="操作" width="120">
+        <template #default="scope">
+          <el-button type="danger" size="small" @click="onDelete(scope.row.id)">删除</el-button>
+        </template>
+      </el-table-column>
     </el-table>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
-import { fetchMedia } from '../api';
+import { deleteMedia, fetchMedia } from '../api';
 import { useUserStore } from '../stores/user';
 import { ElMessage } from 'element-plus';
 
@@ -39,6 +48,12 @@ const load = async () => {
 
 const onUploaded = () => {
   ElMessage.success('上传成功');
+  load();
+};
+
+const onDelete = async (id: number) => {
+  await deleteMedia(id);
+  ElMessage.success('已删除');
   load();
 };
 
