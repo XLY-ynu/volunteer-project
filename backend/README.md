@@ -16,7 +16,7 @@ mvn spring-boot:run
 ## 结构
 - `common/ApiResponse` 统一响应
 - `config/` 安全配置、MyBatis Plus 分页、数据初始化
-- `controller/` 健康检查、认证、分类、内容、媒体、播放列表、终端
+- `controller/` 健康检查、认证、分类、内容、媒体（含上传）、播放列表（含条目查询）、终端（含绑定播放列表）
 - `entity/` 用户/角色/菜单/内容/媒体资产/播放列表/终端等实体
 - `mapper/` MyBatis Plus mapper 接口
 - `dto/` 登录、资源、内容、播放列表、终端等请求 DTO

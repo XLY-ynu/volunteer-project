@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class TerminalServiceImpl implements TerminalService {
@@ -94,5 +95,14 @@ public class TerminalServiceImpl implements TerminalService {
             tp.setActive(true);
             terminalPlaylistMapper.insert(tp);
         }
+    }
+
+    @Override
+    public List<TerminalPlaylist> playlists(Long terminalId) {
+        return terminalPlaylistMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TerminalPlaylist>()
+                        .eq(TerminalPlaylist::getTerminalId, terminalId)
+                        .orderByDesc(TerminalPlaylist::getStartTime)
+        );
     }
 }

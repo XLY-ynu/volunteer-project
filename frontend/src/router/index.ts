@@ -4,6 +4,8 @@ import Dashboard from '../views/Dashboard.vue';
 import Layout from '../views/Layout.vue';
 import Media from '../views/Media.vue';
 import Categories from '../views/Categories.vue';
+import Playlists from '../views/Playlists.vue';
+import Terminals from '../views/Terminals.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: Login },
@@ -14,7 +16,9 @@ const routes: RouteRecordRaw[] = [
       { path: '', redirect: '/dashboard' },
       { path: '/dashboard', component: Dashboard },
       { path: '/media', component: Media },
-      { path: '/categories', component: Categories }
+      { path: '/categories', component: Categories },
+      { path: '/playlists', component: Playlists },
+      { path: '/terminals', component: Terminals }
     ]
   }
 ];

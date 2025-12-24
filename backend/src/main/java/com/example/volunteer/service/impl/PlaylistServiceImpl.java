@@ -62,4 +62,13 @@ public class PlaylistServiceImpl implements PlaylistService {
                         .eq(PlaylistItem::getPlaylistId, id)
         );
     }
+
+    @Override
+    public List<PlaylistItem> items(Long playlistId) {
+        return playlistItemMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PlaylistItem>()
+                        .eq(PlaylistItem::getPlaylistId, playlistId)
+                        .orderByAsc(PlaylistItem::getSortOrder)
+        );
+    }
 }

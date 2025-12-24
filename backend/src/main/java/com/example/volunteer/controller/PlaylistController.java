@@ -3,6 +3,7 @@ package com.example.volunteer.controller;
 import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.dto.PlaylistRequest;
 import com.example.volunteer.entity.Playlist;
+import com.example.volunteer.entity.PlaylistItem;
 import com.example.volunteer.service.PlaylistService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,11 @@ public class PlaylistController {
     @GetMapping
     public ApiResponse<List<Playlist>> list() {
         return ApiResponse.ok(playlistService.list());
+    }
+
+    @GetMapping("/{id}/items")
+    public ApiResponse<List<PlaylistItem>> items(@PathVariable Long id) {
+        return ApiResponse.ok(playlistService.items(id));
     }
 
     @DeleteMapping("/{id}")

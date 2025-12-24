@@ -6,6 +6,8 @@
         <el-menu-item index="/dashboard">仪表盘</el-menu-item>
         <el-menu-item index="/media">资源管理</el-menu-item>
         <el-menu-item index="/categories">分类管理</el-menu-item>
+        <el-menu-item index="/playlists">播放列表</el-menu-item>
+        <el-menu-item index="/terminals">终端管理</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
