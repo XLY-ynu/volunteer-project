@@ -10,4 +10,8 @@ npm run dev
 ## 目录
 - `src/views/Login.vue` 登录页
 - `src/views/Dashboard.vue` 仪表盘占位
-- 后续补充资源管理、播放设置、终端管理等页面
+- 资源管理：`src/views/Media.vue`
+- 分类管理：`src/views/Categories.vue`
+- 内容管理：`src/views/Content.vue`
+- 播放列表：`src/views/Playlists.vue`
+- 终端管理：`src/views/Terminals.vue`

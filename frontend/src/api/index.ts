@@ -40,3 +40,9 @@ export const fetchTerminals = (page = 1, size = 10, groupName?: string) =>
 export const registerTerminal = (payload: any) => http.post('/terminals', payload);
 export const bindPlaylistToTerminals = (payload: { terminalIds: number[]; playlistId: number; startTime?: string; endTime?: string }) =>
   http.post('/terminals/bind-playlist', payload);
+
+export const fetchContent = (page = 1, size = 10, categoryId?: number, published?: boolean) =>
+  http.get('/content', { params: { page, size, categoryId, published } });
+export const createContent = (payload: any) => http.post('/content', payload);
+export const updateContent = (id: number, payload: any) => http.put(`/content/${id}`, payload);
+export const deleteContent = (id: number) => http.delete(`/content/${id}`);
