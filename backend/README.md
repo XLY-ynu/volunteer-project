@@ -11,6 +11,7 @@ mvn spring-boot:run
 ```
 4. 初始化数据：启动时自动创建默认账号 `admin/admin123`（请尽快修改）。
 5. 健康检查：`GET http://localhost:8080/api/ping` → `pong`。
+6. 文件上传：默认保存到 `uploads` 目录（可通过 `app.storage.root` 配置），静态访问 `/uploads/**`。
 
 ## 结构
 - `common/ApiResponse` 统一响应

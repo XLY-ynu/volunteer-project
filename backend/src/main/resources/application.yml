@@ -27,3 +27,5 @@ app:
     # Base64 编码的 32 字节密钥 (256 bits)
     secret: dm9sdW50ZWVyLXBsYXRmb3JtLWp3dC1zZWNyZXQta2V5LTIwMjQ=
     expire-ms: 86400000
+  storage:
+    root: uploads

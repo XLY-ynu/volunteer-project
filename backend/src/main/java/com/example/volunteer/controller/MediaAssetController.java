@@ -7,6 +7,8 @@ import com.example.volunteer.entity.MediaAsset;
 import com.example.volunteer.service.MediaAssetService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/media")
@@ -21,6 +23,12 @@ public class MediaAssetController {
     @PostMapping
     public ApiResponse<MediaAsset> create(@Valid @RequestBody MediaAssetRequest request) {
         return ApiResponse.ok(mediaAssetService.create(request));
+    }
+
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<MediaAsset> upload(@RequestPart("file") MultipartFile file,
+                                          @RequestPart(value = "type", required = false) String type) {
+        return ApiResponse.ok(mediaAssetService.upload(file, type));
     }
 
     @GetMapping

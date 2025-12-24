@@ -16,6 +16,7 @@ mvn spring-boot:run
 
 健康检查：`GET http://localhost:8080/api/ping` → `pong`。
 默认账号：`admin/admin123`（启动时自动初始化，生产请修改）。
+文件上传：默认存储到后端工作目录下 `uploads/`（可配置 `app.storage.root`），访问路径 `/uploads/**`。
 
 ### 前端
 ```bash
@@ -26,5 +27,5 @@ npm run dev
 默认代理 `/api` 到本地后端。
 
 ## 后续待办
-- 后端：补充建表 SQL/Flyway，登录/JWT 鉴权，资源上传/内容/播放列表/终端等接口与 mapper/service。
-- 前端：资源上传/列表、播放列表构建、终端管理、日志与系统管理页面。
+- 后端：补充 Flyway/Liquibase，完善权限、播放计划/终端心跳日志、资源删除物理文件等。
+- 前端：播放列表构建、终端管理、日志与系统管理页面，美化布局与表单校验。

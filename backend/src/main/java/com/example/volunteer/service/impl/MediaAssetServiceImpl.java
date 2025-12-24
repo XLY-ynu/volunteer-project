@@ -6,14 +6,22 @@ import com.example.volunteer.dto.MediaAssetRequest;
 import com.example.volunteer.entity.MediaAsset;
 import com.example.volunteer.mapper.MediaAssetMapper;
 import com.example.volunteer.service.MediaAssetService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class MediaAssetServiceImpl implements MediaAssetService {
 
     private final MediaAssetMapper mediaAssetMapper;
+    @Value("${app.storage.root:uploads}")
+    private String storageRoot;
 
     public MediaAssetServiceImpl(MediaAssetMapper mediaAssetMapper) {
         this.mediaAssetMapper = mediaAssetMapper;
@@ -49,5 +57,39 @@ public class MediaAssetServiceImpl implements MediaAssetService {
     @Override
     public void delete(Long id) {
         mediaAssetMapper.deleteById(id);
+    }
+
+    @Override
+    public MediaAsset upload(MultipartFile file, String type) {
+        try {
+            String original = file.getOriginalFilename();
+            String ext = (original != null && original.contains(".")) ? original.substring(original.lastIndexOf('.')) : "";
+            String filename = UUID.randomUUID() + ext;
+            Path root = Paths.get(storageRoot).toAbsolutePath();
+            Files.createDirectories(root);
+            Path dest = root.resolve(filename);
+            file.transferTo(dest.toFile());
+
+            MediaAsset asset = new MediaAsset();
+            asset.setName(original != null ? original : filename);
+            asset.setType(type != null ? type : guessType(file.getContentType()));
+            asset.setUrl("/uploads/" + filename);
+            asset.setSizeBytes(file.getSize());
+            asset.setCreatedAt(LocalDateTime.now());
+            mediaAssetMapper.insert(asset);
+            return asset;
+        } catch (Exception e) {
+            throw new RuntimeException("上传失败", e);
+        }
+    }
+
+    private String guessType(String contentType) {
+        if (contentType == null) {
+            return "unknown";
+        }
+        if (contentType.startsWith("video")) return "video";
+        if (contentType.startsWith("image")) return "image";
+        if (contentType.contains("pdf")) return "document";
+        return "other";
     }
 }

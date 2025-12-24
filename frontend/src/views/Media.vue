@@ -1,0 +1,55 @@
+<template>
+  <div>
+    <div class="header">
+      <h2>资源管理</h2>
+      <el-upload
+        :headers="uploadHeaders"
+        action="/api/media/upload"
+        :show-file-list="false"
+        :on-success="onUploaded"
+      >
+        <el-button type="primary">上传资源</el-button>
+      </el-upload>
+    </div>
+    <el-table :data="list" style="width: 100%">
+      <el-table-column prop="name" label="名称" />
+      <el-table-column prop="type" label="类型" width="120" />
+      <el-table-column prop="url" label="访问路径" />
+      <el-table-column prop="createdAt" label="创建时间" width="180" />
+    </el-table>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { onMounted, ref, computed } from 'vue';
+import { fetchMedia } from '../api';
+import { useUserStore } from '../stores/user';
+import { ElMessage } from 'element-plus';
+
+const list = ref<any[]>([]);
+const user = useUserStore();
+const uploadHeaders = computed(() => ({ Authorization: `Bearer ${user.token}` }));
+
+const load = async () => {
+  const resp = await fetchMedia(1, 50);
+  // @ts-ignore
+  const records = resp.data?.data?.records || [];
+  list.value = records;
+};
+
+const onUploaded = () => {
+  ElMessage.success('上传成功');
+  load();
+};
+
+onMounted(load);
+</script>
+
+<style scoped>
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+</style>

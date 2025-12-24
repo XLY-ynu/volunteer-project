@@ -20,13 +20,26 @@
 <script setup lang="ts">
 import { reactive } from 'vue';
 import { useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
+import { loginApi } from '../api';
+import { useUserStore } from '../stores/user';
 
 const router = useRouter();
-const form = reactive({ username: '', password: '' });
+const userStore = useUserStore();
+const form = reactive({ username: 'admin', password: 'admin123' });
 
-const onSubmit = () => {
-  // TODO: 调用登录接口
-  router.push('/dashboard');
+const onSubmit = async () => {
+  try {
+    const resp = await loginApi(form.username, form.password);
+    // @ts-ignore
+    const data = resp.data.data;
+    userStore.setToken(data.token);
+    userStore.setUsername(data.username);
+    ElMessage.success('登录成功');
+    router.push('/dashboard');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '登录失败');
+  }
 };
 </script>
 
