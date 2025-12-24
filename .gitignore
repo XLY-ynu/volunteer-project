@@ -1,0 +1,11 @@
+# Java
+backend/target/
+*.log
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
