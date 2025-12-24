@@ -7,8 +7,10 @@ import com.example.volunteer.dto.TerminalPlaylistBindRequest;
 import com.example.volunteer.dto.TerminalRequest;
 import com.example.volunteer.entity.Terminal;
 import com.example.volunteer.entity.TerminalPlaylist;
+import com.example.volunteer.entity.TerminalHeartbeat;
 import com.example.volunteer.mapper.TerminalMapper;
 import com.example.volunteer.mapper.TerminalPlaylistMapper;
+import com.example.volunteer.mapper.TerminalHeartbeatMapper;
 import com.example.volunteer.service.TerminalService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +23,13 @@ public class TerminalServiceImpl implements TerminalService {
 
     private final TerminalMapper terminalMapper;
     private final TerminalPlaylistMapper terminalPlaylistMapper;
+    private final TerminalHeartbeatMapper terminalHeartbeatMapper;
 
-    public TerminalServiceImpl(TerminalMapper terminalMapper, TerminalPlaylistMapper terminalPlaylistMapper) {
+    public TerminalServiceImpl(TerminalMapper terminalMapper, TerminalPlaylistMapper terminalPlaylistMapper,
+                               TerminalHeartbeatMapper terminalHeartbeatMapper) {
         this.terminalMapper = terminalMapper;
         this.terminalPlaylistMapper = terminalPlaylistMapper;
+        this.terminalHeartbeatMapper = terminalHeartbeatMapper;
     }
 
     @Override
@@ -74,12 +79,17 @@ public class TerminalServiceImpl implements TerminalService {
             t.setCreatedAt(LocalDateTime.now());
             t.setUpdatedAt(LocalDateTime.now());
             terminalMapper.insert(t);
-            return t;
+        } else {
+            t.setStatus(request.getStatus());
+            t.setLastHeartbeat(LocalDateTime.now());
+            t.setUpdatedAt(LocalDateTime.now());
+            terminalMapper.updateById(t);
         }
-        t.setStatus(request.getStatus());
-        t.setLastHeartbeat(LocalDateTime.now());
-        t.setUpdatedAt(LocalDateTime.now());
-        terminalMapper.updateById(t);
+        TerminalHeartbeat hb = new TerminalHeartbeat();
+        hb.setTerminalId(t.getId());
+        hb.setStatus(request.getStatus());
+        hb.setCreatedAt(LocalDateTime.now());
+        terminalHeartbeatMapper.insert(hb);
         return t;
     }
 
@@ -104,5 +114,15 @@ public class TerminalServiceImpl implements TerminalService {
                         .eq(TerminalPlaylist::getTerminalId, terminalId)
                         .orderByDesc(TerminalPlaylist::getStartTime)
         );
+    }
+
+    @Override
+    public Page<TerminalHeartbeat> heartbeatLogs(Long terminalId, int page, int size) {
+        Page<TerminalHeartbeat> p = new Page<>(page, size);
+        terminalHeartbeatMapper.selectPage(p,
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TerminalHeartbeat>()
+                        .eq(TerminalHeartbeat::getTerminalId, terminalId)
+                        .orderByDesc(TerminalHeartbeat::getCreatedAt));
+        return p;
     }
 }

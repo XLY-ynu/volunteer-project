@@ -25,6 +25,11 @@
       <el-table-column prop="groupName" label="分组" width="120" />
       <el-table-column prop="status" label="状态" width="100" />
       <el-table-column prop="lastHeartbeat" label="心跳" width="180" />
+      <el-table-column label="操作" width="140">
+        <template #default="scope">
+          <el-button size="small" @click="viewHeartbeats(scope.row.id)">心跳</el-button>
+        </template>
+      </el-table-column>
     </el-table>
 
     <div class="bind">
@@ -33,13 +38,20 @@
       </el-select>
       <el-button type="success" @click="bind">绑定播放列表</el-button>
     </div>
+
+    <el-dialog v-model="heartbeatDialog" title="心跳记录" width="500px">
+      <el-table :data="heartbeats">
+        <el-table-column prop="status" label="状态" width="120" />
+        <el-table-column prop="createdAt" label="时间" />
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { ElMessage } from 'element-plus';
-import { bindPlaylistToTerminals, fetchPlaylists, fetchTerminals, registerTerminal } from '../api';
+import { bindPlaylistToTerminals, fetchPlaylists, fetchTerminals, fetchTerminalHeartbeats, registerTerminal } from '../api';
 
 const terminals = ref<any[]>([]);
 const playlists = ref<any[]>([]);
@@ -47,6 +59,8 @@ const selectedTerminalIds = ref<number[]>([]);
 const selectedPlaylist = ref<number | null>(null);
 
 const form = ref({ code: '', name: '', groupName: '' });
+const heartbeatDialog = ref(false);
+const heartbeats = ref<any[]>([]);
 
 const loadTerminals = async () => {
   const resp = await fetchTerminals(1, 50);
@@ -86,6 +100,13 @@ const bind = async () => {
   }
   await bindPlaylistToTerminals({ playlistId: selectedPlaylist.value, terminalIds: selectedTerminalIds.value });
   ElMessage.success('绑定成功');
+};
+
+const viewHeartbeats = async (id: number) => {
+  const resp = await fetchTerminalHeartbeats(id, 1, 20);
+  // @ts-ignore
+  heartbeats.value = resp.data?.data?.records || [];
+  heartbeatDialog.value = true;
 };
 
 onMounted(() => {

@@ -73,7 +73,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { ElMessage } from 'element-plus';
-import { createCategory, createContent, deleteContent, fetchCategories, fetchContent, updateContent } from '../api';
+import { createContent, deleteContent, fetchCategories, fetchContent, updateContent } from '../api';
 
 const list = ref<any[]>([]);
 const categories = ref<any[]>([]);

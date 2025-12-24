@@ -7,6 +7,7 @@ import com.example.volunteer.dto.TerminalPlaylistBindRequest;
 import com.example.volunteer.dto.TerminalRequest;
 import com.example.volunteer.entity.Terminal;
 import com.example.volunteer.entity.TerminalPlaylist;
+import com.example.volunteer.entity.TerminalHeartbeat;
 import com.example.volunteer.service.TerminalService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -49,5 +50,12 @@ public class TerminalController {
     @GetMapping("/{id}/playlists")
     public ApiResponse<List<TerminalPlaylist>> playlists(@PathVariable Long id) {
         return ApiResponse.ok(terminalService.playlists(id));
+    }
+
+    @GetMapping("/{id}/heartbeats")
+    public ApiResponse<Page<TerminalHeartbeat>> heartbeats(@PathVariable Long id,
+                                                           @RequestParam(defaultValue = "1") int page,
+                                                           @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.ok(terminalService.heartbeatLogs(id, page, size));
     }
 }

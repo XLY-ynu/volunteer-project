@@ -141,3 +141,9 @@ CREATE TABLE IF NOT EXISTS broadcast_job (
     status VARCHAR(32) DEFAULT 'scheduled'
 );
 
+CREATE TABLE IF NOT EXISTS terminal_heartbeat (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    terminal_id BIGINT NOT NULL,
+    status VARCHAR(32),
+    created_at DATETIME
+);

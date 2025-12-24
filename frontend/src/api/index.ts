@@ -32,6 +32,8 @@ export const uploadMedia = (file: File, type?: string) => {
 export const deleteMedia = (id: number) => http.delete(`/media/${id}`);
 
 export const createPlaylist = (payload: any) => http.post('/playlists', payload);
+export const updatePlaylist = (id: number, payload: any) => http.put(`/playlists/${id}`, payload);
+export const deletePlaylist = (id: number) => http.delete(`/playlists/${id}`);
 export const fetchPlaylists = () => http.get('/playlists');
 export const fetchPlaylistItems = (playlistId: number) => http.get(`/playlists/${playlistId}/items`);
 
@@ -40,6 +42,8 @@ export const fetchTerminals = (page = 1, size = 10, groupName?: string) =>
 export const registerTerminal = (payload: any) => http.post('/terminals', payload);
 export const bindPlaylistToTerminals = (payload: { terminalIds: number[]; playlistId: number; startTime?: string; endTime?: string }) =>
   http.post('/terminals/bind-playlist', payload);
+export const fetchTerminalHeartbeats = (id: number, page = 1, size = 20) =>
+  http.get(`/terminals/${id}/heartbeats`, { params: { page, size } });
 
 export const fetchContent = (page = 1, size = 10, categoryId?: number, published?: boolean) =>
   http.get('/content', { params: { page, size, categoryId, published } });

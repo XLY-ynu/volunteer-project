@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface PlaylistService {
     Playlist create(PlaylistRequest request);
+    Playlist update(Long id, PlaylistRequest request);
     List<Playlist> list();
     void delete(Long id);
     List<PlaylistItem> items(Long playlistId);

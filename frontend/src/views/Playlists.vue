@@ -3,9 +3,12 @@
     <div class="header">
       <div>
         <h2>播放列表</h2>
-        <p class="sub">选择资源并设置时长即可创建播放列表</p>
+        <p class="sub">选择资源并设置时长即可创建/编辑播放列表</p>
       </div>
-      <el-button type="primary" @click="onCreate">创建</el-button>
+      <div class="actions">
+        <el-button @click="resetForm">新建</el-button>
+        <el-button type="primary" @click="onSave">{{ editingId ? '保存修改' : '创建' }}</el-button>
+      </div>
     </div>
 
     <el-form :inline="true" class="form">
@@ -33,9 +36,11 @@
       <el-table-column prop="name" label="名称" />
       <el-table-column prop="description" label="描述" />
       <el-table-column prop="createdAt" label="创建时间" width="180" />
-      <el-table-column label="操作" width="160">
+      <el-table-column label="操作" width="220">
         <template #default="scope">
+          <el-button size="small" @click="edit(scope.row)">编辑</el-button>
           <el-button size="small" @click="viewItems(scope.row.id)">查看条目</el-button>
+          <el-button size="small" type="danger" @click="remove(scope.row.id)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -54,13 +59,14 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
-import { createPlaylist, fetchMedia, fetchPlaylistItems, fetchPlaylists } from '../api';
+import { createPlaylist, deletePlaylist, fetchMedia, fetchPlaylistItems, fetchPlaylists, updatePlaylist } from '../api';
 
 const mediaItems = ref<any[]>([]);
 const playlists = ref<any[]>([]);
 const selectedIds = ref<number[]>([]);
 const durations = reactive<Record<number, number>>({});
 const form = reactive({ name: '', description: '' });
+const editingId = ref<number | null>(null);
 
 const itemsDialogVisible = ref(false);
 const currentItems = ref<any[]>([]);
@@ -84,7 +90,7 @@ const onSelectChange = (rows: any[]) => {
   selectedIds.value = rows.map((r) => r.id);
 };
 
-const onCreate = async () => {
+const onSave = async () => {
   if (!form.name) {
     ElMessage.warning('请输入列表名称');
     return;
@@ -98,11 +104,14 @@ const onCreate = async () => {
     displayDuration: durations[id] || 10,
     sortOrder: idx
   }));
-  await createPlaylist({ ...form, items });
-  ElMessage.success('创建成功');
-  form.name = '';
-  form.description = '';
-  selectedIds.value = [];
+  if (editingId.value) {
+    await updatePlaylist(editingId.value, { ...form, items });
+    ElMessage.success('已保存');
+  } else {
+    await createPlaylist({ ...form, items });
+    ElMessage.success('创建成功');
+  }
+  resetForm();
   await loadPlaylists();
 };
 
@@ -111,6 +120,33 @@ const viewItems = async (playlistId: number) => {
   // @ts-ignore
   currentItems.value = resp.data?.data || [];
   itemsDialogVisible.value = true;
+};
+
+const edit = async (row: any) => {
+  editingId.value = row.id;
+  form.name = row.name;
+  form.description = row.description;
+  const resp = await fetchPlaylistItems(row.id);
+  // @ts-ignore
+  const items = resp.data?.data || [];
+  selectedIds.value = items.map((i: any) => i.mediaId).filter((id: number) => !!id);
+  items.forEach((i: any) => {
+    if (i.mediaId) durations[i.mediaId] = i.displayDuration || 10;
+  });
+};
+
+const remove = async (id: number) => {
+  await deletePlaylist(id);
+  ElMessage.success('已删除');
+  if (editingId.value === id) resetForm();
+  loadPlaylists();
+};
+
+const resetForm = () => {
+  editingId.value = null;
+  form.name = '';
+  form.description = '';
+  selectedIds.value = [];
 };
 
 onMounted(() => {

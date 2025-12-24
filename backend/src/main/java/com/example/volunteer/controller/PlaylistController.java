@@ -25,6 +25,11 @@ public class PlaylistController {
         return ApiResponse.ok(playlistService.create(request));
     }
 
+    @PutMapping("/{id}")
+    public ApiResponse<Playlist> update(@PathVariable Long id, @Valid @RequestBody PlaylistRequest request) {
+        return ApiResponse.ok(playlistService.update(id, request));
+    }
+
     @GetMapping
     public ApiResponse<List<Playlist>> list() {
         return ApiResponse.ok(playlistService.list());
