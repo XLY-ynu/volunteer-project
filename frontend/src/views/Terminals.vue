@@ -15,6 +15,12 @@
         <el-form-item>
           <el-button type="primary" @click="register">注册/更新</el-button>
         </el-form-item>
+        <el-form-item label="筛选分组">
+          <el-input v-model="groupFilter" placeholder="分组" />
+        </el-form-item>
+        <el-form-item>
+          <el-button @click="loadTerminals">查询</el-button>
+        </el-form-item>
       </el-form>
     </div>
 
@@ -87,6 +93,7 @@ const playlists = ref<any[]>([]);
 const selectedTerminalIds = ref<number[]>([]);
 const selectedPlaylist = ref<number | null>(null);
 const startEnd = ref<[string, string] | null>(null);
+const groupFilter = ref<string>('');
 
 const form = ref({ code: '', name: '', groupName: '' });
 const heartbeatDialog = ref(false);
@@ -95,7 +102,7 @@ const bindingDialog = ref(false);
 const bindings = ref<any[]>([]);
 
 const loadTerminals = async () => {
-  const resp = await fetchTerminals(1, 50);
+  const resp = await fetchTerminals(1, 50, groupFilter.value || undefined);
   // @ts-ignore
   terminals.value = resp.data?.data?.records || [];
 };

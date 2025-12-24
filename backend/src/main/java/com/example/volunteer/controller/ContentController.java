@@ -32,13 +32,19 @@ public class ContentController {
     public ApiResponse<Page<ContentItem>> page(@RequestParam(defaultValue = "1") int page,
                                                @RequestParam(defaultValue = "10") int size,
                                                @RequestParam(required = false) Long categoryId,
-                                               @RequestParam(required = false) Boolean published) {
-        return ApiResponse.ok(contentService.page(page, size, categoryId, published));
+                                               @RequestParam(required = false) Boolean published,
+                                               @RequestParam(required = false) String keyword) {
+        return ApiResponse.ok(contentService.page(page, size, categoryId, published, keyword));
     }
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         contentService.delete(id);
         return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/{id}")
+    public ApiResponse<ContentItem> findById(@PathVariable Long id) {
+        return ApiResponse.ok(contentService.findById(id));
     }
 }

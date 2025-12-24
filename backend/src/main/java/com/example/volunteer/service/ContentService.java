@@ -7,6 +7,7 @@ import com.example.volunteer.entity.ContentItem;
 public interface ContentService {
     ContentItem create(ContentItemRequest request);
     ContentItem update(Long id, ContentItemRequest request);
-    Page<ContentItem> page(int page, int size, Long categoryId, Boolean published);
+    Page<ContentItem> page(int page, int size, Long categoryId, Boolean published, String keyword);
     void delete(Long id);
+    ContentItem findById(Long id);
 }

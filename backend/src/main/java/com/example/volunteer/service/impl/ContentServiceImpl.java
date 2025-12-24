@@ -54,13 +54,16 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
-    public Page<ContentItem> page(int page, int size, Long categoryId, Boolean published) {
+    public Page<ContentItem> page(int page, int size, Long categoryId, Boolean published, String keyword) {
         LambdaQueryWrapper<ContentItem> wrapper = new LambdaQueryWrapper<>();
         if (categoryId != null) {
             wrapper.eq(ContentItem::getCategoryId, categoryId);
         }
         if (published != null) {
             wrapper.eq(ContentItem::getPublished, published);
+        }
+        if (keyword != null && !keyword.isEmpty()) {
+            wrapper.and(w -> w.like(ContentItem::getTitle, keyword).or().like(ContentItem::getSummary, keyword));
         }
         wrapper.orderByDesc(ContentItem::getPublishTime);
         Page<ContentItem> p = new Page<>(page, size);
@@ -71,5 +74,10 @@ public class ContentServiceImpl implements ContentService {
     @Override
     public void delete(Long id) {
         contentItemMapper.deleteById(id);
+    }
+
+    @Override
+    public ContentItem findById(Long id) {
+        return contentItemMapper.selectById(id);
     }
 }

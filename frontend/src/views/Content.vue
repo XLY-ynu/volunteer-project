@@ -17,6 +17,9 @@
           <el-option :value="false" label="草稿" />
         </el-select>
       </el-form-item>
+      <el-form-item label="关键词">
+        <el-input v-model="filter.keyword" placeholder="标题/摘要" style="width: 200px" />
+      </el-form-item>
       <el-form-item>
         <el-button @click="load">查询</el-button>
       </el-form-item>
@@ -67,6 +70,16 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <div class="pager">
+      <el-pagination
+        layout="prev, pager, next"
+        :total="total"
+        :page-size="size"
+        :current-page="page"
+        @current-change="onPage"
+      />
+    </div>
   </div>
 </template>
 
@@ -76,6 +89,9 @@ import { ElMessage } from 'element-plus';
 import { createContent, deleteContent, fetchCategories, fetchContent, updateContent } from '../api';
 
 const list = ref<any[]>([]);
+const page = ref(1);
+const size = ref(10);
+const total = ref(0);
 const categories = ref<any[]>([]);
 const dialogVisible = ref(false);
 const editingId = ref<number | null>(null);
@@ -89,12 +105,14 @@ const form = ref({
   published: true
 });
 
-const filter = ref<{ categoryId?: number; published?: boolean }>({});
+const filter = ref<{ categoryId?: number; published?: boolean; keyword?: string }>({});
 
 const load = async () => {
-  const resp = await fetchContent(1, 50, filter.value.categoryId, filter.value.published);
+  const resp = await fetchContent(page.value, size.value, filter.value.categoryId, filter.value.published, filter.value.keyword);
   // @ts-ignore
-  list.value = resp.data?.data?.records || [];
+  const data = resp.data?.data || {};
+  list.value = data.records || [];
+  total.value = data.total || 0;
 };
 
 const loadCategories = async () => {
@@ -137,6 +155,11 @@ const onDelete = async (id: number) => {
   load();
 };
 
+const onPage = (p: number) => {
+  page.value = p;
+  load();
+};
+
 onMounted(() => {
   loadCategories();
   load();
@@ -151,5 +174,9 @@ onMounted(() => {
 }
 .filter {
   margin: 12px 0;
+}
+.pager {
+  margin-top: 10px;
+  text-align: right;
 }
 </style>

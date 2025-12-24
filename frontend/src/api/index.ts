@@ -46,8 +46,9 @@ export const fetchTerminalHeartbeats = (id: number, page = 1, size = 20) =>
   http.get(`/terminals/${id}/heartbeats`, { params: { page, size } });
 export const fetchTerminalPlaylists = (id: number) => http.get(`/terminals/${id}/playlists`);
 
-export const fetchContent = (page = 1, size = 10, categoryId?: number, published?: boolean) =>
-  http.get('/content', { params: { page, size, categoryId, published } });
+export const fetchContent = (page = 1, size = 10, categoryId?: number, published?: boolean, keyword?: string) =>
+  http.get('/content', { params: { page, size, categoryId, published, keyword } });
+export const fetchContentById = (id: number) => http.get(`/content/${id}`);
 export const createContent = (payload: any) => http.post('/content', payload);
 export const updateContent = (id: number, payload: any) => http.put(`/content/${id}`, payload);
 export const deleteContent = (id: number) => http.delete(`/content/${id}`);

@@ -26,6 +26,15 @@
         </template>
       </el-table-column>
     </el-table>
+    <div class="pager">
+      <el-pagination
+        layout="prev, pager, next"
+        :total="total"
+        :page-size="size"
+        :current-page="page"
+        @current-change="onPage"
+      />
+    </div>
   </div>
 </template>
 
@@ -36,14 +45,18 @@ import { useUserStore } from '../stores/user';
 import { ElMessage } from 'element-plus';
 
 const list = ref<any[]>([]);
+const page = ref(1);
+const size = ref(10);
+const total = ref(0);
 const user = useUserStore();
 const uploadHeaders = computed(() => ({ Authorization: `Bearer ${user.token}` }));
 
 const load = async () => {
-  const resp = await fetchMedia(1, 50);
+  const resp = await fetchMedia(page.value, size.value);
   // @ts-ignore
-  const records = resp.data?.data?.records || [];
-  list.value = records;
+  const data = resp.data?.data || {};
+  list.value = data.records || [];
+  total.value = data.total || 0;
 };
 
 const onUploaded = () => {
@@ -57,6 +70,11 @@ const onDelete = async (id: number) => {
   load();
 };
 
+const onPage = (p: number) => {
+  page.value = p;
+  load();
+};
+
 onMounted(load);
 </script>
 
@@ -66,5 +84,9 @@ onMounted(load);
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+.pager {
+  margin-top: 10px;
+  text-align: right;
 }
 </style>
