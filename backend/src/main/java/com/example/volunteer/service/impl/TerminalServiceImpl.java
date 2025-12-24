@@ -64,6 +64,13 @@ public class TerminalServiceImpl implements TerminalService {
         }
         Page<Terminal> p = new Page<>(page, size);
         terminalMapper.selectPage(p, wrapper);
+        long offlineSec = getOfflineSeconds();
+        LocalDateTime threshold = LocalDateTime.now().minusSeconds(offlineSec);
+        p.getRecords().forEach(t -> {
+            if (t.getLastHeartbeat() != null && t.getLastHeartbeat().isBefore(threshold)) {
+                t.setStatus("offline");
+            }
+        });
         return p;
     }
 
@@ -124,5 +131,16 @@ public class TerminalServiceImpl implements TerminalService {
                         .eq(TerminalHeartbeat::getTerminalId, terminalId)
                         .orderByDesc(TerminalHeartbeat::getCreatedAt));
         return p;
+    }
+
+    private long getOfflineSeconds() {
+        try {
+            String val = System.getProperty("app.terminal.offline-seconds");
+            if (val != null) {
+                return Long.parseLong(val);
+            }
+        } catch (Exception ignored) {
+        }
+        return 300L;
     }
 }

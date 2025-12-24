@@ -29,3 +29,5 @@ app:
     expire-ms: 86400000
   storage:
     root: uploads
+  terminal:
+    offline-seconds: 300

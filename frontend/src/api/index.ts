@@ -63,3 +63,6 @@ export const fetchBroadcasts = (page = 1, size = 10, targetGroup?: string, targe
 export const createBroadcast = (payload: any) => http.post('/broadcasts', payload);
 export const fetchActiveBroadcasts = (terminalCode: string, page = 1, size = 10) =>
   http.get('/broadcasts/active', { params: { terminalCode, page, size } });
+
+export const fetchSystemInfo = () => http.get('/ops/system-info');
+export const downloadBackup = () => http.get('/ops/backup', { responseType: 'blob' });

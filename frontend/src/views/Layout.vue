@@ -13,6 +13,7 @@
         <el-menu-item index="/broadcasts">插播管理</el-menu-item>
         <el-menu-item index="/ops">操作日志</el-menu-item>
         <el-menu-item index="/users">用户管理</el-menu-item>
+        <el-menu-item index="/system">系统管理</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
