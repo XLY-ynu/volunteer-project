@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS playlist (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(128) NOT NULL,
     description VARCHAR(255),
+    layout_id BIGINT,
     created_at DATETIME,
     updated_at DATETIME
 );
@@ -145,5 +146,14 @@ CREATE TABLE IF NOT EXISTS terminal_heartbeat (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     terminal_id BIGINT NOT NULL,
     status VARCHAR(32),
+    created_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS operation_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(64),
+    method VARCHAR(16),
+    path VARCHAR(255),
+    status INT,
     created_at DATETIME
 );

@@ -16,14 +16,14 @@ mvn spring-boot:run
 ## 结构
 - `common/ApiResponse` 统一响应
 - `config/` 安全配置、MyBatis Plus 分页、数据初始化
-- `controller/` 健康检查、认证、分类、内容（关键词筛选/详情）、媒体（含上传/删除）、播放列表（含条目查询/更新/删除）、终端（绑定播放列表、心跳记录查询）
-- `entity/` 用户/角色/菜单/内容/媒体资产/播放列表/终端等实体
+- `controller/` 健康检查、认证、分类、内容（关键词/详情）、媒体（上传/下载/删除）、布局、播放列表（条目查询/更新/删除）、终端（绑定播放列表、心跳记录查询）、插播广播、操作日志
+- `entity/` 用户/角色/菜单/内容/媒体资产/播放列表/终端/布局/插播/心跳/操作日志等实体
 - `mapper/` MyBatis Plus mapper 接口
-- `dto/` 登录、资源、内容、播放列表、终端等请求 DTO
+- `dto/` 登录、资源、内容、播放列表、终端、插播等请求 DTO
 - `security/` JWT 工具与过滤器
 - `schema.sql` 数据库建表脚本
 
-后续需要添加：
-- Flyway/Liquibase 管理 schema
-- 资源文件上传存储（目前仅保存 URL）
-- 更多校验与审计日志
+## 说明
+- 操作日志：拦截 `/api/**`（除 ping/auth），写入 `operation_log`，`/api/ops/logs` 为 admin 权限查看。
+- 安全：`/api/ops/**` 需 ADMIN 权限，其余接口需认证。JWT 在登录返回，角色存储于 token。
+- 插播：`/api/broadcasts` 创建/查询，`/api/broadcasts/active` 按终端查当前有效插播。

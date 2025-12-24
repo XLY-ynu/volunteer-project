@@ -20,8 +20,9 @@
         </template>
       </el-table-column>
       <el-table-column prop="createdAt" label="创建时间" width="180" />
-      <el-table-column label="操作" width="120">
+      <el-table-column label="操作" width="200">
         <template #default="scope">
+          <el-button size="small" @click="onDownload(scope.row.id, scope.row.name)">下载</el-button>
           <el-button type="danger" size="small" @click="onDelete(scope.row.id)">删除</el-button>
         </template>
       </el-table-column>
@@ -40,7 +41,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
-import { deleteMedia, fetchMedia } from '../api';
+import { deleteMedia, downloadMedia, fetchMedia } from '../api';
 import { useUserStore } from '../stores/user';
 import { ElMessage } from 'element-plus';
 
@@ -68,6 +69,17 @@ const onDelete = async (id: number) => {
   await deleteMedia(id);
   ElMessage.success('已删除');
   load();
+};
+
+const onDownload = async (id: number, name: string) => {
+  const resp = await downloadMedia(id);
+  const blob = new Blob([resp.data]);
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name || 'file';
+  a.click();
+  window.URL.revokeObjectURL(url);
 };
 
 const onPage = (p: number) => {

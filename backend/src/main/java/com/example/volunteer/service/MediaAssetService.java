@@ -10,4 +10,5 @@ public interface MediaAssetService {
     Page<MediaAsset> page(int page, int size, String type);
     void delete(Long id);
     MediaAsset upload(MultipartFile file, String type);
+    MediaAsset findById(Long id);
 }

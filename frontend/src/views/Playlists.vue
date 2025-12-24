@@ -18,6 +18,11 @@
       <el-form-item label="描述">
         <el-input v-model="form.description" placeholder="描述" style="width: 260px" />
       </el-form-item>
+      <el-form-item label="布局">
+        <el-select v-model="form.layoutId" placeholder="选择布局" clearable style="width: 200px">
+          <el-option v-for="l in layouts" :key="l.id" :label="l.name" :value="l.id" />
+        </el-select>
+      </el-form-item>
     </el-form>
 
     <el-table :data="mediaItems" style="width: 100%" @selection-change="onSelectChange">
@@ -59,13 +64,22 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
-import { createPlaylist, deletePlaylist, fetchMedia, fetchPlaylistItems, fetchPlaylists, updatePlaylist } from '../api';
+import {
+  createPlaylist,
+  deletePlaylist,
+  fetchLayouts,
+  fetchMedia,
+  fetchPlaylistItems,
+  fetchPlaylists,
+  updatePlaylist
+} from '../api';
 
 const mediaItems = ref<any[]>([]);
 const playlists = ref<any[]>([]);
+const layouts = ref<any[]>([]);
 const selectedIds = ref<number[]>([]);
 const durations = reactive<Record<number, number>>({});
-const form = reactive({ name: '', description: '' });
+const form = reactive<{ name: string; description: string; layoutId?: number }>({ name: '', description: '', layoutId: undefined });
 const editingId = ref<number | null>(null);
 
 const itemsDialogVisible = ref(false);
@@ -84,6 +98,12 @@ const loadPlaylists = async () => {
   const resp = await fetchPlaylists();
   // @ts-ignore
   playlists.value = resp.data?.data || [];
+};
+
+const loadLayouts = async () => {
+  const resp = await fetchLayouts();
+  // @ts-ignore
+  layouts.value = resp.data?.data || [];
 };
 
 const onSelectChange = (rows: any[]) => {
@@ -126,6 +146,7 @@ const edit = async (row: any) => {
   editingId.value = row.id;
   form.name = row.name;
   form.description = row.description;
+  form.layoutId = row.layoutId;
   const resp = await fetchPlaylistItems(row.id);
   // @ts-ignore
   const items = resp.data?.data || [];
@@ -146,12 +167,14 @@ const resetForm = () => {
   editingId.value = null;
   form.name = '';
   form.description = '';
+  form.layoutId = undefined;
   selectedIds.value = [];
 };
 
 onMounted(() => {
   loadMedia();
   loadPlaylists();
+  loadLayouts();
 });
 </script>
 

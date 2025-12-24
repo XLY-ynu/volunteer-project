@@ -30,6 +30,7 @@ export const uploadMedia = (file: File, type?: string) => {
 };
 
 export const deleteMedia = (id: number) => http.delete(`/media/${id}`);
+export const downloadMedia = (id: number) => http.get(`/media/${id}/download`, { responseType: 'blob' });
 
 export const createPlaylist = (payload: any) => http.post('/playlists', payload);
 export const updatePlaylist = (id: number, payload: any) => http.put(`/playlists/${id}`, payload);
@@ -48,7 +49,17 @@ export const fetchTerminalPlaylists = (id: number) => http.get(`/terminals/${id}
 
 export const fetchContent = (page = 1, size = 10, categoryId?: number, published?: boolean, keyword?: string) =>
   http.get('/content', { params: { page, size, categoryId, published, keyword } });
-export const fetchContentById = (id: number) => http.get(`/content/${id}`);
 export const createContent = (payload: any) => http.post('/content', payload);
 export const updateContent = (id: number, payload: any) => http.put(`/content/${id}`, payload);
 export const deleteContent = (id: number) => http.delete(`/content/${id}`);
+export const fetchContentById = (id: number) => http.get(`/content/${id}`);
+
+export const fetchLayouts = () => http.get('/layouts');
+export const createLayout = (payload: any) => http.post('/layouts', payload);
+export const fetchLayout = (id: number) => http.get(`/layouts/${id}`);
+
+export const fetchBroadcasts = (page = 1, size = 10, targetGroup?: string, targetTerminalCode?: string) =>
+  http.get('/broadcasts', { params: { page, size, targetGroup, targetTerminalCode } });
+export const createBroadcast = (payload: any) => http.post('/broadcasts', payload);
+export const fetchActiveBroadcasts = (terminalCode: string, page = 1, size = 10) =>
+  http.get('/broadcasts/active', { params: { terminalCode, page, size } });

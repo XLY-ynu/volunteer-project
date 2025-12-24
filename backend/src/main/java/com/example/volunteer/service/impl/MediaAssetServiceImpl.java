@@ -94,6 +94,11 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         }
     }
 
+    @Override
+    public MediaAsset findById(Long id) {
+        return mediaAssetMapper.selectById(id);
+    }
+
     private String guessType(String contentType) {
         if (contentType == null) {
             return "unknown";

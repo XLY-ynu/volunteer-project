@@ -15,3 +15,5 @@ npm run dev
 - 内容管理：`src/views/Content.vue`
 - 播放列表：`src/views/Playlists.vue`
 - 终端管理：`src/views/Terminals.vue`
+- 布局管理：`src/views/Layouts.vue`
+- 插播管理：`src/views/Broadcasts.vue`

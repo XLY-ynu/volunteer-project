@@ -8,13 +8,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("playlist")
-public class Playlist {
+@TableName("operation_log")
+public class OperationLog {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String name;
-    private String description;
-    private Long layoutId;
+    private String username;
+    private String method;
+    private String path;
+    private Integer status;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

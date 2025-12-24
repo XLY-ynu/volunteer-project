@@ -7,14 +7,18 @@
         <el-menu-item index="/media">资源管理</el-menu-item>
         <el-menu-item index="/categories">分类管理</el-menu-item>
         <el-menu-item index="/content">内容管理</el-menu-item>
+        <el-menu-item index="/layouts">布局管理</el-menu-item>
         <el-menu-item index="/playlists">播放列表</el-menu-item>
         <el-menu-item index="/terminals">终端管理</el-menu-item>
+        <el-menu-item index="/broadcasts">插播管理</el-menu-item>
+        <el-menu-item index="/ops">操作日志</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
       <el-header class="header">
         <div />
         <div class="user">
+          <span class="user-info">{{ userStore.username || '未登录' }}</span>
           <el-button link @click="logout">退出</el-button>
         </div>
       </el-header>

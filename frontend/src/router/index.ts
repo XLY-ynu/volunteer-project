@@ -7,6 +7,9 @@ import Categories from '../views/Categories.vue';
 import Playlists from '../views/Playlists.vue';
 import Terminals from '../views/Terminals.vue';
 import Content from '../views/Content.vue';
+import Layouts from '../views/Layouts.vue';
+import Broadcasts from '../views/Broadcasts.vue';
+import OperationLogs from '../views/OperationLogs.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: Login },
@@ -19,8 +22,11 @@ const routes: RouteRecordRaw[] = [
       { path: '/media', component: Media },
       { path: '/categories', component: Categories },
       { path: '/content', component: Content },
+      { path: '/layouts', component: Layouts },
       { path: '/playlists', component: Playlists },
-      { path: '/terminals', component: Terminals }
+      { path: '/terminals', component: Terminals },
+      { path: '/broadcasts', component: Broadcasts },
+      { path: '/ops', component: OperationLogs }
     ]
   }
 ];

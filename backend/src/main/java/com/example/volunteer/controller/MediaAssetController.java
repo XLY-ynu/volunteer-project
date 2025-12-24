@@ -6,8 +6,12 @@ import com.example.volunteer.dto.MediaAssetRequest;
 import com.example.volunteer.entity.MediaAsset;
 import com.example.volunteer.service.MediaAssetService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
@@ -15,6 +19,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class MediaAssetController {
 
     private final MediaAssetService mediaAssetService;
+    @Value("${app.storage.root:uploads}")
+    private String storageRoot;
 
     public MediaAssetController(MediaAssetService mediaAssetService) {
         this.mediaAssetService = mediaAssetService;
@@ -29,6 +35,28 @@ public class MediaAssetController {
     public ApiResponse<MediaAsset> upload(@RequestPart("file") MultipartFile file,
                                           @RequestPart(value = "type", required = false) String type) {
         return ApiResponse.ok(mediaAssetService.upload(file, type));
+    }
+
+    @GetMapping("/{id}/download")
+    public ResponseEntity<FileSystemResource> download(@PathVariable Long id) throws java.io.IOException {
+        MediaAsset asset = mediaAssetService.findById(id);
+        if (asset == null || asset.getUrl() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!asset.getUrl().startsWith("/uploads/")) {
+            return ResponseEntity.badRequest().build();
+        }
+        java.nio.file.Path path = java.nio.file.Paths.get(storageRoot).toAbsolutePath()
+                .resolve(asset.getUrl().replaceFirst("^/uploads/", ""));
+        FileSystemResource resource = new FileSystemResource(path.toFile());
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + asset.getName() + "\"")
+                .contentLength(resource.contentLength())
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(resource);
     }
 
     @GetMapping

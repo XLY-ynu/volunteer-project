@@ -10,5 +10,6 @@ public class PlaylistRequest {
     @NotBlank
     private String name;
     private String description;
+    private Long layoutId;
     private List<PlaylistItemDto> items;
 }

@@ -6,6 +6,8 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import com.example.volunteer.interceptor.OperationLogInterceptor;
+
 import jakarta.annotation.PostConstruct;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +18,11 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Value("${app.storage.root:uploads}")
     private String storageRoot;
+    private final OperationLogInterceptor operationLogInterceptor;
+
+    public WebConfig(OperationLogInterceptor operationLogInterceptor) {
+        this.operationLogInterceptor = operationLogInterceptor;
+    }
 
     @PostConstruct
     public void initStorageDir() {
@@ -41,5 +48,12 @@ public class WebConfig implements WebMvcConfigurer {
         Path uploadPath = Paths.get(storageRoot).toAbsolutePath();
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:" + uploadPath.toString() + "/");
+    }
+
+    @Override
+    public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
+        registry.addInterceptor(operationLogInterceptor)
+                .addPathPatterns("/api/**")
+                .excludePathPatterns("/api/ping", "/api/auth/**");
     }
 }

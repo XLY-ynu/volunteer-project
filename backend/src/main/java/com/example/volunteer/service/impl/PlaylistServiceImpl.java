@@ -35,6 +35,7 @@ public class PlaylistServiceImpl implements PlaylistService {
         Playlist playlist = new Playlist();
         playlist.setName(request.getName());
         playlist.setDescription(request.getDescription());
+        playlist.setLayoutId(request.getLayoutId());
         playlist.setCreatedAt(LocalDateTime.now());
         playlist.setUpdatedAt(LocalDateTime.now());
         playlistMapper.insert(playlist);
@@ -52,6 +53,7 @@ public class PlaylistServiceImpl implements PlaylistService {
         }
         playlist.setName(request.getName());
         playlist.setDescription(request.getDescription());
+        playlist.setLayoutId(request.getLayoutId());
         playlist.setUpdatedAt(LocalDateTime.now());
         playlistMapper.updateById(playlist);
 
