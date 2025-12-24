@@ -17,3 +17,5 @@ npm run dev
 - 终端管理：`src/views/Terminals.vue`
 - 布局管理：`src/views/Layouts.vue`
 - 插播管理：`src/views/Broadcasts.vue`
+- 操作日志：`src/views/OperationLogs.vue`
+- 用户管理：`src/views/Users.vue`
