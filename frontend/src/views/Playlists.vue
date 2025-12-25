@@ -19,6 +19,9 @@
       <el-form-item label="描述">
         <el-input v-model="form.description" placeholder="描述" style="width: 260px" />
       </el-form-item>
+      <el-form-item label="封面">
+        <el-input v-model="form.coverUrl" placeholder="可选封面地址" style="width: 260px" />
+      </el-form-item>
       <el-form-item label="布局">
         <el-select v-model="form.layoutId" placeholder="选择布局" clearable style="width: 200px">
           <el-option v-for="l in layouts" :key="l.id" :label="l.name" :value="l.id" />
@@ -42,9 +45,10 @@
       <el-table-column prop="name" label="名称" />
       <el-table-column prop="description" label="描述" />
       <el-table-column prop="createdAt" label="创建时间" width="180" />
-      <el-table-column label="操作" width="220">
+      <el-table-column label="操作" width="300">
         <template #default="scope">
           <el-button size="small" @click="edit(scope.row)">编辑</el-button>
+          <el-button size="small" @click="preview(scope.row.id)">预览</el-button>
           <el-button size="small" @click="viewItems(scope.row.id)">查看条目</el-button>
           <el-button size="small" type="danger" @click="remove(scope.row.id)">删除</el-button>
         </template>
@@ -81,6 +85,35 @@
         <el-button type="primary" @click="publish">发布</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="previewDialog" title="播放列表预览" width="720px">
+      <div v-if="previewData">
+        <div class="preview-header">
+          <img v-if="previewData.playlist?.coverUrl" :src="previewData.playlist.coverUrl" class="cover" />
+          <div>
+            <h3>{{ previewData.playlist?.name }}</h3>
+            <p class="sub">{{ previewData.playlist?.description }}</p>
+            <p class="sub">布局：{{ previewData.layout?.name || '未设置' }}</p>
+          </div>
+        </div>
+        <el-table :data="previewData.items" size="small" style="margin-top: 10px">
+          <el-table-column prop="sortOrder" label="#" width="60" />
+          <el-table-column label="媒体">
+            <template #default="scope">
+              <div class="media-row">
+                <img
+                  v-if="mediaThumb(scope.row.mediaId)"
+                  :src="mediaThumb(scope.row.mediaId)"
+                  class="thumb"
+                />
+                <span>{{ mediaName(scope.row.mediaId) || '内容ID:' + scope.row.contentId }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="displayDuration" label="时长(秒)" width="120" />
+        </el-table>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -93,6 +126,7 @@ import {
   fetchLayouts,
   fetchMedia,
   fetchPlaylistItems,
+  fetchPlaylistPreview,
   fetchPlaylists,
   updatePlaylist
 } from '../api';
@@ -102,14 +136,24 @@ const playlists = ref<any[]>([]);
 const layouts = ref<any[]>([]);
 const selectedIds = ref<number[]>([]);
 const durations = reactive<Record<number, number>>({});
-const form = reactive<{ name: string; description: string; layoutId?: number }>({ name: '', description: '', layoutId: undefined });
+const form = reactive<{ name: string; description: string; coverUrl?: string; layoutId?: number }>({
+  name: '',
+  description: '',
+  coverUrl: '',
+  layoutId: undefined
+});
 const editingId = ref<number | null>(null);
 
 const itemsDialogVisible = ref(false);
 const currentItems = ref<any[]>([]);
+
 const publishDialog = ref(false);
 const publishForm = reactive({ groupName: '', startTime: '', endTime: '' });
 const publishRange = ref<[string, string] | null>(null);
+
+const previewDialog = ref(false);
+const previewData = ref<any | null>(null);
+const previewAssets = ref<any[]>([]);
 
 const loadMedia = async () => {
   const resp = await fetchMedia(1, 100);
@@ -134,6 +178,9 @@ const loadLayouts = async () => {
 
 const onSelectChange = (rows: any[]) => {
   selectedIds.value = rows.map((r) => r.id);
+  if (!form.coverUrl && rows.length > 0) {
+    form.coverUrl = rows[0].thumbUrl || '';
+  }
 };
 
 const onSave = async () => {
@@ -172,6 +219,7 @@ const edit = async (row: any) => {
   editingId.value = row.id;
   form.name = row.name;
   form.description = row.description;
+  form.coverUrl = row.coverUrl || '';
   form.layoutId = row.layoutId;
   const resp = await fetchPlaylistItems(row.id);
   // @ts-ignore
@@ -193,19 +241,11 @@ const resetForm = () => {
   editingId.value = null;
   form.name = '';
   form.description = '';
+  form.coverUrl = '';
   form.layoutId = undefined;
   selectedIds.value = [];
 };
 
-onMounted(() => {
-  loadMedia();
-  loadPlaylists();
-  loadLayouts();
-});
-
-// 发布到分组
-const publishDialog = ref(false);
-const publishForm = reactive({ groupName: '', startTime: '', endTime: '' });
 const openPublish = () => {
   if (!editingId.value) {
     ElMessage.warning('请选择一个播放列表并点击编辑后再发布');
@@ -213,6 +253,7 @@ const openPublish = () => {
   }
   publishDialog.value = true;
 };
+
 const publish = async () => {
   if (!publishForm.groupName) {
     ElMessage.warning('请输入分组名');
@@ -238,6 +279,23 @@ const publish = async () => {
   ElMessage.success('已发布到分组');
   publishDialog.value = false;
 };
+
+const preview = async (id: number) => {
+  const resp = await fetchPlaylistPreview(id);
+  // @ts-ignore
+  previewData.value = resp.data?.data || null;
+  previewAssets.value = previewData.value?.mediaAssets || [];
+  previewDialog.value = true;
+};
+
+const mediaThumb = (id?: number) => previewAssets.value.find((a: any) => a.id === id)?.thumbUrl;
+const mediaName = (id?: number) => previewAssets.value.find((a: any) => a.id === id)?.name;
+
+onMounted(() => {
+  loadMedia();
+  loadPlaylists();
+  loadLayouts();
+});
 </script>
 
 <style scoped>
@@ -249,5 +307,27 @@ const publish = async () => {
 .sub {
   color: #909399;
   margin: 4px 0 0;
+}
+.preview-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.cover {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.media-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.thumb {
+  width: 60px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
 }
 </style>

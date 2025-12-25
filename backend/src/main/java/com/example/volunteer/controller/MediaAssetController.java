@@ -37,6 +37,11 @@ public class MediaAssetController {
         return ApiResponse.ok(mediaAssetService.upload(file, type));
     }
 
+    @PostMapping(value = "/{id}/thumb", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<MediaAsset> uploadThumb(@PathVariable Long id, @RequestPart("file") MultipartFile file) {
+        return ApiResponse.ok(mediaAssetService.uploadThumb(id, file));
+    }
+
     @GetMapping("/{id}/download")
     public ResponseEntity<FileSystemResource> download(@PathVariable Long id) throws java.io.IOException {
         MediaAsset asset = mediaAssetService.findById(id);

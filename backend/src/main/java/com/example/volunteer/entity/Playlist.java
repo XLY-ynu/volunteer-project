@@ -14,6 +14,7 @@ public class Playlist {
     private Long id;
     private String name;
     private String description;
+    private String coverUrl;
     private Long layoutId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

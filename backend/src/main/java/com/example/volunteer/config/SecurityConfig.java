@@ -37,6 +37,7 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/ping", "/api/auth/**").permitAll()
+                .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/public/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/public/**").permitAll()
                 .requestMatchers("/api/users/**", "/api/ops/**", "/api/activities/**", "/api/volunteers/**").hasAuthority("ADMIN")

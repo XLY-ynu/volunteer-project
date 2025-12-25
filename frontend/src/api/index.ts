@@ -28,6 +28,11 @@ export const uploadMedia = (file: File, type?: string) => {
   if (type) form.append('type', type);
   return http.post('/media/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
 };
+export const uploadMediaThumb = (id: number, file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return http.post(`/media/${id}/thumb`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
 
 export const deleteMedia = (id: number) => http.delete(`/media/${id}`);
 export const downloadMedia = (id: number) => http.get(`/media/${id}/download`, { responseType: 'blob' });
@@ -37,6 +42,7 @@ export const updatePlaylist = (id: number, payload: any) => http.put(`/playlists
 export const deletePlaylist = (id: number) => http.delete(`/playlists/${id}`);
 export const fetchPlaylists = () => http.get('/playlists');
 export const fetchPlaylistItems = (playlistId: number) => http.get(`/playlists/${playlistId}/items`);
+export const fetchPlaylistPreview = (playlistId: number) => http.get(`/playlists/${playlistId}/preview`);
 
 export const fetchTerminals = (page = 1, size = 10, groupName?: string) =>
   http.get('/terminals', { params: { page, size, groupName } });
@@ -74,3 +80,4 @@ export const checkinActivityPublic = (payload: any) => http.post('/public/activi
 export const fetchActivityStats = (id: number) => http.get(`/activities/${id}/stats`);
 
 export const fetchSummary = () => http.get('/monitor/summary');
+export const fetchTerminalStatus = () => http.get('/monitor/terminal-status');

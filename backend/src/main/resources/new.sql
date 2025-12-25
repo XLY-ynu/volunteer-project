@@ -90,3 +90,6 @@ CREATE TABLE IF NOT EXISTS activity_checkin_log (
 
 -- 9) 活动增加签到码（若字段已存在会报错可忽略）
 -- ALTER TABLE activity ADD COLUMN checkin_code VARCHAR(32) NULL AFTER capacity;
+
+-- 10) 播放列表增加封面
+-- ALTER TABLE playlist ADD COLUMN cover_url VARCHAR(255) NULL AFTER description;

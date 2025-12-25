@@ -17,9 +17,11 @@ import TerminalPreview from '../views/TerminalPreview.vue';
 import Activities from '../views/Activities.vue';
 import VolunteerPublic from '../views/VolunteerPublic.vue';
 import PublicActivities from '../views/PublicActivities.vue';
+import Checkin from '../views/Checkin.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: Login },
+  { path: '/checkin', component: Checkin, meta: { public: true } },
   {
     path: '/',
     component: Layout,
@@ -52,7 +54,7 @@ const router = createRouter({
 
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('token');
-  if (to.path !== '/login' && !token) {
+  if (to.path !== '/login' && !to.meta.public && !token) {
     next('/login');
   } else {
     next();

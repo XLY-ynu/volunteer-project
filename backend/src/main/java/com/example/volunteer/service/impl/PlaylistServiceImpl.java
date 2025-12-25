@@ -1,10 +1,15 @@
 package com.example.volunteer.service.impl;
 
 import com.example.volunteer.dto.PlaylistItemDto;
+import com.example.volunteer.dto.PlaylistPreviewDto;
 import com.example.volunteer.dto.PlaylistRequest;
+import com.example.volunteer.entity.Layout;
+import com.example.volunteer.entity.MediaAsset;
 import com.example.volunteer.entity.Playlist;
 import com.example.volunteer.entity.PlaylistItem;
 import com.example.volunteer.entity.TerminalPlaylist;
+import com.example.volunteer.mapper.LayoutMapper;
+import com.example.volunteer.mapper.MediaAssetMapper;
 import com.example.volunteer.mapper.PlaylistItemMapper;
 import com.example.volunteer.mapper.PlaylistMapper;
 import com.example.volunteer.mapper.TerminalPlaylistMapper;
@@ -14,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class PlaylistServiceImpl implements PlaylistService {
@@ -21,12 +28,18 @@ public class PlaylistServiceImpl implements PlaylistService {
     private final PlaylistMapper playlistMapper;
     private final PlaylistItemMapper playlistItemMapper;
     private final TerminalPlaylistMapper terminalPlaylistMapper;
+    private final LayoutMapper layoutMapper;
+    private final MediaAssetMapper mediaAssetMapper;
 
     public PlaylistServiceImpl(PlaylistMapper playlistMapper, PlaylistItemMapper playlistItemMapper,
-                               TerminalPlaylistMapper terminalPlaylistMapper) {
+                               TerminalPlaylistMapper terminalPlaylistMapper,
+                               LayoutMapper layoutMapper,
+                               MediaAssetMapper mediaAssetMapper) {
         this.playlistMapper = playlistMapper;
         this.playlistItemMapper = playlistItemMapper;
         this.terminalPlaylistMapper = terminalPlaylistMapper;
+        this.layoutMapper = layoutMapper;
+        this.mediaAssetMapper = mediaAssetMapper;
     }
 
     @Override
@@ -35,6 +48,7 @@ public class PlaylistServiceImpl implements PlaylistService {
         Playlist playlist = new Playlist();
         playlist.setName(request.getName());
         playlist.setDescription(request.getDescription());
+        playlist.setCoverUrl(request.getCoverUrl());
         playlist.setLayoutId(request.getLayoutId());
         playlist.setCreatedAt(LocalDateTime.now());
         playlist.setUpdatedAt(LocalDateTime.now());
@@ -53,6 +67,7 @@ public class PlaylistServiceImpl implements PlaylistService {
         }
         playlist.setName(request.getName());
         playlist.setDescription(request.getDescription());
+        playlist.setCoverUrl(request.getCoverUrl());
         playlist.setLayoutId(request.getLayoutId());
         playlist.setUpdatedAt(LocalDateTime.now());
         playlistMapper.updateById(playlist);
@@ -90,6 +105,30 @@ public class PlaylistServiceImpl implements PlaylistService {
                         .eq(PlaylistItem::getPlaylistId, playlistId)
                         .orderByAsc(PlaylistItem::getSortOrder)
         );
+    }
+
+    @Override
+    public PlaylistPreviewDto preview(Long playlistId) {
+        Playlist playlist = playlistMapper.selectById(playlistId);
+        if (playlist == null) {
+            return null;
+        }
+        List<PlaylistItem> items = items(playlistId);
+        Layout layout = playlist.getLayoutId() != null ? layoutMapper.selectById(playlist.getLayoutId()) : null;
+        Set<Long> mediaIds = items.stream()
+                .filter(i -> i.getMediaId() != null)
+                .map(PlaylistItem::getMediaId)
+                .collect(Collectors.toSet());
+        List<MediaAsset> assets = mediaIds.isEmpty()
+                ? List.of()
+                : mediaAssetMapper.selectBatchIds(mediaIds);
+
+        PlaylistPreviewDto dto = new PlaylistPreviewDto();
+        dto.setPlaylist(playlist);
+        dto.setLayout(layout);
+        dto.setItems(items);
+        dto.setMediaAssets(assets);
+        return dto;
     }
 
     private void saveItems(Long playlistId, List<PlaylistItemDto> items) {

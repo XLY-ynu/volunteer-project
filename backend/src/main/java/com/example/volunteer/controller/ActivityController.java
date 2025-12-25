@@ -12,9 +12,14 @@ import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/activities")
@@ -122,6 +127,26 @@ public class ActivityController {
         Activity a = activityMapper.selectById(id);
         map.put("checkinCode", a != null ? a.getCheckinCode() : null);
         return ApiResponse.ok(map);
+    }
+
+    @GetMapping("/{id}/signups/export")
+    public ResponseEntity<byte[]> exportSignups(@PathVariable Long id) {
+        List<ActivitySignup> records = activitySignupMapper.selectList(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getActivityId, id));
+        StringBuilder sb = new StringBuilder();
+        sb.append("volunteerId,status,createdAt,checkinTime\n");
+        for (ActivitySignup s : records) {
+            sb.append(s.getVolunteerId()).append(",")
+                    .append(s.getStatus()).append(",")
+                    .append(s.getCreatedAt() != null ? s.getCreatedAt() : "").append(",")
+                    .append(s.getCheckinTime() != null ? s.getCheckinTime() : "").append("\n");
+        }
+        byte[] bytes = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=activity-" + id + "-signups.csv")
+                .contentType(MediaType.TEXT_PLAIN)
+                .contentLength(bytes.length)
+                .body(bytes);
     }
 
     private String generateCode() {

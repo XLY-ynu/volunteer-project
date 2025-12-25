@@ -24,6 +24,33 @@
       </el-form>
     </div>
 
+    <el-row :gutter="12" class="status-row">
+      <el-col :span="6">
+        <el-card>
+          <div class="stat-title">在线终端</div>
+          <div class="stat-value success">{{ status.online }}</div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card>
+          <div class="stat-title">离线终端</div>
+          <div class="stat-value danger">{{ status.offline }}</div>
+        </el-card>
+      </el-col>
+    </el-row>
+    <el-alert
+      v-if="status.offline > 0"
+      type="warning"
+      :closable="false"
+      title="以下终端离线，请检查网络/电源"
+      style="margin: 12px 0"
+    />
+    <el-table v-if="status.offline > 0" :data="status.offlineTerminals" size="small" style="margin-bottom: 12px">
+      <el-table-column prop="code" label="代码" width="140" />
+      <el-table-column prop="name" label="名称" />
+      <el-table-column prop="lastHeartbeat" label="最后心跳" width="200" />
+    </el-table>
+
     <el-table :data="terminals" style="width: 100%" @selection-change="onSelect">
       <el-table-column type="selection" width="55" />
       <el-table-column prop="code" label="代码" />
@@ -94,6 +121,7 @@ import {
   fetchTerminals,
   fetchTerminalHeartbeats,
   fetchTerminalPlaylists,
+  fetchTerminalStatus,
   registerTerminal
 } from '../api';
 
@@ -103,6 +131,7 @@ const selectedTerminalIds = ref<number[]>([]);
 const selectedPlaylist = ref<number | null>(null);
 const startEnd = ref<[string, string] | null>(null);
 const groupFilter = ref<string>('');
+const status = ref<{ online: number; offline: number; offlineTerminals: any[] }>({ online: 0, offline: 0, offlineTerminals: [] });
 
 const form = ref({ code: '', name: '', groupName: '' });
 const heartbeatDialog = ref(false);
@@ -123,6 +152,12 @@ const loadPlaylists = async () => {
   const resp = await fetchPlaylists();
   // @ts-ignore
   playlists.value = resp.data?.data || [];
+};
+
+const loadStatus = async () => {
+  const resp = await fetchTerminalStatus();
+  // @ts-ignore
+  status.value = resp.data?.data || { online: 0, offline: 0, offlineTerminals: [] };
 };
 
 const register = async () => {
@@ -193,6 +228,7 @@ const saveAttr = async () => {
 onMounted(() => {
   loadTerminals();
   loadPlaylists();
+  loadStatus();
 });
 </script>
 
@@ -201,6 +237,22 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+.status-row {
+  margin-bottom: 12px;
+}
+.stat-title {
+  color: #909399;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: bold;
+}
+.stat-value.success {
+  color: #67c23a;
+}
+.stat-value.danger {
+  color: #f56c6c;
 }
 .bind {
   margin-top: 12px;

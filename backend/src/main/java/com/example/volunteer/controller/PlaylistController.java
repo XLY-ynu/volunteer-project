@@ -5,6 +5,7 @@ import com.example.volunteer.dto.PlaylistRequest;
 import com.example.volunteer.entity.Playlist;
 import com.example.volunteer.entity.PlaylistItem;
 import com.example.volunteer.service.PlaylistService;
+import com.example.volunteer.dto.PlaylistPreviewDto;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,6 +39,11 @@ public class PlaylistController {
     @GetMapping("/{id}/items")
     public ApiResponse<List<PlaylistItem>> items(@PathVariable Long id) {
         return ApiResponse.ok(playlistService.items(id));
+    }
+
+    @GetMapping("/{id}/preview")
+    public ApiResponse<PlaylistPreviewDto> preview(@PathVariable Long id) {
+        return ApiResponse.ok(playlistService.preview(id));
     }
 
     @DeleteMapping("/{id}")

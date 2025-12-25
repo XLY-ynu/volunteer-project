@@ -11,4 +11,5 @@ public interface MediaAssetService {
     void delete(Long id);
     MediaAsset upload(MultipartFile file, String type);
     MediaAsset findById(Long id);
+    MediaAsset uploadThumb(Long id, MultipartFile file);
 }

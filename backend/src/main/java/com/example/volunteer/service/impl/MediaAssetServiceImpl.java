@@ -101,6 +101,28 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         return mediaAssetMapper.selectById(id);
     }
 
+    @Override
+    public MediaAsset uploadThumb(Long id, MultipartFile file) {
+        MediaAsset asset = mediaAssetMapper.selectById(id);
+        if (asset == null) {
+            throw new IllegalArgumentException("媒体不存在");
+        }
+        try {
+            String original = file.getOriginalFilename();
+            String ext = (original != null && original.contains(".")) ? original.substring(original.lastIndexOf('.')) : "";
+            String filename = "thumb-" + UUID.randomUUID() + ext;
+            Path root = Paths.get(storageRoot).toAbsolutePath().resolve("thumbs");
+            Files.createDirectories(root);
+            Path dest = root.resolve(filename);
+            file.transferTo(dest.toFile());
+            asset.setThumbUrl("/uploads/thumbs/" + filename);
+            mediaAssetMapper.updateById(asset);
+            return asset;
+        } catch (Exception e) {
+            throw new RuntimeException("上传封面失败", e);
+        }
+    }
+
     private String guessType(String contentType) {
         if (contentType == null) {
             return "unknown";

@@ -14,7 +14,13 @@
     <el-table :data="list" style="width: 100%">
       <el-table-column label="缩略图" width="120">
         <template #default="scope">
-          <img v-if="scope.row.thumbUrl" :src="scope.row.thumbUrl" style="width:80px;height:60px;object-fit:cover;" />
+          <img 
+            v-if="scope.row.thumbUrl || scope.row.type === 'image'" 
+            :src="scope.row.thumbUrl || scope.row.url" 
+            style="width:80px;height:60px;object-fit:cover;" 
+          />
+          <span v-else-if="scope.row.type === 'video'">🎬</span>
+          <span v-else>📄</span>
         </template>
       </el-table-column>
       <el-table-column prop="name" label="名称" />
@@ -28,6 +34,16 @@
       <el-table-column label="操作" width="200">
         <template #default="scope">
           <el-button size="small" @click="onDownload(scope.row.id, scope.row.name)">下载</el-button>
+          <el-upload
+            :headers="uploadHeaders"
+            :show-file-list="false"
+            :action="`/api/media/${scope.row.id}/thumb`"
+            :on-success="onThumbUploaded"
+            accept="image/*"
+            style="margin-left: 4px"
+          >
+            <el-button size="small">上传封面</el-button>
+          </el-upload>
           <el-button type="danger" size="small" @click="onDelete(scope.row.id)">删除</el-button>
         </template>
       </el-table-column>
@@ -67,6 +83,11 @@ const load = async () => {
 
 const onUploaded = () => {
   ElMessage.success('上传成功');
+  load();
+};
+
+const onThumbUploaded = () => {
+  ElMessage.success('封面已更新');
   load();
 };
 
