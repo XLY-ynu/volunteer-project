@@ -154,6 +154,16 @@ public class TerminalServiceImpl implements TerminalService {
     }
 
     @Override
+    public Terminal updateAttributes(Long id, String attributes) {
+        Terminal t = terminalMapper.selectById(id);
+        if (t == null) return null;
+        t.setAttributes(attributes);
+        t.setUpdatedAt(LocalDateTime.now());
+        terminalMapper.updateById(t);
+        return t;
+    }
+
+    @Override
     public List<TerminalPlaybackDto> playbackForTerminal(String code) {
         Terminal terminal = terminalMapper.selectOne(new LambdaQueryWrapper<Terminal>().eq(Terminal::getCode, code));
         if (terminal == null) {

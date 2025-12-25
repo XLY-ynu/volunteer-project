@@ -31,10 +31,11 @@
       <el-table-column prop="groupName" label="分组" width="120" />
       <el-table-column prop="status" label="状态" width="100" />
       <el-table-column prop="lastHeartbeat" label="心跳" width="180" />
-      <el-table-column label="操作" width="200">
+      <el-table-column label="操作" width="260">
         <template #default="scope">
           <el-button size="small" @click="viewHeartbeats(scope.row.id)">心跳</el-button>
           <el-button size="small" @click="viewBindings(scope.row.id)">绑定</el-button>
+          <el-button size="small" type="primary" @click="openAttr(scope.row)">属性</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -73,6 +74,14 @@
         </el-table-column>
       </el-table>
     </el-dialog>
+
+    <el-dialog v-model="attrDialog" title="终端属性" width="520px">
+      <el-input v-model="attrText" type="textarea" :rows="8" placeholder='{"brightness":80}' />
+      <template #footer>
+        <el-button @click="attrDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveAttr">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -100,6 +109,9 @@ const heartbeatDialog = ref(false);
 const heartbeats = ref<any[]>([]);
 const bindingDialog = ref(false);
 const bindings = ref<any[]>([]);
+const attrDialog = ref(false);
+const attrText = ref('');
+const currentTerminalId = ref<number | null>(null);
 
 const loadTerminals = async () => {
   const resp = await fetchTerminals(1, 50, groupFilter.value || undefined);
@@ -158,6 +170,24 @@ const viewBindings = async (id: number) => {
   // @ts-ignore
   bindings.value = resp.data?.data || [];
   bindingDialog.value = true;
+};
+
+const openAttr = (row: any) => {
+  currentTerminalId.value = row.id;
+  attrText.value = row.attributes || '';
+  attrDialog.value = true;
+};
+
+const saveAttr = async () => {
+  if (currentTerminalId.value == null) return;
+  await fetch('/api/terminals/' + currentTerminalId.value + '/attributes', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'text/plain', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+    body: attrText.value
+  });
+  ElMessage.success('已保存属性');
+  attrDialog.value = false;
+  loadTerminals();
 };
 
 onMounted(() => {

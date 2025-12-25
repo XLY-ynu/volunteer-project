@@ -70,3 +70,10 @@ INSERT IGNORE INTO menu_category (name, code, parent_id, sort_order) VALUES
 ('雷锋热线', 'leifeng', NULL, 0),
 ('公益活动', 'gongyi', NULL, 0),
 ('公益广告', 'ad', NULL, 0);
+
+
+-- 删除重复记录，保留id最小的
+DELETE t1 FROM menu_category t1
+INNER JOIN menu_category t2 
+WHERE t1.id > t2.id AND t1.code = t2.code;
+

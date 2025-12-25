@@ -17,4 +17,5 @@ public interface TerminalService {
     java.util.List<TerminalPlaylist> playlists(Long terminalId);
     Page<TerminalHeartbeat> heartbeatLogs(Long terminalId, int page, int size);
     java.util.List<TerminalPlaybackDto> playbackForTerminal(String code);
+    Terminal updateAttributes(Long id, String attributes);
 }

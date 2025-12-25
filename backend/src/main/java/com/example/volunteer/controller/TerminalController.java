@@ -58,4 +58,9 @@ public class TerminalController {
                                                            @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.ok(terminalService.heartbeatLogs(id, page, size));
     }
+
+    @PutMapping("/{id}/attributes")
+    public ApiResponse<Terminal> updateAttributes(@PathVariable Long id, @RequestBody String attributes) {
+        return ApiResponse.ok(terminalService.updateAttributes(id, attributes));
+    }
 }

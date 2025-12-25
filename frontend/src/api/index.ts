@@ -70,3 +70,5 @@ export const downloadBackup = () => http.get('/ops/backup', { responseType: 'blo
 export const fetchActivitiesPublic = (page = 1, size = 10, keyword?: string) =>
   http.get('/public/activities', { params: { page, size, keyword } });
 export const signupActivityPublic = (payload: any) => http.post('/public/activities/signup-public', payload);
+
+export const fetchSummary = () => http.get('/monitor/summary');
