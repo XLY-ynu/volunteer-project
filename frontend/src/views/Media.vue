@@ -12,6 +12,11 @@
       </el-upload>
     </div>
     <el-table :data="list" style="width: 100%">
+      <el-table-column label="缩略图" width="120">
+        <template #default="scope">
+          <img v-if="scope.row.thumbUrl" :src="scope.row.thumbUrl" style="width:80px;height:60px;object-fit:cover;" />
+        </template>
+      </el-table-column>
       <el-table-column prop="name" label="名称" />
       <el-table-column prop="type" label="类型" width="120" />
       <el-table-column prop="url" label="访问路径">

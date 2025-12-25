@@ -77,3 +77,13 @@ DELETE t1 FROM menu_category t1
 INNER JOIN menu_category t2 
 WHERE t1.id > t2.id AND t1.code = t2.code;
 
+-- 7) 媒体资源增加缩略图
+ALTER TABLE media_asset ADD COLUMN thumb_url VARCHAR(255) NULL AFTER url;
+
+-- 8) 活动签到日志
+CREATE TABLE IF NOT EXISTS activity_checkin_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    activity_id BIGINT NOT NULL,
+    volunteer_id BIGINT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

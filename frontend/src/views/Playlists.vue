@@ -8,6 +8,7 @@
       <div class="actions">
         <el-button @click="resetForm">新建</el-button>
         <el-button type="primary" @click="onSave">{{ editingId ? '保存修改' : '创建' }}</el-button>
+        <el-button type="success" @click="openPublish">发布到分组</el-button>
       </div>
     </div>
 
@@ -58,6 +59,28 @@
         <el-table-column prop="sortOrder" label="排序" />
       </el-table>
     </el-dialog>
+
+    <el-dialog v-model="publishDialog" title="发布到分组" width="520px">
+      <el-form :model="publishForm" label-width="90px">
+        <el-form-item label="分组名">
+          <el-input v-model="publishForm.groupName" />
+        </el-form-item>
+        <el-form-item label="时间范围">
+          <el-date-picker
+            v-model="publishRange"
+            type="datetimerange"
+            start-placeholder="开始"
+            end-placeholder="结束"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 320px"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="publishDialog = false">取消</el-button>
+        <el-button type="primary" @click="publish">发布</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -84,6 +107,9 @@ const editingId = ref<number | null>(null);
 
 const itemsDialogVisible = ref(false);
 const currentItems = ref<any[]>([]);
+const publishDialog = ref(false);
+const publishForm = reactive({ groupName: '', startTime: '', endTime: '' });
+const publishRange = ref<[string, string] | null>(null);
 
 const loadMedia = async () => {
   const resp = await fetchMedia(1, 100);
@@ -176,6 +202,42 @@ onMounted(() => {
   loadPlaylists();
   loadLayouts();
 });
+
+// 发布到分组
+const publishDialog = ref(false);
+const publishForm = reactive({ groupName: '', startTime: '', endTime: '' });
+const openPublish = () => {
+  if (!editingId.value) {
+    ElMessage.warning('请选择一个播放列表并点击编辑后再发布');
+    return;
+  }
+  publishDialog.value = true;
+};
+const publish = async () => {
+  if (!publishForm.groupName) {
+    ElMessage.warning('请输入分组名');
+    return;
+  }
+  if (publishRange.value) {
+    publishForm.startTime = publishRange.value[0];
+    publishForm.endTime = publishRange.value[1];
+  } else {
+    publishForm.startTime = '';
+    publishForm.endTime = '';
+  }
+  await fetch('/api/terminals/bind-playlist/group', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+    body: JSON.stringify({
+      playlistId: editingId.value,
+      groupName: publishForm.groupName,
+      startTime: publishForm.startTime || null,
+      endTime: publishForm.endTime || null
+    })
+  });
+  ElMessage.success('已发布到分组');
+  publishDialog.value = false;
+};
 </script>
 
 <style scoped>

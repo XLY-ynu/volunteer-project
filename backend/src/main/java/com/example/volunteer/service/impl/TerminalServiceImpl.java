@@ -193,4 +193,20 @@ public class TerminalServiceImpl implements TerminalService {
             return dto;
         }).collect(Collectors.toList());
     }
+
+    @Override
+    @Transactional
+    public void bindPlaylistToGroup(String groupName, Long playlistId, LocalDateTime startTime, LocalDateTime endTime) {
+        List<Terminal> terminals = terminalMapper.selectList(
+                new LambdaQueryWrapper<Terminal>().eq(Terminal::getGroupName, groupName));
+        for (Terminal t : terminals) {
+            TerminalPlaylist tp = new TerminalPlaylist();
+            tp.setTerminalId(t.getId());
+            tp.setPlaylistId(playlistId);
+            tp.setStartTime(startTime);
+            tp.setEndTime(endTime);
+            tp.setActive(true);
+            terminalPlaylistMapper.insert(tp);
+        }
+    }
 }

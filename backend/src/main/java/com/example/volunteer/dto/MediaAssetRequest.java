@@ -11,6 +11,7 @@ public class MediaAssetRequest {
     private String type;
     @NotBlank
     private String url;
+    private String thumbUrl;
     private Long sizeBytes;
     private Integer durationSeconds;
     private Integer width;

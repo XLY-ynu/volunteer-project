@@ -8,18 +8,11 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("media_asset")
-public class MediaAsset {
+@TableName("activity_checkin_log")
+public class ActivityCheckinLog {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String name;
-    private String type; // video, image, document, web
-    private String url;
-    private String thumbUrl;
-    private Long sizeBytes;
-    private Integer durationSeconds;
-    private Integer width;
-    private Integer height;
-    private String checksum;
+    private Long activityId;
+    private Long volunteerId;
     private LocalDateTime createdAt;
 }

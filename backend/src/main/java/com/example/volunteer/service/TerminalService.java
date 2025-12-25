@@ -18,4 +18,5 @@ public interface TerminalService {
     Page<TerminalHeartbeat> heartbeatLogs(Long terminalId, int page, int size);
     java.util.List<TerminalPlaybackDto> playbackForTerminal(String code);
     Terminal updateAttributes(Long id, String attributes);
+    void bindPlaylistToGroup(String groupName, Long playlistId, java.time.LocalDateTime startTime, java.time.LocalDateTime endTime);
 }

@@ -33,6 +33,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         asset.setName(request.getName());
         asset.setType(request.getType());
         asset.setUrl(request.getUrl());
+        asset.setThumbUrl(request.getThumbUrl());
         asset.setSizeBytes(request.getSizeBytes());
         asset.setDurationSeconds(request.getDurationSeconds());
         asset.setWidth(request.getWidth());
@@ -85,6 +86,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
             asset.setName(original != null ? original : filename);
             asset.setType(type != null ? type : guessType(file.getContentType()));
             asset.setUrl("/uploads/" + filename);
+            asset.setThumbUrl(type != null && type.startsWith("image") ? asset.getUrl() : null);
             asset.setSizeBytes(file.getSize());
             asset.setCreatedAt(LocalDateTime.now());
             mediaAssetMapper.insert(asset);
