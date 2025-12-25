@@ -9,10 +9,16 @@
       <el-table-column prop="location" label="地点" />
       <el-table-column prop="startTime" label="开始" width="160" />
       <el-table-column prop="endTime" label="结束" width="160" />
-      <el-table-column label="操作" width="200">
+      <el-table-column prop="checkinCode" label="签到码" width="120">
+        <template #default="scope">
+          <el-tag>{{ scope.row.checkinCode || '-' }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="260">
         <template #default="scope">
           <el-button size="small" @click="edit(scope.row)">编辑</el-button>
-          <el-button size="small" type="primary" @click="viewSignups(scope.row.id)">报名</el-button>
+          <el-button size="small" type="primary" @click="viewSignups(scope.row.id)">报名/统计</el-button>
+          <el-button size="small" @click="copyCode(scope.row.checkinCode)">复制签到码</el-button>
           <el-button size="small" type="danger" @click="remove(scope.row.id)">删除</el-button>
         </template>
       </el-table-column>
@@ -48,7 +54,8 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="signupDialog" title="报名列表" width="600px">
+    <el-dialog v-model="signupDialog" title="报名列表/统计" width="600px">
+      <p>报名：{{ stats.total }} 人，已签到：{{ stats.checkedIn }} 人，签到码：{{ stats.checkinCode || '-' }}</p>
       <el-table :data="signups">
         <el-table-column prop="volunteerId" label="志愿者ID" width="120" />
         <el-table-column prop="status" label="状态" width="120" />
@@ -61,6 +68,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import http from '../api/http';
+import { fetchActivityStats } from '../api';
 import { ElMessage } from 'element-plus';
 
 const list = ref<any[]>([]);
@@ -70,6 +78,7 @@ const total = ref(0);
 const dialogVisible = ref(false);
 const signupDialog = ref(false);
 const signups = ref<any[]>([]);
+const stats = ref<{ total: number; checkedIn: number; checkinCode?: string }>({ total: 0, checkedIn: 0 });
 const editingId = ref<number | null>(null);
 const form = ref({ title: '', description: '', location: '', startTime: '', endTime: '', capacity: 0 });
 
@@ -124,7 +133,19 @@ const viewSignups = async (id: number) => {
   const resp = await http.get(`/activities/${id}/signups`, { params: { page: 1, size: 100 } });
   // @ts-ignore
   signups.value = resp.data?.data?.records || [];
+  const statResp = await fetchActivityStats(id);
+  // @ts-ignore
+  stats.value = statResp.data?.data || { total: 0, checkedIn: 0 };
   signupDialog.value = true;
+};
+
+const copyCode = (code?: string) => {
+  if (!code) {
+    ElMessage.info('暂无签到码');
+    return;
+  }
+  navigator.clipboard.writeText(code);
+  ElMessage.success('已复制');
 };
 
 onMounted(load);

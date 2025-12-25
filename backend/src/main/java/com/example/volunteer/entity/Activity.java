@@ -18,6 +18,7 @@ public class Activity {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private Integer capacity;
+    private String checkinCode;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

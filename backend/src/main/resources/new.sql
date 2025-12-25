@@ -59,8 +59,8 @@ CREATE TABLE IF NOT EXISTS operation_log (
 -- 4) 志愿者表补充字段
 -- ALTER TABLE volunteer ADD COLUMN organization VARCHAR(128) AFTER email;
 
--- 5) 活动报名表补充签到时间
-ALTER TABLE activity_signup ADD COLUMN checkin_time DATETIME NULL AFTER status;
+-- 5) 活动报名表补充签到时间（若字段已存在会报错可忽略）
+-- ALTER TABLE activity_signup ADD COLUMN checkin_time DATETIME NULL AFTER status;
 
 -- 6) 初始化六大菜单分类
 INSERT IGNORE INTO menu_category (name, code, parent_id, sort_order) VALUES
@@ -77,8 +77,8 @@ DELETE t1 FROM menu_category t1
 INNER JOIN menu_category t2 
 WHERE t1.id > t2.id AND t1.code = t2.code;
 
--- 7) 媒体资源增加缩略图
-ALTER TABLE media_asset ADD COLUMN thumb_url VARCHAR(255) NULL AFTER url;
+-- 7) 媒体资源增加缩略图（若字段已存在会报错可忽略）
+-- ALTER TABLE media_asset ADD COLUMN thumb_url VARCHAR(255) NULL AFTER url;
 
 -- 8) 活动签到日志
 CREATE TABLE IF NOT EXISTS activity_checkin_log (
@@ -87,3 +87,6 @@ CREATE TABLE IF NOT EXISTS activity_checkin_log (
     volunteer_id BIGINT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 9) 活动增加签到码（若字段已存在会报错可忽略）
+-- ALTER TABLE activity ADD COLUMN checkin_code VARCHAR(32) NULL AFTER capacity;

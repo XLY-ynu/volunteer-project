@@ -5,7 +5,7 @@ import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.dto.HeartbeatRequest;
 import com.example.volunteer.dto.TerminalPlaylistBindRequest;
 import com.example.volunteer.dto.TerminalRequest;
-import com.example.volunteer.dto.GroupPlaylistBindRequest;
+import com.example.volunteer.dto.TerminalGroupBindRequest;
 import com.example.volunteer.entity.Terminal;
 import com.example.volunteer.entity.TerminalPlaylist;
 import com.example.volunteer.entity.TerminalHeartbeat;
@@ -48,6 +48,12 @@ public class TerminalController {
         return ApiResponse.ok(null);
     }
 
+    @PostMapping("/bind-playlist/group")
+    public ApiResponse<Void> bindToGroup(@Valid @RequestBody TerminalGroupBindRequest request) {
+        terminalService.bindPlaylistToGroup(request);
+        return ApiResponse.ok(null);
+    }
+
     @GetMapping("/{id}/playlists")
     public ApiResponse<List<TerminalPlaylist>> playlists(@PathVariable Long id) {
         return ApiResponse.ok(terminalService.playlists(id));
@@ -63,11 +69,5 @@ public class TerminalController {
     @PutMapping("/{id}/attributes")
     public ApiResponse<Terminal> updateAttributes(@PathVariable Long id, @RequestBody String attributes) {
         return ApiResponse.ok(terminalService.updateAttributes(id, attributes));
-    }
-
-    @PostMapping("/bind-playlist/group")
-    public ApiResponse<Void> bindToGroup(@Valid @RequestBody GroupPlaylistBindRequest request) {
-        terminalService.bindPlaylistToGroup(request.getGroupName(), request.getPlaylistId(), request.getStartTime(), request.getEndTime());
-        return ApiResponse.ok(null);
     }
 }

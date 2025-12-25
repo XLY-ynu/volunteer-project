@@ -52,6 +52,7 @@ public class ActivityController {
         a.setStartTime(request.getStartTime());
         a.setEndTime(request.getEndTime());
         a.setCapacity(request.getCapacity());
+        a.setCheckinCode(request.getCheckinCode() != null ? request.getCheckinCode() : generateCode());
         a.setCreatedAt(LocalDateTime.now());
         a.setUpdatedAt(LocalDateTime.now());
         activityMapper.insert(a);
@@ -68,6 +69,7 @@ public class ActivityController {
         a.setStartTime(request.getStartTime());
         a.setEndTime(request.getEndTime());
         a.setCapacity(request.getCapacity());
+        a.setCheckinCode(request.getCheckinCode() != null ? request.getCheckinCode() : a.getCheckinCode());
         a.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(a);
         return ApiResponse.ok(a);
@@ -107,5 +109,22 @@ public class ActivityController {
         signup.setCheckinTime(LocalDateTime.now());
         activitySignupMapper.updateById(signup);
         return ApiResponse.ok(signup);
+    }
+
+    @GetMapping("/{id}/stats")
+    public ApiResponse<?> stats(@PathVariable Long id) {
+        long total = activitySignupMapper.selectCount(new LambdaQueryWrapper<ActivitySignup>().eq(ActivitySignup::getActivityId, id));
+        long checked = activitySignupMapper.selectCount(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getActivityId, id).eq(ActivitySignup::getStatus, "checked_in"));
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("total", total);
+        map.put("checkedIn", checked);
+        Activity a = activityMapper.selectById(id);
+        map.put("checkinCode", a != null ? a.getCheckinCode() : null);
+        return ApiResponse.ok(map);
+    }
+
+    private String generateCode() {
+        return String.valueOf(100000 + new java.util.Random().nextInt(900000));
     }
 }

@@ -15,9 +15,9 @@ import com.example.volunteer.entity.Volunteer;
 import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.time.LocalDateTime;
 import com.example.volunteer.dto.ActivitySignupPublicRequest;
+import com.example.volunteer.dto.ActivityCheckinPublicRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -124,6 +124,46 @@ public class PublicController {
         signup.setStatus("applied");
         signup.setCreatedAt(LocalDateTime.now());
         activitySignupMapper.insert(signup);
+        return ApiResponse.ok(signup);
+    }
+
+    @PostMapping("/activities/checkin")
+    public ApiResponse<ActivitySignup> activityCheckin(@Valid @RequestBody ActivityCheckinPublicRequest request) {
+        Activity activity = activityMapper.selectById(request.getActivityId());
+        if (activity == null || activity.getCheckinCode() == null || !activity.getCheckinCode().equals(request.getCheckinCode())) {
+            return ApiResponse.fail("签到码无效");
+        }
+        Volunteer volunteer = null;
+        if (request.getPhone() != null && !request.getPhone().isEmpty()) {
+            volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>().eq(Volunteer::getPhone, request.getPhone()));
+        }
+        if (volunteer == null) {
+            volunteer = new Volunteer();
+            volunteer.setName(request.getName());
+            volunteer.setPhone(request.getPhone());
+            volunteer.setEmail(request.getEmail());
+            volunteer.setOrganization(request.getOrganization());
+            volunteer.setStatus("pending");
+            volunteer.setCreatedAt(LocalDateTime.now());
+            volunteer.setUpdatedAt(LocalDateTime.now());
+            volunteerMapper.insert(volunteer);
+        }
+        ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getActivityId, request.getActivityId())
+                .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
+        if (signup == null) {
+            signup = new ActivitySignup();
+            signup.setActivityId(request.getActivityId());
+            signup.setVolunteerId(volunteer.getId());
+            signup.setCreatedAt(LocalDateTime.now());
+            signup.setStatus("checked_in");
+            signup.setCheckinTime(LocalDateTime.now());
+            activitySignupMapper.insert(signup);
+        } else {
+            signup.setStatus("checked_in");
+            signup.setCheckinTime(LocalDateTime.now());
+            activitySignupMapper.updateById(signup);
+        }
         return ApiResponse.ok(signup);
     }
 }

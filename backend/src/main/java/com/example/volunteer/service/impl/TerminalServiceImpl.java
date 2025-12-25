@@ -6,6 +6,7 @@ import com.example.volunteer.dto.HeartbeatRequest;
 import com.example.volunteer.dto.TerminalPlaylistBindRequest;
 import com.example.volunteer.dto.TerminalRequest;
 import com.example.volunteer.dto.TerminalPlaybackDto;
+import com.example.volunteer.dto.TerminalGroupBindRequest;
 import com.example.volunteer.entity.Terminal;
 import com.example.volunteer.entity.TerminalPlaylist;
 import com.example.volunteer.entity.TerminalHeartbeat;
@@ -22,6 +23,7 @@ import com.example.volunteer.service.TerminalService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -135,6 +137,22 @@ public class TerminalServiceImpl implements TerminalService {
     }
 
     @Override
+    public void bindPlaylistToGroup(TerminalGroupBindRequest request) {
+        List<Terminal> terminals = terminalMapper.selectList(
+                new LambdaQueryWrapper<Terminal>().eq(Terminal::getGroupName, request.getGroupName()));
+        List<Long> ids = terminals.stream().map(Terminal::getId).collect(Collectors.toList());
+        if (CollectionUtils.isEmpty(ids)) {
+            return;
+        }
+        TerminalPlaylistBindRequest bindReq = new TerminalPlaylistBindRequest();
+        bindReq.setPlaylistId(request.getPlaylistId());
+        bindReq.setStartTime(request.getStartTime());
+        bindReq.setEndTime(request.getEndTime());
+        bindReq.setTerminalIds(ids);
+        bindPlaylists(bindReq);
+    }
+
+    @Override
     public List<TerminalPlaylist> playlists(Long terminalId) {
         return terminalPlaylistMapper.selectList(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TerminalPlaylist>()
@@ -194,19 +212,4 @@ public class TerminalServiceImpl implements TerminalService {
         }).collect(Collectors.toList());
     }
 
-    @Override
-    @Transactional
-    public void bindPlaylistToGroup(String groupName, Long playlistId, LocalDateTime startTime, LocalDateTime endTime) {
-        List<Terminal> terminals = terminalMapper.selectList(
-                new LambdaQueryWrapper<Terminal>().eq(Terminal::getGroupName, groupName));
-        for (Terminal t : terminals) {
-            TerminalPlaylist tp = new TerminalPlaylist();
-            tp.setTerminalId(t.getId());
-            tp.setPlaylistId(playlistId);
-            tp.setStartTime(startTime);
-            tp.setEndTime(endTime);
-            tp.setActive(true);
-            terminalPlaylistMapper.insert(tp);
-        }
-    }
 }
