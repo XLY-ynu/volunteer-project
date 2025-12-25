@@ -157,3 +157,35 @@ CREATE TABLE IF NOT EXISTS operation_log (
     status INT,
     created_at DATETIME
 );
+
+CREATE TABLE IF NOT EXISTS volunteer (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(64) NOT NULL,
+    phone VARCHAR(32),
+    email VARCHAR(128),
+    organization VARCHAR(128),
+    status VARCHAR(32) DEFAULT 'pending',
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS activity (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(128) NOT NULL,
+    description TEXT,
+    location VARCHAR(255),
+    start_time DATETIME,
+    end_time DATETIME,
+    capacity INT,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS activity_signup (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    activity_id BIGINT NOT NULL,
+    volunteer_id BIGINT NOT NULL,
+    status VARCHAR(32) DEFAULT 'applied',
+    checkin_time DATETIME,
+    created_at DATETIME
+);

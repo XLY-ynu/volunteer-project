@@ -19,3 +19,8 @@ npm run dev
 - 插播管理：`src/views/Broadcasts.vue`
 - 操作日志：`src/views/OperationLogs.vue`
 - 用户管理：`src/views/Users.vue`
+- 系统管理：`src/views/System.vue`
+- 内容展示：`src/views/PublicContent.vue`
+- 终端预览：`src/views/TerminalPreview.vue`
+- 活动管理：`src/views/Activities.vue`
+- 志愿者注册：`src/views/VolunteerPublic.vue`

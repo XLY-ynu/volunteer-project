@@ -1,0 +1,33 @@
+USE volunteer;
+
+CREATE TABLE IF NOT EXISTS activity (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(128) NOT NULL,
+    description TEXT,
+    location VARCHAR(256),
+    start_time DATETIME,
+    end_time DATETIME,
+    capacity INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS activity_signup (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    activity_id BIGINT NOT NULL,
+    volunteer_id BIGINT NOT NULL,
+    status VARCHAR(32) DEFAULT 'applied',
+    checked_in BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS volunteer (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(64) NOT NULL,
+    phone VARCHAR(32),
+    email VARCHAR(128),
+    id_card VARCHAR(32),
+    status VARCHAR(32) DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
