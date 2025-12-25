@@ -40,9 +40,9 @@ public class DataInitializer {
                     {"公益广告", "ad"}
             };
             for (String[] c : categories) {
-                MenuCategory exists = menuCategoryMapper.selectOne(new LambdaQueryWrapper<MenuCategory>()
+                long count = menuCategoryMapper.selectCount(new LambdaQueryWrapper<MenuCategory>()
                         .eq(MenuCategory::getCode, c[1]));
-                if (exists == null) {
+                if (count == 0) {
                     MenuCategory mc = new MenuCategory();
                     mc.setName(c[0]);
                     mc.setCode(c[1]);

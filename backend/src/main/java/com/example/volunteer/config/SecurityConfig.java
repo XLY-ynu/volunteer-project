@@ -39,7 +39,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/ping", "/api/auth/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/public/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/public/**").permitAll()
-                .requestMatchers("/api/users/**", "/api/ops/**").hasAuthority("ADMIN")
+                .requestMatchers("/api/users/**", "/api/ops/**", "/api/activities/**", "/api/volunteers/**").hasAuthority("ADMIN")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

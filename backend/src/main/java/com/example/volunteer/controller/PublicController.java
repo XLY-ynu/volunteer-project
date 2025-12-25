@@ -17,6 +17,7 @@ import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.time.LocalDateTime;
+import com.example.volunteer.dto.ActivitySignupPublicRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -93,6 +94,33 @@ public class PublicController {
 
     @PostMapping("/activities/signup")
     public ApiResponse<ActivitySignup> activitySignup(@RequestBody ActivitySignup signup) {
+        signup.setStatus("applied");
+        signup.setCreatedAt(LocalDateTime.now());
+        activitySignupMapper.insert(signup);
+        return ApiResponse.ok(signup);
+    }
+
+    @PostMapping("/activities/signup-public")
+    public ApiResponse<ActivitySignup> activitySignupPublic(@Valid @RequestBody ActivitySignupPublicRequest request) {
+        Volunteer existing = null;
+        if (request.getPhone() != null && !request.getPhone().isEmpty()) {
+            existing = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>().eq(Volunteer::getPhone, request.getPhone()));
+        }
+        if (existing == null) {
+            Volunteer v = new Volunteer();
+            v.setName(request.getName());
+            v.setPhone(request.getPhone());
+            v.setEmail(request.getEmail());
+            v.setOrganization(request.getOrganization());
+            v.setStatus("pending");
+            v.setCreatedAt(LocalDateTime.now());
+            v.setUpdatedAt(LocalDateTime.now());
+            volunteerMapper.insert(v);
+            existing = v;
+        }
+        ActivitySignup signup = new ActivitySignup();
+        signup.setActivityId(request.getActivityId());
+        signup.setVolunteerId(existing.getId());
         signup.setStatus("applied");
         signup.setCreatedAt(LocalDateTime.now());
         activitySignupMapper.insert(signup);

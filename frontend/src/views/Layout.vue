@@ -18,6 +18,7 @@
         <el-menu-item index="/terminal-preview">终端预览</el-menu-item>
         <el-menu-item index="/activities">活动管理</el-menu-item>
         <el-menu-item index="/volunteer-public">志愿者注册</el-menu-item>
+        <el-menu-item index="/public-activities">活动报名</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

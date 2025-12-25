@@ -16,6 +16,7 @@ import PublicContent from '../views/PublicContent.vue';
 import TerminalPreview from '../views/TerminalPreview.vue';
 import Activities from '../views/Activities.vue';
 import VolunteerPublic from '../views/VolunteerPublic.vue';
+import PublicActivities from '../views/PublicActivities.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: Login },
@@ -38,7 +39,8 @@ const routes: RouteRecordRaw[] = [
       { path: '/public-content', component: PublicContent },
       { path: '/terminal-preview', component: TerminalPreview },
       { path: '/activities', component: Activities },
-      { path: '/volunteer-public', component: VolunteerPublic }
+      { path: '/volunteer-public', component: VolunteerPublic },
+      { path: '/public-activities', component: PublicActivities }
     ]
   }
 ];

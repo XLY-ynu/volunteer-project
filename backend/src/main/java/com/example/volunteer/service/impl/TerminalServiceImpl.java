@@ -21,6 +21,7 @@ import com.example.volunteer.mapper.LayoutMapper;
 import com.example.volunteer.service.TerminalService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,18 +36,21 @@ public class TerminalServiceImpl implements TerminalService {
     private final PlaylistMapper playlistMapper;
     private final PlaylistItemMapper playlistItemMapper;
     private final LayoutMapper layoutMapper;
+    private final long offlineSeconds;
 
     public TerminalServiceImpl(TerminalMapper terminalMapper, TerminalPlaylistMapper terminalPlaylistMapper,
                                TerminalHeartbeatMapper terminalHeartbeatMapper,
                                PlaylistMapper playlistMapper,
                                PlaylistItemMapper playlistItemMapper,
-                               LayoutMapper layoutMapper) {
+                               LayoutMapper layoutMapper,
+                               @Value("${app.terminal.offline-seconds:300}") long offlineSeconds) {
         this.terminalMapper = terminalMapper;
         this.terminalPlaylistMapper = terminalPlaylistMapper;
         this.terminalHeartbeatMapper = terminalHeartbeatMapper;
         this.playlistMapper = playlistMapper;
         this.playlistItemMapper = playlistItemMapper;
         this.layoutMapper = layoutMapper;
+        this.offlineSeconds = offlineSeconds;
     }
 
     @Override
@@ -81,8 +85,7 @@ public class TerminalServiceImpl implements TerminalService {
         }
         Page<Terminal> p = new Page<>(page, size);
         terminalMapper.selectPage(p, wrapper);
-        long offlineSec = getOfflineSeconds();
-        LocalDateTime threshold = LocalDateTime.now().minusSeconds(offlineSec);
+        LocalDateTime threshold = LocalDateTime.now().minusSeconds(offlineSeconds);
         p.getRecords().forEach(t -> {
             if (t.getLastHeartbeat() != null && t.getLastHeartbeat().isBefore(threshold)) {
                 t.setStatus("offline");
@@ -148,17 +151,6 @@ public class TerminalServiceImpl implements TerminalService {
                         .eq(TerminalHeartbeat::getTerminalId, terminalId)
                         .orderByDesc(TerminalHeartbeat::getCreatedAt));
         return p;
-    }
-
-    private long getOfflineSeconds() {
-        try {
-            String val = System.getProperty("app.terminal.offline-seconds");
-            if (val != null) {
-                return Long.parseLong(val);
-            }
-        } catch (Exception ignored) {
-        }
-        return 300L;
     }
 
     @Override
