@@ -48,6 +48,8 @@
         </el-col>
         <el-col :span="18">
           <el-input v-model="keyword" placeholder="搜索资讯" prefix-icon="Search" style="margin-bottom: 12px" @change="loadContent" />
+          <el-empty v-if="contentList.length === 0 && !contentLoading" description="暂无内容" />
+          <el-skeleton v-if="contentLoading" :rows="4" animated />
           <el-row :gutter="12">
             <el-col :span="12" v-for="item in contentList" :key="item.id">
               <el-card class="content-card" shadow="hover" @click="openContent(item.id)">
@@ -72,13 +74,23 @@
         <p class="sub">终端播放拉取绑定的播放列表（默认 public-screen）</p>
         <div class="terminal-input">
           <el-input v-model="terminalCode" placeholder="终端代码，例如 public-screen" style="width: 260px" @change="loadPlayback" />
-          <el-button @click="loadPlayback">刷新</el-button>
+          <el-button @click="loadPlayback" :loading="playbackLoading">刷新</el-button>
         </div>
       </div>
       <el-row :gutter="12">
         <el-col :span="12">
           <video v-if="currentMedia?.url" controls autoplay style="width: 100%; border-radius: 8px" :src="currentMedia.url"></video>
           <div v-else class="video-placeholder">暂无可播媒体</div>
+          <div class="player-controls" v-if="mediaAssets.length">
+            <el-button size="small" @click="prevMedia">上一条</el-button>
+            <el-button size="small" @click="togglePlay">{{ autoPlay ? '暂停轮播' : '继续轮播' }}</el-button>
+            <el-button size="small" @click="nextMedia">下一条</el-button>
+          </div>
+          <div class="playlist-select" v-if="playback.length">
+            <el-select v-model="activePlaylistId" placeholder="选择播放列表" size="small" @change="onPlaylistChange">
+              <el-option v-for="p in playback" :key="p.playlist?.id" :label="p.playlist?.name" :value="p.playlist?.id" />
+            </el-select>
+          </div>
         </el-col>
         <el-col :span="12">
           <el-table :data="mediaAssets" size="small" @row-click="playMedia">
@@ -199,6 +211,7 @@ const activeParent = ref<any | null>(null);
 const activeChild = ref<any | null>(null);
 const keyword = ref('');
 const contentList = ref<any[]>([]);
+const contentLoading = ref(false);
 const contentPage = ref(1);
 const contentSize = ref(6);
 const contentTotal = ref(0);
@@ -210,6 +223,9 @@ const playback = ref<any[]>([]);
 const mediaAssets = ref<any[]>([]);
 const currentMedia = ref<any | null>(null);
 const playerTimer = ref<number | null>(null);
+const autoPlay = ref(true);
+const activePlaylistId = ref<number | null>(null);
+const playbackLoading = ref(false);
 
 const activities = ref<any[]>([]);
 const activityPage = ref(1);
@@ -260,10 +276,15 @@ const selectChild = (c: any) => {
 };
 
 const loadContent = async () => {
-  const resp = await fetchPublicContent(contentPage.value, contentSize.value, activeChild.value?.id, keyword.value);
-  const data = resp.data?.data || {};
-  contentList.value = data.records || [];
-  contentTotal.value = data.total || 0;
+  contentLoading.value = true;
+  try {
+    const resp = await fetchPublicContent(contentPage.value, contentSize.value, activeChild.value?.id, keyword.value);
+    const data = resp.data?.data || {};
+    contentList.value = data.records || [];
+    contentTotal.value = data.total || 0;
+  } finally {
+    contentLoading.value = false;
+  }
 };
 
 const onContentPage = (p: number) => {
@@ -278,12 +299,24 @@ const openContent = async (id: number) => {
 };
 
 const loadPlayback = async () => {
-  const resp = await fetchPlaybackPublic(terminalCode.value);
-  playback.value = resp.data?.data || [];
-  const first = playback.value[0];
-  mediaAssets.value = first?.mediaAssets || [];
-  currentMedia.value = mediaAssets.value[0] || null;
-  scheduleNext();
+  playbackLoading.value = true;
+  try {
+    localStorage.setItem('portal_terminal_code', terminalCode.value);
+    const resp = await fetchPlaybackPublic(terminalCode.value);
+    playback.value = resp.data?.data || [];
+    if (!playback.value.length) {
+      mediaAssets.value = [];
+      currentMedia.value = null;
+      return;
+    }
+    const first = playback.value[0];
+    activePlaylistId.value = first?.playlist?.id || null;
+    mediaAssets.value = first?.mediaAssets || [];
+    currentMedia.value = mediaAssets.value[0] || null;
+    scheduleNext();
+  } finally {
+    playbackLoading.value = false;
+  }
 };
 
 const playMedia = (row: any) => {
@@ -315,6 +348,8 @@ const signup = async () => {
   }
   await signupActivityPublic({ ...signupForm.value, activityId: currentActivity.value });
   ElMessage.success('报名成功');
+  queryPhone.value = signupForm.value.phone;
+  loadSignups();
   dialogVisible.value = false;
 };
 
@@ -373,9 +408,42 @@ const goAdmin = () => {
   window.location.href = '/dashboard';
 };
 
+const togglePlay = () => {
+  autoPlay.value = !autoPlay.value;
+  if (autoPlay.value) {
+    scheduleNext();
+  } else if (playerTimer.value) {
+    clearTimeout(playerTimer.value);
+  }
+};
+
+const nextMedia = () => {
+  if (!mediaAssets.value.length || !currentMedia.value) return;
+  const idx = mediaAssets.value.findIndex((m: any) => m.id === currentMedia.value.id);
+  currentMedia.value = mediaAssets.value[(idx + 1) % mediaAssets.value.length];
+  scheduleNext();
+};
+
+const prevMedia = () => {
+  if (!mediaAssets.value.length || !currentMedia.value) return;
+  const idx = mediaAssets.value.findIndex((m: any) => m.id === currentMedia.value.id);
+  const prev = (idx - 1 + mediaAssets.value.length) % mediaAssets.value.length;
+  currentMedia.value = mediaAssets.value[prev];
+  scheduleNext();
+};
+
+const onPlaylistChange = (id: number) => {
+  const target = playback.value.find((p: any) => p.playlist?.id === id);
+  mediaAssets.value = target?.mediaAssets || [];
+  currentMedia.value = mediaAssets.value[0] || null;
+  scheduleNext();
+};
+
 onMounted(async () => {
   await loadCategories();
   await loadContent();
+  const saved = localStorage.getItem('portal_terminal_code');
+  if (saved) terminalCode.value = saved;
   await loadPlayback();
   await loadActivities();
   loadStats();

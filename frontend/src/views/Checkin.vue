@@ -17,16 +17,19 @@
         <el-form-item label="姓名" required>
           <el-input v-model="form.name" placeholder="请输入姓名" />
         </el-form-item>
-        <el-form-item label="手机号" required>
-          <el-input v-model="form.phone" placeholder="请输入手机号" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" size="large" @click="submit" :loading="loading" style="width: 100%">
-            <el-icon><Check /></el-icon>
-            提交签到
-          </el-button>
-        </el-form-item>
-      </el-form>
+      <el-form-item label="手机号" required>
+        <el-input v-model="form.phone" placeholder="请输入手机号" />
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" size="large" @click="submit" :loading="loading" style="width: 100%">
+          <el-icon><Check /></el-icon>
+          提交签到
+        </el-button>
+        <div class="back-portal">
+          <el-button text type="primary" @click="goPortal">返回门户</el-button>
+        </div>
+      </el-form-item>
+    </el-form>
 
       <div class="tip-text">
         <el-icon><InfoFilled /></el-icon>
@@ -90,6 +93,10 @@ const submit = async () => {
     loading.value = false;
   }
 };
+
+const goPortal = () => {
+  window.location.href = '/portal';
+};
 </script>
 
 <style scoped>
@@ -149,5 +156,9 @@ const submit = async () => {
   margin-top: 20px;
   color: #909399;
   font-size: 13px;
+}
+.back-portal {
+  text-align: center;
+  margin-top: 8px;
 }
 </style>
