@@ -33,6 +33,16 @@
         <h2>内容展示</h2>
         <p class="sub">六大主菜单 + 子菜单资讯/视频</p>
       </div>
+      <el-card v-if="headline" class="headline-card" shadow="hover" @click="openContent(headline.id)">
+        <div class="headline-cover">
+          <img :src="headline.coverUrl" />
+          <div class="headline-tag">{{ activeParent?.name || '资讯' }}</div>
+          <div class="headline-info">
+            <h3>{{ headline.title }}</h3>
+            <p>{{ headline.summary || '点击查看详情' }}</p>
+          </div>
+        </div>
+      </el-card>
       <el-row :gutter="12">
         <el-col :span="6">
           <el-menu :default-active="activeParent?.id?.toString()" class="menu">
@@ -55,14 +65,16 @@
               <el-card class="content-card" shadow="hover" @click="openContent(item.id)">
                 <div class="content-cover" v-if="item.coverUrl">
                   <img :src="item.coverUrl" :alt="item.title" />
-                  <div class="cover-tag">{{ activeParent?.name }}</div>
+                  <div class="cover-tag primary">{{ activeParent?.name }}</div>
                 </div>
                 <div class="content-meta">
                   <h4>{{ item.title }}</h4>
                   <p class="summary">{{ item.summary || '查看详情' }}</p>
                   <div class="tags">
-                    <el-tag size="small" type="info">{{ activeChild?.name || activeParent?.name }}</el-tag>
-                    <el-tag v-if="item.publishTime" size="small">{{ item.publishTime }}</el-tag>
+                    <el-tag size="small" :type="tagColor(activeChild?.name || activeParent?.name)">
+                      {{ activeChild?.name || activeParent?.name }}
+                    </el-tag>
+                    <el-tag v-if="item.publishTime" size="small" type="info">{{ item.publishTime }}</el-tag>
                   </div>
                 </div>
               </el-card>
@@ -287,6 +299,7 @@ const contentSize = ref(6);
 const contentTotal = ref(0);
 const contentDialog = ref(false);
 const contentDetail = ref<any | null>(null);
+const headline = ref<any | null>(null);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -366,6 +379,7 @@ const loadContent = async () => {
     const data = resp.data?.data || {};
     contentList.value = data.records || [];
     contentTotal.value = data.total || 0;
+    headline.value = contentPage.value === 1 && contentList.value.length ? contentList.value[0] : headline.value;
   } finally {
     contentLoading.value = false;
   }
@@ -602,6 +616,17 @@ const loadMultiPreviews = async () => {
   multiPreviews.value = results;
 };
 
+const tagColor = (name?: string) => {
+  if (!name) return 'info';
+  const map: Record<string, string> = {
+    公益活动: 'success',
+    公益广告: 'warning',
+    雷锋热线: 'danger',
+    文明XX: 'info'
+  };
+  return map[name] || 'primary';
+};
+
 onMounted(async () => {
   await loadCategories();
   await loadContent();
@@ -628,6 +653,12 @@ onBeforeUnmount(() => {
 .meta-value { font-size: 24px; font-weight: 700; }
 .meta-label { font-size: 13px; opacity: 0.9; }
 .admin-btn { margin-left: 8px; }
+.headline-card { margin-bottom: 12px; border-radius: 12px; overflow: hidden; }
+.headline-cover { position: relative; }
+.headline-cover img { width: 100%; height: 260px; object-fit: cover; display: block; }
+.headline-tag { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.55); color: #fff; padding: 4px 10px; border-radius: 999px; }
+.headline-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.65) 100%); color: #fff; }
+.headline-info h3 { margin: 0 0 4px; }
 
 .section-head { margin: 16px 0 10px; }
 .sub { color: #909399; margin: 4px 0 0; }
@@ -654,4 +685,14 @@ onBeforeUnmount(() => {
 .breadcrumb { margin-bottom: 10px; }
 .detail-cover { margin-bottom: 12px; }
 .detail-cover img { width: 100%; border-radius: 8px; object-fit: cover; }
+.preview-card { margin-top: 12px; }
+.preview-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.mini-title { font-weight: 600; margin-bottom: 6px; }
+.mini-body { min-height: 60px; color: #606266; }
+.mini-empty { color: #c0c4cc; }
+.mini-playlist { padding: 6px 8px; border: 1px dashed #e4e7ed; border-radius: 6px; margin-bottom: 6px; }
+.mini-name { font-weight: 600; }
+.mini-count { font-size: 12px; color: #909399; }
+.progress-row { display: flex; align-items: center; gap: 6px; width: 100%; }
+.progress-row .time { font-size: 12px; color: #909399; width: 40px; text-align: center; }
 </style>
