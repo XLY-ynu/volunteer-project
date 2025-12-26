@@ -85,6 +85,7 @@
           </el-select>
           <el-button @click="loadPlayback" :loading="playbackLoading">刷新</el-button>
           <el-button type="primary" plain @click="saveFavorite">收藏终端</el-button>
+          <el-button text type="primary" @click="manageFavorites">管理收藏</el-button>
         </div>
       </div>
       <el-row :gutter="12">
@@ -97,6 +98,8 @@
             style="width: 100%; border-radius: 8px"
             :src="currentMedia.url"
             :muted="muted"
+            @timeupdate="onTimeUpdate"
+            @loadedmetadata="onLoadedMeta"
           ></video>
           <div v-else class="video-placeholder">暂无可播媒体</div>
           <div class="player-controls" v-if="mediaAssets.length">
@@ -108,6 +111,11 @@
             </el-select>
             <el-switch v-model="muted" active-text="静音" @change="applyVolume" />
             <el-slider v-model="volume" :min="0" :max="1" :step="0.05" style="width: 120px" @change="applyVolume" />
+            <div class="progress-row">
+              <span class="time">{{ formatTime(currentTime) }}</span>
+              <el-slider v-model="progress" :min="0" :max="100" @change="seek" />
+              <span class="time">{{ formatTime(duration) }}</span>
+            </div>
           </div>
           <div class="playlist-select" v-if="playback.length">
             <el-select v-model="activePlaylistId" placeholder="选择播放列表" size="small" @change="onPlaylistChange">
@@ -123,6 +131,7 @@
                   <img v-if="m.thumbUrl" :src="m.thumbUrl" />
                   <div v-else class="thumb-placeholder">{{ m.type }}</div>
                   <span class="badge">{{ m.durationSeconds ? m.durationSeconds + 's' : '—' }}</span>
+                  <span class="badge type">{{ m.type?.toUpperCase() || 'MEDIA' }}</span>
                 </div>
                 <p class="media-title">{{ m.name }}</p>
               </el-card>
@@ -130,6 +139,31 @@
           </el-row>
         </el-col>
       </el-row>
+
+      <el-card v-if="favoriteTerminals.length" class="preview-card" shadow="never">
+        <div class="preview-head">
+          <h4>多终端同步预览</h4>
+          <el-select v-model="multiSelected" multiple placeholder="选择终端" size="small" style="min-width: 280px" @change="loadMultiPreviews">
+            <el-option v-for="t in favoriteTerminals" :key="t" :label="t" :value="t" />
+          </el-select>
+        </div>
+        <el-row :gutter="10">
+          <el-col :span="8" v-for="p in multiPreviews" :key="p.terminal">
+            <el-card shadow="hover">
+              <div class="mini-title">{{ p.terminal }}</div>
+              <div class="mini-body">
+                <div v-if="p.playlists.length === 0" class="mini-empty">无可播列表</div>
+                <div v-else>
+                  <div class="mini-playlist" v-for="pl in p.playlists" :key="pl.playlist?.id">
+                    <div class="mini-name">{{ pl.playlist?.name || '未命名列表' }}</div>
+                    <div class="mini-count">资源数：{{ pl.mediaAssets?.length || 0 }}</div>
+                  </div>
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </el-card>
     </section>
 
     <section class="activities" id="activities">
@@ -229,7 +263,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   fetchActivitiesPublic,
   fetchPlaybackPublic,
@@ -271,6 +305,11 @@ const favoriteTerminals = ref<string[]>(() => {
   const saved = localStorage.getItem('portal_fav_terminals');
   return saved ? JSON.parse(saved) : [];
 } as any);
+const multiSelected = ref<string[]>([]);
+const multiPreviews = ref<any[]>([]);
+const currentTime = ref(0);
+const duration = ref(0);
+const progress = ref(0);
 
 const activities = ref<any[]>([]);
 const activityPage = ref(1);
@@ -509,6 +548,60 @@ const saveFavorite = () => {
   }
 };
 
+const manageFavorites = () => {
+  ElMessageBox.prompt('输入新终端名称以重命名，或留空删除当前选择', '管理收藏', {
+    inputPlaceholder: '如需删除，请留空',
+    inputValue: terminalCode.value
+  })
+    .then(({ value }) => {
+      const idx = favoriteTerminals.value.indexOf(terminalCode.value);
+      if (idx === -1) return;
+      if (!value) {
+        favoriteTerminals.value.splice(idx, 1);
+        ElMessage.success('已删除收藏');
+      } else {
+        favoriteTerminals.value.splice(idx, 1, value);
+        terminalCode.value = value;
+        ElMessage.success('已重命名');
+      }
+      localStorage.setItem('portal_fav_terminals', JSON.stringify(favoriteTerminals.value));
+    })
+    .catch(() => {});
+};
+
+const onTimeUpdate = () => {
+  if (!videoRef.value) return;
+  currentTime.value = videoRef.value.currentTime;
+  duration.value = videoRef.value.duration || 0;
+  progress.value = duration.value ? (currentTime.value / duration.value) * 100 : 0;
+};
+
+const onLoadedMeta = () => {
+  onTimeUpdate();
+};
+
+const seek = (val: number) => {
+  if (!videoRef.value || !duration.value) return;
+  videoRef.value.currentTime = (val / 100) * duration.value;
+  currentTime.value = videoRef.value.currentTime;
+};
+
+const formatTime = (sec: number) => {
+  if (!sec || Number.isNaN(sec)) return '00:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+const loadMultiPreviews = async () => {
+  const results: any[] = [];
+  for (const t of multiSelected.value) {
+    const resp = await fetchPlaybackPublic(t);
+    results.push({ terminal: t, playlists: resp.data?.data || [] });
+  }
+  multiPreviews.value = results;
+};
+
 onMounted(async () => {
   await loadCategories();
   await loadContent();
@@ -556,6 +649,7 @@ onBeforeUnmount(() => {
 .media-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .thumb-placeholder { color: #909399; text-transform: uppercase; }
 .badge { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,0.6); color: #fff; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+.badge.type { left: 6px; right: auto; top: 6px; bottom: auto; background: #409eff; }
 .media-title { margin: 6px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .breadcrumb { margin-bottom: 10px; }
 .detail-cover { margin-bottom: 12px; }
