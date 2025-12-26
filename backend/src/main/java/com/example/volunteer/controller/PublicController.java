@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.entity.ContentItem;
 import com.example.volunteer.entity.MenuCategory;
+import com.example.volunteer.dto.VolunteerSignupDto;
 import com.example.volunteer.service.ContentService;
 import com.example.volunteer.mapper.MenuCategoryMapper;
 import com.example.volunteer.dto.TerminalPlaybackDto;
@@ -16,17 +17,19 @@ import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import com.example.volunteer.dto.ActivitySignupPublicRequest;
 import com.example.volunteer.dto.ActivityCheckinPublicRequest;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import jakarta.validation.Valid;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/public")
@@ -199,5 +202,34 @@ public class PublicController {
             activitySignupMapper.updateById(signup);
         }
         return ApiResponse.ok(signup);
+    }
+
+    @GetMapping("/content/{id}")
+    public ApiResponse<ContentItem> contentDetail(@PathVariable Long id) {
+        return ApiResponse.ok(contentService.findById(id));
+    }
+
+    @GetMapping("/volunteer/signups")
+    public ApiResponse<List<VolunteerSignupDto>> volunteerSignups(@RequestParam String phone) {
+        Volunteer volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>().eq(Volunteer::getPhone, phone));
+        if (volunteer == null) {
+            return ApiResponse.ok(List.of());
+        }
+        List<ActivitySignup> signups = activitySignupMapper.selectList(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
+        List<VolunteerSignupDto> list = signups.stream().map(s -> {
+            Activity a = activityMapper.selectById(s.getActivityId());
+            VolunteerSignupDto dto = new VolunteerSignupDto();
+            dto.setActivityId(s.getActivityId());
+            dto.setTitle(a != null ? a.getTitle() : null);
+            dto.setLocation(a != null ? a.getLocation() : null);
+            dto.setStartTime(a != null ? a.getStartTime() : null);
+            dto.setEndTime(a != null ? a.getEndTime() : null);
+            dto.setStatus(s.getStatus());
+            dto.setCheckinTime(s.getCheckinTime());
+            dto.setSignupTime(s.getCreatedAt());
+            return dto;
+        }).collect(java.util.stream.Collectors.toList());
+        return ApiResponse.ok(list);
     }
 }

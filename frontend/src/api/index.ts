@@ -14,6 +14,10 @@ export const fetchCategories = () => {
   return http.get('/categories');
 };
 
+export const fetchPublicCategories = (parentId?: number) => {
+  return http.get('/public/categories', { params: { parentId } });
+};
+
 export const createCategory = (payload: { name: string; code: string; parentId?: number; sortOrder?: number }) => {
   return http.post('/categories', payload);
 };
@@ -61,6 +65,9 @@ export const createContent = (payload: any) => http.post('/content', payload);
 export const updateContent = (id: number, payload: any) => http.put(`/content/${id}`, payload);
 export const deleteContent = (id: number) => http.delete(`/content/${id}`);
 export const fetchContentById = (id: number) => http.get(`/content/${id}`);
+export const fetchPublicContent = (page = 1, size = 10, categoryId?: number, keyword?: string) =>
+  http.get('/public/content', { params: { page, size, categoryId, keyword } });
+export const fetchPublicContentById = (id: number) => http.get(`/public/content/${id}`);
 
 export const fetchLayouts = () => http.get('/layouts');
 export const createLayout = (payload: any) => http.post('/layouts', payload);
@@ -84,6 +91,9 @@ export const fetchActivitiesPublic = (page = 1, size = 10, keyword?: string) =>
 export const signupActivityPublic = (payload: any) => http.post('/public/activities/signup-public', payload);
 export const checkinActivityPublic = (payload: any) => http.post('/public/activities/checkin', payload);
 export const fetchActivityStats = (id: number) => http.get(`/activities/${id}/stats`);
+export const fetchVolunteerSignups = (phone: string) => http.get('/public/volunteer/signups', { params: { phone } });
+export const registerVolunteerPublic = (payload: any) => http.post('/public/volunteer/register', payload);
+export const fetchPlaybackPublic = (terminalCode: string) => http.get('/public/playback', { params: { terminalCode } });
 
 export const fetchSummary = () => http.get('/monitor/summary');
 export const fetchTerminalStatus = () => http.get('/monitor/terminal-status');
