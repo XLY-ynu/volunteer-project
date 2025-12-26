@@ -58,6 +58,12 @@
             <el-tag :type="scope.row.published ? 'success' : 'info'" size="small">{{ scope.row.published ? '已发布' : '草稿' }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="标记" width="140">
+          <template #default="scope">
+            <el-tag v-if="scope.row.headline" size="small" type="danger">头条</el-tag>
+            <el-tag v-if="scope.row.recommended" size="small" type="warning" style="margin-left: 6px">推荐</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="publishTime" label="发布时间" width="160">
           <template #default="scope">{{ formatDate(scope.row.publishTime) }}</template>
         </el-table-column>
@@ -112,6 +118,10 @@
         <el-form-item label="发布">
           <el-switch v-model="form.published" active-text="立即发布" inactive-text="存为草稿" />
         </el-form-item>
+        <el-form-item label="标记">
+          <el-checkbox v-model="form.headline">头条</el-checkbox>
+          <el-checkbox v-model="form.recommended" style="margin-left: 12px">推荐</el-checkbox>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -144,7 +154,9 @@ const form = ref({
   summary: '',
   coverUrl: '',
   body: '',
-  published: true
+  published: true,
+  headline: false,
+  recommended: false
 });
 
 const filter = ref<{ categoryId?: number; published?: boolean; keyword?: string }>({});
@@ -170,13 +182,22 @@ const formatDate = (d: string) => d ? d.replace('T', ' ').substring(0, 16) : '-'
 
 const onCreate = () => {
   editingId.value = null;
-  form.value = { title: '', categoryId: undefined, summary: '', coverUrl: '', body: '', published: true };
+  form.value = { title: '', categoryId: undefined, summary: '', coverUrl: '', body: '', published: true, headline: false, recommended: false };
   dialogVisible.value = true;
 };
 
 const edit = (row: any) => {
   editingId.value = row.id;
-  form.value = { title: row.title, categoryId: row.categoryId, summary: row.summary, coverUrl: row.coverUrl, body: row.body, published: row.published };
+  form.value = {
+    title: row.title,
+    categoryId: row.categoryId,
+    summary: row.summary,
+    coverUrl: row.coverUrl,
+    body: row.body,
+    published: row.published,
+    headline: row.headline,
+    recommended: row.recommended
+  };
   dialogVisible.value = true;
 };
 

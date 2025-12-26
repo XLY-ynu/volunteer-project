@@ -14,4 +14,6 @@ public class ContentItemRequest {
     private String body;
     private String coverUrl;
     private Boolean published;
+    private Boolean headline;
+    private Boolean recommended;
 }

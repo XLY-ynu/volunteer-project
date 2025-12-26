@@ -93,3 +93,7 @@ CREATE TABLE IF NOT EXISTS activity_checkin_log (
 
 -- 10) 播放列表增加封面
 -- ALTER TABLE playlist ADD COLUMN cover_url VARCHAR(255) NULL AFTER description;
+
+-- 11) 内容头条/推荐标记
+-- ALTER TABLE content_item ADD COLUMN headline TINYINT(1) DEFAULT 0;
+-- ALTER TABLE content_item ADD COLUMN recommended TINYINT(1) DEFAULT 0;

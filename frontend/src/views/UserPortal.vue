@@ -74,6 +74,8 @@
                     <el-tag size="small" :type="tagColor(activeChild?.name || activeParent?.name)">
                       {{ activeChild?.name || activeParent?.name }}
                     </el-tag>
+                    <el-tag v-if="item.headline" size="small" type="danger">头条</el-tag>
+                    <el-tag v-if="item.recommended" size="small" type="warning">推荐</el-tag>
                     <el-tag v-if="item.publishTime" size="small" type="info">{{ item.publishTime }}</el-tag>
                   </div>
                 </div>
@@ -98,6 +100,7 @@
           <el-button @click="loadPlayback" :loading="playbackLoading">刷新</el-button>
           <el-button type="primary" plain @click="saveFavorite">收藏终端</el-button>
           <el-button text type="primary" @click="manageFavorites">管理收藏</el-button>
+          <el-button text type="primary" @click="topFavorite">置顶</el-button>
         </div>
       </div>
       <el-row :gutter="12">
@@ -125,7 +128,15 @@
             <el-slider v-model="volume" :min="0" :max="1" :step="0.05" style="width: 120px" @change="applyVolume" />
             <div class="progress-row">
               <span class="time">{{ formatTime(currentTime) }}</span>
-              <el-slider v-model="progress" :min="0" :max="100" @change="seek" />
+              <div class="progress-wrap" @mousemove="onProgressHover" @mouseleave="hidePreview">
+                <div class="buffered" :style="{ width: bufferedProgress + '%' }"></div>
+                <el-slider v-model="progress" :min="0" :max="100" @change="seek" />
+                <div v-if="previewVisible" class="preview" :style="{ left: previewPercent + '%' }">
+                  <img v-if="currentMedia?.thumbUrl || currentMedia?.coverUrl" :src="currentMedia.thumbUrl || currentMedia.coverUrl" />
+                  <div v-else class="preview-fallback">{{ formatTime(previewTime) }}</div>
+                  <div class="preview-time">{{ formatTime(previewTime) }}</div>
+                </div>
+              </div>
               <span class="time">{{ formatTime(duration) }}</span>
             </div>
           </div>
@@ -144,6 +155,7 @@
                   <div v-else class="thumb-placeholder">{{ m.type }}</div>
                   <span class="badge">{{ m.durationSeconds ? m.durationSeconds + 's' : '—' }}</span>
                   <span class="badge type">{{ m.type?.toUpperCase() || 'MEDIA' }}</span>
+                  <span v-if="m.type === 'video'" class="badge quality" :class="qualityClass(m)">{{ qualityLabel(m) }}</span>
                 </div>
                 <p class="media-title">{{ m.name }}</p>
               </el-card>
@@ -155,7 +167,7 @@
       <el-card v-if="favoriteTerminals.length" class="preview-card" shadow="never">
         <div class="preview-head">
           <h4>多终端同步预览</h4>
-          <el-select v-model="multiSelected" multiple placeholder="选择终端" size="small" style="min-width: 280px" @change="loadMultiPreviews">
+          <el-select v-model="multiSelected" multiple placeholder="选择终端" size="small" style="min-width: 280px" @change="onMultiSelectedChange">
             <el-option v-for="t in favoriteTerminals" :key="t" :label="t" :value="t" />
           </el-select>
         </div>
@@ -164,6 +176,10 @@
             <el-card shadow="hover">
               <div class="mini-title">{{ p.terminal }}</div>
               <div class="mini-body">
+                <div class="mini-now" v-if="p.currentMedia">
+                  <div class="mini-name">播放中：{{ p.currentMedia.name }}</div>
+                  <div class="mini-count">时长：{{ p.currentMedia.durationSeconds || '-' }}s</div>
+                </div>
                 <div v-if="p.playlists.length === 0" class="mini-empty">无可播列表</div>
                 <div v-else>
                   <div class="mini-playlist" v-for="pl in p.playlists" :key="pl.playlist?.id">
@@ -268,14 +284,31 @@
       <div class="detail-cover" v-if="contentDetail?.coverUrl">
         <img :src="contentDetail.coverUrl" />
       </div>
-      <div v-html="contentDetail?.body || contentDetail?.summary"></div>
+      <div class="detail-body" v-html="contentDetail?.body || contentDetail?.summary"></div>
+    </el-dialog>
+
+    <el-dialog v-model="favDialog" title="收藏终端管理" width="520px">
+      <el-table :data="favoriteTerminals.map((name, index) => ({ name, index }))" @selection-change="onFavSelect">
+        <el-table-column type="selection" width="45" />
+        <el-table-column label="终端名称">
+          <template #default="scope">
+            <el-input v-model="favoriteTerminals[scope.row.index]" size="small" />
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button @click="favDialog = false">关闭</el-button>
+        <el-button @click="batchDeleteFavorites">删除所选</el-button>
+        <el-button @click="batchTopFavorites">置顶所选</el-button>
+        <el-button type="primary" @click="saveFavorites">保存</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import {
   fetchActivitiesPublic,
   fetchPlaybackPublic,
@@ -300,6 +333,7 @@ const contentTotal = ref(0);
 const contentDialog = ref(false);
 const contentDetail = ref<any | null>(null);
 const headline = ref<any | null>(null);
+const headlinePool = ref<any[]>([]);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -314,15 +348,24 @@ const rates = [0.75, 1, 1.25, 1.5];
 const volume = ref(0.8);
 const muted = ref(false);
 const videoRef = ref<HTMLVideoElement>();
-const favoriteTerminals = ref<string[]>(() => {
-  const saved = localStorage.getItem('portal_fav_terminals');
-  return saved ? JSON.parse(saved) : [];
-} as any);
+const favoriteTerminals = ref<string[]>(
+  (() => {
+    const saved = localStorage.getItem('portal_fav_terminals');
+    return saved ? JSON.parse(saved) : [];
+  })()
+);
 const multiSelected = ref<string[]>([]);
 const multiPreviews = ref<any[]>([]);
 const currentTime = ref(0);
 const duration = ref(0);
 const progress = ref(0);
+const bufferedProgress = ref(0);
+const previewVisible = ref(false);
+const previewPercent = ref(0);
+const previewTime = ref(0);
+const favDialog = ref(false);
+const favSelection = ref<number[]>([]);
+const multiTimer = ref<number | null>(null);
 
 const activities = ref<any[]>([]);
 const activityPage = ref(1);
@@ -379,7 +422,18 @@ const loadContent = async () => {
     const data = resp.data?.data || {};
     contentList.value = data.records || [];
     contentTotal.value = data.total || 0;
-    headline.value = contentPage.value === 1 && contentList.value.length ? contentList.value[0] : headline.value;
+    if (contentPage.value === 1 && contentList.value.length) {
+      const list = [...contentList.value];
+      const pick = list.find((i: any) => i.headline) || list.find((i: any) => i.recommended);
+      if (pick) {
+        headline.value = pick;
+      } else {
+        headlinePool.value = list.sort((a: any, b: any) => {
+          return (new Date(b.publishTime || b.createdAt || 0).getTime()) - (new Date(a.publishTime || a.createdAt || 0).getTime());
+        });
+        headline.value = headlinePool.value[0];
+      }
+    }
   } finally {
     contentLoading.value = false;
   }
@@ -563,24 +617,43 @@ const saveFavorite = () => {
 };
 
 const manageFavorites = () => {
-  ElMessageBox.prompt('输入新终端名称以重命名，或留空删除当前选择', '管理收藏', {
-    inputPlaceholder: '如需删除，请留空',
-    inputValue: terminalCode.value
-  })
-    .then(({ value }) => {
-      const idx = favoriteTerminals.value.indexOf(terminalCode.value);
-      if (idx === -1) return;
-      if (!value) {
-        favoriteTerminals.value.splice(idx, 1);
-        ElMessage.success('已删除收藏');
-      } else {
-        favoriteTerminals.value.splice(idx, 1, value);
-        terminalCode.value = value;
-        ElMessage.success('已重命名');
-      }
-      localStorage.setItem('portal_fav_terminals', JSON.stringify(favoriteTerminals.value));
-    })
-    .catch(() => {});
+  favDialog.value = true;
+};
+
+const onFavSelect = (rows: any[]) => {
+  favSelection.value = rows.map((r: any) => r.index);
+};
+
+const saveFavorites = () => {
+  favoriteTerminals.value = favoriteTerminals.value.filter((t) => t && t.trim());
+  localStorage.setItem('portal_fav_terminals', JSON.stringify(favoriteTerminals.value));
+  ElMessage.success('已保存');
+  favDialog.value = false;
+};
+
+const batchDeleteFavorites = () => {
+  if (favSelection.value.length === 0) return;
+  const sorted = [...favSelection.value].sort((a, b) => b - a);
+  sorted.forEach((idx) => favoriteTerminals.value.splice(idx, 1));
+  favSelection.value = [];
+};
+
+const batchTopFavorites = () => {
+  if (favSelection.value.length === 0) return;
+  const selected = favSelection.value.sort((a, b) => a - b).map((idx) => favoriteTerminals.value[idx]);
+  const remain = favoriteTerminals.value.filter((_, idx) => !favSelection.value.includes(idx));
+  favoriteTerminals.value = [...selected, ...remain];
+  favSelection.value = [];
+};
+
+const topFavorite = () => {
+  const idx = favoriteTerminals.value.indexOf(terminalCode.value);
+  if (idx > 0) {
+    favoriteTerminals.value.splice(idx, 1);
+    favoriteTerminals.value.unshift(terminalCode.value);
+    localStorage.setItem('portal_fav_terminals', JSON.stringify(favoriteTerminals.value));
+    ElMessage.success('已置顶');
+  }
 };
 
 const onTimeUpdate = () => {
@@ -588,6 +661,24 @@ const onTimeUpdate = () => {
   currentTime.value = videoRef.value.currentTime;
   duration.value = videoRef.value.duration || 0;
   progress.value = duration.value ? (currentTime.value / duration.value) * 100 : 0;
+  const buf = videoRef.value.buffered;
+  if (buf && buf.length) {
+    const end = buf.end(buf.length - 1);
+    bufferedProgress.value = duration.value ? (end / duration.value) * 100 : 0;
+  }
+};
+
+const onProgressHover = (evt: MouseEvent) => {
+  const target = evt.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  const percent = Math.max(0, Math.min(100, ((evt.clientX - rect.left) / rect.width) * 100));
+  previewPercent.value = percent;
+  previewTime.value = duration.value ? (duration.value * percent) / 100 : 0;
+  previewVisible.value = true;
+};
+
+const hidePreview = () => {
+  previewVisible.value = false;
 };
 
 const onLoadedMeta = () => {
@@ -611,9 +702,38 @@ const loadMultiPreviews = async () => {
   const results: any[] = [];
   for (const t of multiSelected.value) {
     const resp = await fetchPlaybackPublic(t);
-    results.push({ terminal: t, playlists: resp.data?.data || [] });
+    const playlists = resp.data?.data || [];
+    const currentPlaying = playlists.flatMap((p: any) => p.mediaAssets || []).find(() => true) || null;
+    results.push({
+      terminal: t,
+      playlists,
+      currentMedia: currentPlaying,
+      totalCount: playlists.reduce((acc: number, p: any) => acc + (p.mediaAssets?.length || 0), 0)
+    });
   }
   multiPreviews.value = results;
+};
+
+const onMultiSelectedChange = () => {
+  loadMultiPreviews();
+  startMultiPolling();
+};
+
+const startMultiPolling = () => {
+  if (multiTimer.value) {
+    clearInterval(multiTimer.value);
+  }
+  if (!multiSelected.value.length) return;
+  multiTimer.value = window.setInterval(() => {
+    loadMultiPreviews();
+  }, 10000);
+};
+
+const stopMultiPolling = () => {
+  if (multiTimer.value) {
+    clearInterval(multiTimer.value);
+    multiTimer.value = null;
+  }
 };
 
 const tagColor = (name?: string) => {
@@ -625,6 +745,15 @@ const tagColor = (name?: string) => {
     文明XX: 'info'
   };
   return map[name] || 'primary';
+};
+
+const qualityLabel = (m: any) => {
+  const hd = (m.width && m.width >= 1280) || (m.height && m.height >= 720) || (m.sizeBytes && m.sizeBytes > 50 * 1024 * 1024);
+  return hd ? 'HD' : 'SD';
+};
+
+const qualityClass = (m: any) => {
+  return qualityLabel(m) === 'HD' ? 'hd' : 'sd';
 };
 
 onMounted(async () => {
@@ -639,6 +768,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (playerTimer.value) clearTimeout(playerTimer.value);
+  stopMultiPolling();
 });
 </script>
 
@@ -685,14 +815,31 @@ onBeforeUnmount(() => {
 .breadcrumb { margin-bottom: 10px; }
 .detail-cover { margin-bottom: 12px; }
 .detail-cover img { width: 100%; border-radius: 8px; object-fit: cover; }
+.detail-body { line-height: 1.8; letter-spacing: 0.3px; color: #303133; }
+.detail-body p { margin: 10px 0; }
+.detail-body h2 { margin: 14px 0 8px; font-size: 18px; }
+.detail-body ul { padding-left: 18px; }
+.detail-body li { margin: 6px 0; }
+.detail-body blockquote { border-left: 4px solid #409eff; padding: 6px 12px; color: #606266; background: #f5f7fa; margin: 10px 0; }
 .preview-card { margin-top: 12px; }
 .preview-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .mini-title { font-weight: 600; margin-bottom: 6px; }
 .mini-body { min-height: 60px; color: #606266; }
+.mini-now { padding: 6px 8px; background: #f0f9eb; border-radius: 6px; margin-bottom: 6px; }
 .mini-empty { color: #c0c4cc; }
 .mini-playlist { padding: 6px 8px; border: 1px dashed #e4e7ed; border-radius: 6px; margin-bottom: 6px; }
 .mini-name { font-weight: 600; }
 .mini-count { font-size: 12px; color: #909399; }
 .progress-row { display: flex; align-items: center; gap: 6px; width: 100%; }
 .progress-row .time { font-size: 12px; color: #909399; width: 40px; text-align: center; }
+.progress-wrap { position: relative; width: 100%; }
+.buffered { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 4px; background: #dcdfe6; width: 0; border-radius: 2px; z-index: 1; }
+.progress-wrap :deep(.el-slider) { position: relative; z-index: 2; }
+.preview { position: absolute; top: -90px; transform: translateX(-50%); width: 120px; background: #fff; border: 1px solid #e4e7ed; border-radius: 6px; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.preview img { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; }
+.preview-fallback { height: 60px; display: flex; align-items: center; justify-content: center; color: #909399; }
+.preview-time { text-align: center; font-size: 12px; color: #606266; margin-top: 4px; }
+.badge.quality { left: auto; right: 6px; top: 6px; bottom: auto; background: #67c23a; }
+.badge.quality.hd { background: #67c23a; }
+.badge.quality.sd { background: #909399; }
 </style>

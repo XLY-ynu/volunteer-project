@@ -28,6 +28,8 @@ public class ContentServiceImpl implements ContentService {
         item.setBody(request.getBody());
         item.setCoverUrl(request.getCoverUrl());
         item.setPublished(Boolean.TRUE.equals(request.getPublished()));
+        item.setHeadline(Boolean.TRUE.equals(request.getHeadline()));
+        item.setRecommended(Boolean.TRUE.equals(request.getRecommended()));
         item.setPublishTime(Boolean.TRUE.equals(request.getPublished()) ? LocalDateTime.now() : null);
         item.setCreatedAt(LocalDateTime.now());
         item.setUpdatedAt(LocalDateTime.now());
@@ -47,6 +49,8 @@ public class ContentServiceImpl implements ContentService {
         item.setBody(request.getBody());
         item.setCoverUrl(request.getCoverUrl());
         item.setPublished(Boolean.TRUE.equals(request.getPublished()));
+        item.setHeadline(Boolean.TRUE.equals(request.getHeadline()));
+        item.setRecommended(Boolean.TRUE.equals(request.getRecommended()));
         item.setPublishTime(Boolean.TRUE.equals(request.getPublished()) ? LocalDateTime.now() : null);
         item.setUpdatedAt(LocalDateTime.now());
         contentItemMapper.updateById(item);

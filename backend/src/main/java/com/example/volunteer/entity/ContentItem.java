@@ -18,6 +18,8 @@ public class ContentItem {
     private String body;
     private String coverUrl;
     private Boolean published;
+    private Boolean headline;
+    private Boolean recommended;
     private LocalDateTime publishTime;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
