@@ -76,6 +76,14 @@ public class TerminalServiceImpl implements TerminalService {
         t.setCreatedAt(LocalDateTime.now());
         t.setUpdatedAt(LocalDateTime.now());
         terminalMapper.insert(t);
+        
+        // 创建初始心跳记录
+        TerminalHeartbeat hb = new TerminalHeartbeat();
+        hb.setTerminalId(t.getId());
+        hb.setStatus("online");
+        hb.setCreatedAt(LocalDateTime.now());
+        terminalHeartbeatMapper.insert(hb);
+        
         return t;
     }
 

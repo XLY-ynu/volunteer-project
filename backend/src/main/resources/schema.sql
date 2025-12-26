@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS media_asset (
     name VARCHAR(128) NOT NULL,
     type VARCHAR(32) NOT NULL,
     url VARCHAR(255) NOT NULL,
+    thumb_url VARCHAR(255),
     size_bytes BIGINT,
     duration_seconds INT,
     width INT,
@@ -82,6 +83,7 @@ CREATE TABLE IF NOT EXISTS playlist (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(128) NOT NULL,
     description VARCHAR(255),
+    cover_url VARCHAR(255),
     layout_id BIGINT,
     created_at DATETIME,
     updated_at DATETIME
@@ -177,6 +179,7 @@ CREATE TABLE IF NOT EXISTS activity (
     start_time DATETIME,
     end_time DATETIME,
     capacity INT,
+    checkin_code VARCHAR(32),
     created_at DATETIME,
     updated_at DATETIME
 );

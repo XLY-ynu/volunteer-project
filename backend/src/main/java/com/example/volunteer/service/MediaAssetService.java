@@ -12,4 +12,10 @@ public interface MediaAssetService {
     MediaAsset upload(MultipartFile file, String type);
     MediaAsset findById(Long id);
     MediaAsset uploadThumb(Long id, MultipartFile file);
+    
+    /**
+     * 仅上传文件，不创建媒体资源记录
+     * 用于内容封面等附属图片
+     */
+    String uploadCoverOnly(MultipartFile file);
 }

@@ -36,4 +36,21 @@ public class LayoutController {
     public ApiResponse<Layout> get(@PathVariable Long id) {
         return ApiResponse.ok(layoutMapper.selectById(id));
     }
+
+    @PutMapping("/{id}")
+    public ApiResponse<Layout> update(@PathVariable Long id, @Valid @RequestBody Layout layout) {
+        Layout existing = layoutMapper.selectById(id);
+        if (existing == null) {
+            return ApiResponse.fail("布局不存在");
+        }
+        layout.setId(id);
+        layoutMapper.updateById(layout);
+        return ApiResponse.ok(layout);
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        layoutMapper.deleteById(id);
+        return ApiResponse.ok(null);
+    }
 }

@@ -1,5 +1,6 @@
 package com.example.volunteer.dto;
 
+import com.example.volunteer.entity.ContentItem;
 import com.example.volunteer.entity.Layout;
 import com.example.volunteer.entity.MediaAsset;
 import com.example.volunteer.entity.Playlist;
@@ -14,4 +15,5 @@ public class PlaylistPreviewDto {
     private Layout layout;
     private List<PlaylistItem> items;
     private List<MediaAsset> mediaAssets;
+    private List<ContentItem> contentAssets;
 }

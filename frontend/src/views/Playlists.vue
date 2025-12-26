@@ -6,176 +6,325 @@
           <h3>播放列表</h3>
           <span class="subtitle">创建和管理媒体播放列表</span>
         </div>
-        <div class="header-actions">
-          <el-button @click="resetForm">新建列表</el-button>
-          <el-button type="primary" @click="onSave">{{ editingId ? '保存修改' : '创建列表' }}</el-button>
-          <el-button type="success" @click="openPublish">发布到分组</el-button>
-        </div>
+        <el-button type="primary" @click="openCreate">
+          <el-icon><Plus /></el-icon>
+          新建列表
+        </el-button>
       </div>
     </el-card>
 
-    <el-card class="content-card" shadow="never">
-      <el-form :inline="true" class="playlist-form">
-        <el-form-item label="名称">
-          <el-input v-model="form.name" placeholder="播放列表名称" style="width: 200px" />
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="form.description" placeholder="描述信息" style="width: 240px" />
-        </el-form-item>
-        <el-form-item label="布局">
-          <el-select v-model="form.layoutId" placeholder="选择布局" clearable style="width: 160px">
-            <el-option v-for="l in layouts" :key="l.id" :label="l.name" :value="l.id" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-
-      <el-divider content-position="left">选择媒体资源</el-divider>
-
-      <el-table :data="mediaItems" stripe @selection-change="onSelectChange" max-height="300">
-        <el-table-column type="selection" width="50" />
-        <el-table-column label="缩略图" width="80">
-          <template #default="scope">
-            <el-image v-if="scope.row.thumbUrl || scope.row.type === 'image'" :src="scope.row.thumbUrl || scope.row.url" fit="cover" style="width: 50px; height: 35px; border-radius: 4px" />
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="name" label="资源名称" />
-        <el-table-column prop="type" label="类型" width="100">
-          <template #default="scope">
-            <el-tag size="small">{{ scope.row.type }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="播放时长(秒)" width="160">
-          <template #default="scope">
-            <el-input-number v-model="durations[scope.row.id]" :min="3" :max="600" size="small" />
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
-    <el-card class="content-card" shadow="never">
-      <template #header>
-        <div class="card-header">
-          <span>已有播放列表</span>
-          <el-tag>{{ playlists.length }} 个</el-tag>
+    <!-- 播放列表卡片展示 -->
+    <div class="playlist-grid" v-if="playlists.length > 0">
+      <el-card v-for="p in playlists" :key="p.id" class="playlist-card" shadow="hover" @click="preview(p.id)">
+        <div class="playlist-cover">
+          <el-image v-if="p.coverUrl" :src="p.coverUrl" fit="cover" class="cover-img" />
+          <div v-else class="cover-placeholder">
+            <el-icon><VideoPlay /></el-icon>
+          </div>
+          <div class="playlist-badge">{{ p.itemCount || 0 }} 项</div>
         </div>
-      </template>
-      <el-table :data="playlists" stripe>
-        <el-table-column prop="name" label="名称" min-width="150" />
-        <el-table-column prop="description" label="描述" min-width="200" />
-        <el-table-column label="布局" width="120">
-          <template #default="scope">
-            <el-tag v-if="scope.row.layoutId" size="small">ID: {{ scope.row.layoutId }}</el-tag>
-            <span v-else class="no-data">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180">
-          <template #default="scope">{{ formatDate(scope.row.createdAt) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
-          <template #default="scope">
-            <el-button size="small" @click="edit(scope.row)">编辑</el-button>
-            <el-button size="small" type="primary" @click="preview(scope.row.id)">预览</el-button>
-            <el-button size="small" @click="viewItems(scope.row.id)">条目</el-button>
-            <el-button size="small" type="danger" @click="remove(scope.row.id)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+        <div class="playlist-info">
+          <div class="playlist-name">{{ p.name }}</div>
+          <div class="playlist-desc">{{ p.description || '暂无描述' }}</div>
+          <div class="playlist-meta">
+            <el-tag v-if="p.layoutId" size="small">{{ getLayoutName(p.layoutId) }}</el-tag>
+            <span class="playlist-date">{{ formatDate(p.createdAt) }}</span>
+          </div>
+        </div>
+        <div class="playlist-actions" @click.stop>
+          <el-button size="small" @click="edit(p)" title="编辑">
+            <el-icon><Edit /></el-icon>
+          </el-button>
+          <el-button size="small" type="danger" @click="remove(p.id)" title="删除">
+            <el-icon><Delete /></el-icon>
+          </el-button>
+        </div>
+      </el-card>
+    </div>
+    <el-empty v-else description="暂无播放列表，点击上方按钮创建" />
 
-    <el-dialog v-model="itemsDialogVisible" title="播放条目" width="520px">
-      <el-table :data="currentItems" size="small">
-        <el-table-column prop="sortOrder" label="#" width="60" />
-        <el-table-column prop="mediaId" label="媒体ID" />
-        <el-table-column prop="displayDuration" label="时长(秒)" />
-      </el-table>
-    </el-dialog>
-
-    <el-dialog v-model="publishDialog" title="发布到分组" width="480px">
-      <el-form :model="publishForm" label-width="80px">
-        <el-form-item label="分组名">
-          <el-input v-model="publishForm.groupName" placeholder="输入终端分组名称" />
-        </el-form-item>
-        <el-form-item label="时间范围">
-          <el-date-picker v-model="publishRange" type="datetimerange" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
+    <!-- 创建/编辑对话框 -->
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑播放列表' : '新建播放列表'" width="800px" destroy-on-close>
+      <el-form :model="form" label-width="80px" class="dialog-form">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="名称" required>
+              <el-input v-model="form.name" placeholder="播放列表名称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="布局">
+              <el-select v-model="form.layoutId" placeholder="选择布局（可选）" clearable style="width: 100%">
+                <el-option v-for="l in layouts" :key="l.id" :label="l.name" :value="l.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="描述">
+          <el-input v-model="form.description" placeholder="描述信息（可选）" />
         </el-form-item>
       </el-form>
+
+      <!-- 资源选择区域 -->
+      <div class="resource-section">
+        <div class="section-header">
+          <span class="section-title">选择资源</span>
+          <el-radio-group v-model="resourceType" size="small">
+            <el-radio-button label="media"><el-icon><Picture /></el-icon> 媒体</el-radio-button>
+            <el-radio-button label="content"><el-icon><Document /></el-icon> 内容</el-radio-button>
+          </el-radio-group>
+        </div>
+
+        <!-- 媒体资源列表 -->
+        <el-table v-show="resourceType === 'media'" :data="mediaItems" stripe @selection-change="onMediaSelectChange" max-height="200" ref="mediaTableRef" size="small">
+          <el-table-column type="selection" width="45" />
+          <el-table-column label="预览" width="70">
+            <template #default="scope">
+              <el-image v-if="scope.row.thumbUrl || scope.row.type === 'image'" :src="scope.row.thumbUrl || scope.row.url" fit="cover" class="thumb-img" />
+              <div v-else class="thumb-placeholder"><el-icon><VideoPlay /></el-icon></div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="name" label="名称" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="type" label="类型" width="80">
+            <template #default="scope">
+              <el-tag :type="scope.row.type === 'video' ? 'warning' : 'success'" size="small">{{ scope.row.type === 'video' ? '视频' : '图片' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="时长(秒)" width="110">
+            <template #default="scope">
+              <el-input-number v-model="mediaDurations[scope.row.id]" :min="3" :max="600" size="small" controls-position="right" />
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <!-- 内容资源列表 -->
+        <el-table v-show="resourceType === 'content'" :data="contentItems" stripe @selection-change="onContentSelectChange" max-height="200" ref="contentTableRef" size="small">
+          <el-table-column type="selection" width="45" />
+          <el-table-column label="封面" width="70">
+            <template #default="scope">
+              <el-image v-if="scope.row.coverUrl" :src="scope.row.coverUrl" fit="cover" class="thumb-img" />
+              <div v-else class="thumb-placeholder"><el-icon><Document /></el-icon></div>
+            </template>
+          </el-table-column>
+          <el-table-column label="标题" min-width="150" show-overflow-tooltip>
+            <template #default="scope">{{ scope.row.title }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="80">
+            <template #default="scope">
+              <el-tag :type="scope.row.published ? 'success' : 'info'" size="small">{{ scope.row.published ? '已发布' : '草稿' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="时长(秒)" width="110">
+            <template #default="scope">
+              <el-input-number v-model="contentDurations[scope.row.id]" :min="5" :max="600" size="small" controls-position="right" />
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <!-- 已选资源 -->
+      <div class="selected-section">
+        <div class="section-header">
+          <span class="section-title">已选资源</span>
+          <el-tag type="info" size="small">{{ selectedItems.length }} 项，可拖拽排序</el-tag>
+        </div>
+        <div class="selected-list" v-if="selectedItems.length">
+          <draggable v-model="selectedItems" item-key="key" class="drag-list" handle=".drag-handle">
+            <template #item="{ element, index }">
+              <div class="selected-item">
+                <el-icon class="drag-handle"><Rank /></el-icon>
+                <span class="item-order">{{ index + 1 }}</span>
+                <el-image v-if="element.thumb" :src="element.thumb" fit="cover" class="item-thumb" />
+                <div v-else class="item-thumb-placeholder"><el-icon><Document /></el-icon></div>
+                <div class="item-info">
+                  <span class="item-name">{{ element.name }}</span>
+                  <el-tag :type="element.type === 'content' ? 'primary' : 'success'" size="small">{{ element.type === 'content' ? '内容' : '媒体' }}</el-tag>
+                </div>
+                <span class="item-duration">{{ element.duration }}秒</span>
+                <el-button type="danger" link size="small" @click="removeSelected(index)"><el-icon><Close /></el-icon></el-button>
+              </div>
+            </template>
+          </draggable>
+        </div>
+        <div v-else class="empty-selected">请从上方表格勾选资源</div>
+      </div>
+
       <template #footer>
-        <el-button @click="publishDialog = false">取消</el-button>
-        <el-button type="primary" @click="publish">发布</el-button>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="onSave">{{ editingId ? '保存修改' : '创建列表' }}</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="previewDialog" title="播放列表预览" width="700px">
+    <!-- 预览对话框 -->
+    <el-dialog v-model="previewDialog" title="播放列表预览" width="650px">
       <div v-if="previewData" class="preview-content">
         <div class="preview-header">
           <el-image v-if="previewData.playlist?.coverUrl" :src="previewData.playlist.coverUrl" fit="cover" class="preview-cover" />
+          <div v-else class="preview-cover-placeholder"><el-icon><VideoPlay /></el-icon></div>
           <div class="preview-info">
             <h3>{{ previewData.playlist?.name }}</h3>
             <p>{{ previewData.playlist?.description || '暂无描述' }}</p>
-            <el-tag v-if="previewData.layout">布局: {{ previewData.layout.name }}</el-tag>
+            <div class="preview-tags">
+              <el-tag v-if="previewData.layout" size="small">布局: {{ previewData.layout.name }}</el-tag>
+              <el-tag type="info" size="small">{{ previewData.items?.length || 0 }} 个资源</el-tag>
+            </div>
           </div>
         </div>
         <el-divider />
-        <el-table :data="previewData.items" size="small">
-          <el-table-column prop="sortOrder" label="#" width="60" />
-          <el-table-column label="媒体">
+        <el-table :data="previewData.items" size="small" max-height="300">
+          <el-table-column prop="sortOrder" label="#" width="50" />
+          <el-table-column label="资源" min-width="200">
             <template #default="scope">
               <div class="media-row">
-                <el-image v-if="mediaThumb(scope.row.mediaId)" :src="mediaThumb(scope.row.mediaId)" fit="cover" style="width: 50px; height: 35px; border-radius: 4px" />
-                <span>{{ mediaName(scope.row.mediaId) || '内容ID:' + scope.row.contentId }}</span>
+                <template v-if="scope.row.mediaId">
+                  <el-image v-if="getMediaThumb(scope.row.mediaId)" :src="getMediaThumb(scope.row.mediaId)" fit="cover" class="preview-thumb" />
+                  <span>{{ getMediaName(scope.row.mediaId) }}</span>
+                  <el-tag size="small" type="success">媒体</el-tag>
+                </template>
+                <template v-else-if="scope.row.contentId">
+                  <el-image v-if="getContentCover(scope.row.contentId)" :src="getContentCover(scope.row.contentId)" fit="cover" class="preview-thumb" />
+                  <span>{{ getContentTitle(scope.row.contentId) }}</span>
+                  <el-tag size="small" type="primary">内容</el-tag>
+                </template>
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="displayDuration" label="时长(秒)" width="100" />
+          <el-table-column prop="displayDuration" label="时长(秒)" width="90" />
         </el-table>
       </div>
     </el-dialog>
   </div>
 </template>
 
-<script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { createPlaylist, deletePlaylist, fetchLayouts, fetchMedia, fetchPlaylistItems, fetchPlaylistPreview, fetchPlaylists, updatePlaylist } from '../api';
 
+<script setup lang="ts">
+import { onMounted, reactive, ref, watch } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { createPlaylist, deletePlaylist, fetchContent, fetchLayouts, fetchMedia, fetchPlaylistItems, fetchPlaylistPreview, fetchPlaylists, updatePlaylist } from '../api';
+import { Plus, Picture, Document, VideoPlay, Delete, Edit, Rank, Close } from '@element-plus/icons-vue';
+import draggable from 'vuedraggable';
+
+interface SelectedItem {
+  key: string;
+  type: 'media' | 'content';
+  id: number;
+  name: string;
+  thumb: string;
+  duration: number;
+}
+
+const dialogVisible = ref(false);
+const resourceType = ref<'media' | 'content'>('media');
 const mediaItems = ref<any[]>([]);
+const contentItems = ref<any[]>([]);
 const playlists = ref<any[]>([]);
 const layouts = ref<any[]>([]);
-const selectedIds = ref<number[]>([]);
-const durations = reactive<Record<number, number>>({});
+const selectedItems = ref<SelectedItem[]>([]);
+const mediaDurations = reactive<Record<number, number>>({});
+const contentDurations = reactive<Record<number, number>>({});
 const form = reactive<{ name: string; description: string; coverUrl?: string; layoutId?: number }>({ name: '', description: '', coverUrl: '', layoutId: undefined });
 const editingId = ref<number | null>(null);
-const itemsDialogVisible = ref(false);
-const currentItems = ref<any[]>([]);
-const publishDialog = ref(false);
-const publishForm = reactive({ groupName: '', startTime: '', endTime: '' });
-const publishRange = ref<[string, string] | null>(null);
 const previewDialog = ref(false);
 const previewData = ref<any | null>(null);
-const previewAssets = ref<any[]>([]);
+const mediaTableRef = ref<any>(null);
+const contentTableRef = ref<any>(null);
 
 const loadMedia = async () => {
-  const resp = await fetchMedia(1, 100);
+  const resp = await fetchMedia(1, 200);
   mediaItems.value = resp.data?.data?.records || [];
-  mediaItems.value.forEach((m: any) => { durations[m.id] = durations[m.id] || 10; });
+  mediaItems.value.forEach((m: any) => { mediaDurations[m.id] = mediaDurations[m.id] || 10; });
 };
+
+const loadContent = async () => {
+  const resp = await fetchContent(1, 200, undefined, true);
+  contentItems.value = resp.data?.data?.records || [];
+  contentItems.value.forEach((c: any) => { contentDurations[c.id] = contentDurations[c.id] || 15; });
+};
+
 const loadPlaylists = async () => {
   const resp = await fetchPlaylists();
   playlists.value = resp.data?.data || [];
 };
+
 const loadLayouts = async () => {
   const resp = await fetchLayouts();
   layouts.value = resp.data?.data || [];
 };
-const onSelectChange = (rows: any[]) => {
-  selectedIds.value = rows.map((r) => r.id);
-  if (!form.coverUrl && rows.length > 0) form.coverUrl = rows[0].thumbUrl || '';
+
+const getLayoutName = (id: number) => layouts.value.find(l => l.id === id)?.name || `ID:${id}`;
+
+const openCreate = () => {
+  resetForm();
+  dialogVisible.value = true;
 };
+
+const onMediaSelectChange = (rows: any[]) => {
+  selectedItems.value = selectedItems.value.filter(item => item.type !== 'media');
+  rows.forEach(row => {
+    selectedItems.value.push({
+      key: `media-${row.id}`,
+      type: 'media',
+      id: row.id,
+      name: row.name,
+      thumb: row.thumbUrl || row.url || '',
+      duration: mediaDurations[row.id] || 10
+    });
+  });
+};
+
+const onContentSelectChange = (rows: any[]) => {
+  selectedItems.value = selectedItems.value.filter(item => item.type !== 'content');
+  rows.forEach(row => {
+    selectedItems.value.push({
+      key: `content-${row.id}`,
+      type: 'content',
+      id: row.id,
+      name: row.title,
+      thumb: row.coverUrl || '',
+      duration: contentDurations[row.id] || 15
+    });
+  });
+};
+
+const removeSelected = (index: number) => {
+  const item = selectedItems.value[index];
+  selectedItems.value.splice(index, 1);
+  if (item.type === 'media' && mediaTableRef.value) {
+    const row = mediaItems.value.find(m => m.id === item.id);
+    if (row) mediaTableRef.value.toggleRowSelection(row, false);
+  } else if (item.type === 'content' && contentTableRef.value) {
+    const row = contentItems.value.find(c => c.id === item.id);
+    if (row) contentTableRef.value.toggleRowSelection(row, false);
+  }
+};
+
+watch(mediaDurations, () => {
+  selectedItems.value.forEach(item => {
+    if (item.type === 'media') item.duration = mediaDurations[item.id] || 10;
+  });
+}, { deep: true });
+
+watch(contentDurations, () => {
+  selectedItems.value.forEach(item => {
+    if (item.type === 'content') item.duration = contentDurations[item.id] || 15;
+  });
+}, { deep: true });
+
 const onSave = async () => {
   if (!form.name) { ElMessage.warning('请输入列表名称'); return; }
-  if (selectedIds.value.length === 0) { ElMessage.warning('请选择至少一个资源'); return; }
-  const items = selectedIds.value.map((id, idx) => ({ mediaId: id, displayDuration: durations[id] || 10, sortOrder: idx }));
+  if (selectedItems.value.length === 0) { ElMessage.warning('请选择至少一个资源'); return; }
+  
+  const items = selectedItems.value.map((item, idx) => ({
+    mediaId: item.type === 'media' ? item.id : null,
+    contentId: item.type === 'content' ? item.id : null,
+    displayDuration: item.duration,
+    sortOrder: idx
+  }));
+  
+  if (!form.coverUrl && selectedItems.value.length > 0) {
+    form.coverUrl = selectedItems.value[0].thumb;
+  }
+  
   if (editingId.value) {
     await updatePlaylist(editingId.value, { ...form, items });
     ElMessage.success('已保存');
@@ -183,66 +332,93 @@ const onSave = async () => {
     await createPlaylist({ ...form, items });
     ElMessage.success('创建成功');
   }
+  dialogVisible.value = false;
   resetForm();
   await loadPlaylists();
 };
-const viewItems = async (playlistId: number) => {
-  const resp = await fetchPlaylistItems(playlistId);
-  currentItems.value = resp.data?.data || [];
-  itemsDialogVisible.value = true;
-};
+
 const edit = async (row: any) => {
   editingId.value = row.id;
   form.name = row.name;
   form.description = row.description;
   form.coverUrl = row.coverUrl || '';
   form.layoutId = row.layoutId;
+  dialogVisible.value = true;
+  
   const resp = await fetchPlaylistItems(row.id);
   const items = resp.data?.data || [];
-  selectedIds.value = items.map((i: any) => i.mediaId).filter((id: number) => !!id);
-  items.forEach((i: any) => { if (i.mediaId) durations[i.mediaId] = i.displayDuration || 10; });
+  
+  selectedItems.value = [];
+  
+  setTimeout(() => {
+    if (mediaTableRef.value) mediaTableRef.value.clearSelection();
+    if (contentTableRef.value) contentTableRef.value.clearSelection();
+    
+    items.forEach((item: any) => {
+      if (item.mediaId) {
+        const media = mediaItems.value.find(m => m.id === item.mediaId);
+        if (media) {
+          mediaDurations[item.mediaId] = item.displayDuration || 10;
+          selectedItems.value.push({
+            key: `media-${item.mediaId}`,
+            type: 'media',
+            id: item.mediaId,
+            name: media.name,
+            thumb: media.thumbUrl || media.url || '',
+            duration: item.displayDuration || 10
+          });
+          mediaTableRef.value?.toggleRowSelection(media, true);
+        }
+      } else if (item.contentId) {
+        const content = contentItems.value.find(c => c.id === item.contentId);
+        if (content) {
+          contentDurations[item.contentId] = item.displayDuration || 15;
+          selectedItems.value.push({
+            key: `content-${item.contentId}`,
+            type: 'content',
+            id: item.contentId,
+            name: content.title,
+            thumb: content.coverUrl || '',
+            duration: item.displayDuration || 15
+          });
+          contentTableRef.value?.toggleRowSelection(content, true);
+        }
+      }
+    });
+  }, 200);
 };
+
 const remove = async (id: number) => {
   await ElMessageBox.confirm('确定删除此播放列表？', '提示', { type: 'warning' });
   await deletePlaylist(id);
   ElMessage.success('已删除');
-  if (editingId.value === id) resetForm();
   loadPlaylists();
 };
+
 const resetForm = () => {
   editingId.value = null;
   form.name = '';
   form.description = '';
   form.coverUrl = '';
   form.layoutId = undefined;
-  selectedIds.value = [];
+  selectedItems.value = [];
+  resourceType.value = 'media';
 };
-const openPublish = () => {
-  if (!editingId.value) { ElMessage.warning('请先选择一个播放列表并编辑'); return; }
-  publishDialog.value = true;
-};
-const publish = async () => {
-  if (!publishForm.groupName) { ElMessage.warning('请输入分组名'); return; }
-  if (publishRange.value) { publishForm.startTime = publishRange.value[0]; publishForm.endTime = publishRange.value[1]; }
-  await fetch('/api/terminals/bind-playlist/group', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-    body: JSON.stringify({ playlistId: editingId.value, groupName: publishForm.groupName, startTime: publishForm.startTime || null, endTime: publishForm.endTime || null })
-  });
-  ElMessage.success('已发布到分组');
-  publishDialog.value = false;
-};
+
 const preview = async (id: number) => {
   const resp = await fetchPlaylistPreview(id);
   previewData.value = resp.data?.data || null;
-  previewAssets.value = previewData.value?.mediaAssets || [];
   previewDialog.value = true;
 };
-const mediaThumb = (id?: number) => previewAssets.value.find((a: any) => a.id === id)?.thumbUrl;
-const mediaName = (id?: number) => previewAssets.value.find((a: any) => a.id === id)?.name;
-const formatDate = (date: string) => date ? date.replace('T', ' ').substring(0, 19) : '-';
 
-onMounted(() => { loadMedia(); loadPlaylists(); loadLayouts(); });
+const getMediaThumb = (id: number) => previewData.value?.mediaAssets?.find((a: any) => a.id === id)?.thumbUrl || previewData.value?.mediaAssets?.find((a: any) => a.id === id)?.url;
+const getMediaName = (id: number) => previewData.value?.mediaAssets?.find((a: any) => a.id === id)?.name || `媒体#${id}`;
+const getContentCover = (id: number) => previewData.value?.contentAssets?.find((a: any) => a.id === id)?.coverUrl;
+const getContentTitle = (id: number) => previewData.value?.contentAssets?.find((a: any) => a.id === id)?.title || `内容#${id}`;
+
+const formatDate = (date: string) => date ? date.replace('T', ' ').substring(0, 10) : '-';
+
+onMounted(() => { loadMedia(); loadContent(); loadPlaylists(); loadLayouts(); });
 </script>
 
 <style scoped>
@@ -251,15 +427,96 @@ onMounted(() => { loadMedia(); loadPlaylists(); loadLayouts(); });
 .header-content { display: flex; justify-content: space-between; align-items: center; }
 .header-left h3 { margin: 0; font-size: 18px; }
 .subtitle { font-size: 13px; color: #909399; }
-.header-actions { display: flex; gap: 8px; }
-.content-card { border-radius: 12px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
-.playlist-form { margin-bottom: 16px; }
-.no-data { color: #c0c4cc; }
-.preview-content { padding: 0 16px; }
-.preview-header { display: flex; gap: 16px; align-items: center; }
-.preview-cover { width: 120px; height: 80px; border-radius: 8px; }
-.preview-info h3 { margin: 0 0 8px; }
-.preview-info p { color: #909399; margin: 0 0 8px; }
+
+/* 播放列表卡片网格 */
+.playlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.playlist-card {
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+.playlist-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+.playlist-card :deep(.el-card__body) { padding: 0; }
+.playlist-cover {
+  position: relative;
+  height: 140px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+.cover-img { width: 100%; height: 100%; }
+.cover-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 48px; color: rgba(255,255,255,0.6);
+}
+.playlist-badge {
+  position: absolute; bottom: 8px; right: 8px;
+  background: rgba(0,0,0,0.6); color: #fff;
+  padding: 2px 8px; border-radius: 10px; font-size: 12px;
+}
+.playlist-info { padding: 12px 16px; }
+.playlist-name { font-weight: 600; font-size: 15px; color: #303133; margin-bottom: 4px; }
+.playlist-desc { font-size: 13px; color: #909399; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.playlist-meta { display: flex; align-items: center; gap: 8px; }
+.playlist-date { font-size: 12px; color: #c0c4cc; margin-left: auto; }
+.playlist-actions {
+  padding: 8px 16px 12px;
+  display: flex; gap: 8px; justify-content: flex-end;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* 对话框样式 */
+.dialog-form { margin-bottom: 16px; }
+.resource-section { margin-bottom: 16px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.section-title { font-weight: 600; font-size: 14px; color: #303133; }
+.thumb-img { width: 45px; height: 32px; border-radius: 4px; }
+.thumb-placeholder { width: 45px; height: 32px; border-radius: 4px; background: #f5f7fa; display: flex; align-items: center; justify-content: center; color: #c0c4cc; }
+
+.selected-section { background: #fafafa; border-radius: 8px; padding: 12px; }
+.selected-list { max-height: 180px; overflow-y: auto; }
+.drag-list { display: flex; flex-direction: column; gap: 6px; }
+.selected-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; background: #fff; border-radius: 6px;
+  border: 1px solid #ebeef5;
+}
+.selected-item:hover { border-color: #409eff; }
+.drag-handle { cursor: move; color: #c0c4cc; font-size: 16px; }
+.drag-handle:hover { color: #409eff; }
+.item-order {
+  width: 20px; height: 20px; background: #409eff; color: #fff;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+}
+.item-thumb { width: 40px; height: 28px; border-radius: 4px; }
+.item-thumb-placeholder { width: 40px; height: 28px; border-radius: 4px; background: #e4e7ed; display: flex; align-items: center; justify-content: center; color: #909399; font-size: 14px; }
+.item-info { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.item-name { font-size: 13px; color: #303133; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-duration { color: #909399; font-size: 12px; white-space: nowrap; }
+.empty-selected { text-align: center; color: #c0c4cc; padding: 20px; font-size: 13px; }
+
+/* 预览对话框 */
+.preview-content { padding: 0 8px; }
+.preview-header { display: flex; gap: 16px; align-items: flex-start; }
+.preview-cover { width: 120px; height: 80px; border-radius: 8px; flex-shrink: 0; }
+.preview-cover-placeholder {
+  width: 120px; height: 80px; border-radius: 8px; flex-shrink: 0;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; color: rgba(255,255,255,0.6);
+}
+.preview-info { flex: 1; }
+.preview-info h3 { margin: 0 0 8px; font-size: 16px; }
+.preview-info p { color: #909399; margin: 0 0 8px; font-size: 13px; }
+.preview-tags { display: flex; gap: 8px; }
 .media-row { display: flex; align-items: center; gap: 8px; }
+.preview-thumb { width: 45px; height: 32px; border-radius: 4px; }
 </style>

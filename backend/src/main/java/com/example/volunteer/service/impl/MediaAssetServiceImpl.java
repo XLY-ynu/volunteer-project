@@ -132,4 +132,20 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         if (contentType.contains("pdf")) return "document";
         return "other";
     }
+
+    @Override
+    public String uploadCoverOnly(MultipartFile file) {
+        try {
+            String original = file.getOriginalFilename();
+            String ext = (original != null && original.contains(".")) ? original.substring(original.lastIndexOf('.')) : "";
+            String filename = "cover-" + UUID.randomUUID() + ext;
+            Path root = Paths.get(storageRoot).toAbsolutePath().resolve("covers");
+            Files.createDirectories(root);
+            Path dest = root.resolve(filename);
+            file.transferTo(dest.toFile());
+            return "/uploads/covers/" + filename;
+        } catch (Exception e) {
+            throw new RuntimeException("上传封面失败", e);
+        }
+    }
 }

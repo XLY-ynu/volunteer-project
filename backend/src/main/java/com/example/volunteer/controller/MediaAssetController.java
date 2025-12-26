@@ -37,6 +37,16 @@ public class MediaAssetController {
         return ApiResponse.ok(mediaAssetService.upload(file, type));
     }
 
+    /**
+     * 上传封面图片（仅保存文件，不创建媒体资源记录）
+     * 用于内容封面等附属图片，不会出现在媒体库中
+     */
+    @PostMapping(value = "/upload-cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<java.util.Map<String, String>> uploadCover(@RequestPart("file") MultipartFile file) {
+        String url = mediaAssetService.uploadCoverOnly(file);
+        return ApiResponse.ok(java.util.Map.of("url", url));
+    }
+
     @PostMapping(value = "/{id}/thumb", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<MediaAsset> uploadThumb(@PathVariable Long id, @RequestPart("file") MultipartFile file) {
         return ApiResponse.ok(mediaAssetService.uploadThumb(id, file));

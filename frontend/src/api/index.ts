@@ -18,6 +18,8 @@ export const createCategory = (payload: { name: string; code: string; parentId?:
   return http.post('/categories', payload);
 };
 
+export const deleteCategory = (id: number) => http.delete(`/categories/${id}`);
+
 export const fetchMedia = (page = 1, size = 10) => {
   return http.get('/media', { params: { page, size } });
 };
@@ -62,13 +64,17 @@ export const fetchContentById = (id: number) => http.get(`/content/${id}`);
 
 export const fetchLayouts = () => http.get('/layouts');
 export const createLayout = (payload: any) => http.post('/layouts', payload);
+export const updateLayout = (id: number, payload: any) => http.put(`/layouts/${id}`, payload);
+export const deleteLayout = (id: number) => http.delete(`/layouts/${id}`);
 export const fetchLayout = (id: number) => http.get(`/layouts/${id}`);
 
 export const fetchBroadcasts = (page = 1, size = 10, targetGroup?: string, targetTerminalCode?: string) =>
   http.get('/broadcasts', { params: { page, size, targetGroup, targetTerminalCode } });
 export const createBroadcast = (payload: any) => http.post('/broadcasts', payload);
-export const fetchActiveBroadcasts = (terminalCode: string, page = 1, size = 10) =>
-  http.get('/broadcasts/active', { params: { terminalCode, page, size } });
+export const deleteBroadcast = (id: number) => http.delete(`/broadcasts/${id}`);
+export const fetchBroadcastStatusCount = () => http.get('/broadcasts/status-count');
+export const fetchActiveBroadcasts = (terminalCode: string, groupName?: string, page = 1, size = 10) =>
+  http.get('/broadcasts/active', { params: { terminalCode, groupName, page, size } });
 
 export const fetchSystemInfo = () => http.get('/ops/system-info');
 export const downloadBackup = () => http.get('/ops/backup', { responseType: 'blob' });

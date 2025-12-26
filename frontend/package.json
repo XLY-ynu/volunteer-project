@@ -15,7 +15,8 @@
     "pinia": "^2.1.7",
     "qrcode": "^1.5.3",
     "vue": "^3.4.21",
-    "vue-router": "^4.3.2"
+    "vue-router": "^4.3.2",
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

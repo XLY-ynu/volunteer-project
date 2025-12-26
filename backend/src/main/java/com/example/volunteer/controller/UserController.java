@@ -7,6 +7,8 @@ import com.example.volunteer.entity.Role;
 import com.example.volunteer.entity.User;
 import com.example.volunteer.mapper.RoleMapper;
 import com.example.volunteer.mapper.UserMapper;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,9 +31,14 @@ public class UserController {
 
     @GetMapping
     public ApiResponse<Page<User>> page(@RequestParam(defaultValue = "1") int page,
-                                        @RequestParam(defaultValue = "10") int size) {
-        Page<User> result = userMapper.selectPage(new Page<>(page, size),
-                new LambdaQueryWrapper<User>().orderByDesc(User::getCreatedAt));
+                                        @RequestParam(defaultValue = "10") int size,
+                                        @RequestParam(required = false) String username) {
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        if (username != null && !username.isEmpty()) {
+            wrapper.like(User::getUsername, username);
+        }
+        wrapper.orderByDesc(User::getCreatedAt);
+        Page<User> result = userMapper.selectPage(new Page<>(page, size), wrapper);
         // 隐藏密码
         result.getRecords().forEach(u -> u.setPassword(null));
         return ApiResponse.ok(result);
@@ -39,6 +46,15 @@ public class UserController {
 
     @PostMapping
     public ApiResponse<User> create(@RequestBody User user) {
+        // 检查用户名是否已存在
+        User existing = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, user.getUsername()));
+        if (existing != null) {
+            return ApiResponse.fail("用户名已存在");
+        }
+        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+            return ApiResponse.fail("密码不能为空");
+        }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
@@ -53,6 +69,26 @@ public class UserController {
         if (existing == null) {
             return ApiResponse.fail("用户不存在");
         }
+        
+        // 获取当前登录用户
+        String currentUsername = getCurrentUsername();
+        
+        // 不能禁用自己
+        if (existing.getUsername().equals(currentUsername) && !user.getEnabled()) {
+            return ApiResponse.fail("不能禁用自己的账号");
+        }
+        
+        // 检查用户名是否被其他用户使用
+        if (user.getUsername() != null && !user.getUsername().equals(existing.getUsername())) {
+            User other = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                    .eq(User::getUsername, user.getUsername())
+                    .ne(User::getId, id));
+            if (other != null) {
+                return ApiResponse.fail("用户名已被使用");
+            }
+            existing.setUsername(user.getUsername());
+        }
+        
         existing.setNickname(user.getNickname());
         existing.setRoleCode(user.getRoleCode());
         existing.setEnabled(user.getEnabled());
@@ -67,6 +103,19 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            return ApiResponse.fail("用户不存在");
+        }
+        
+        // 获取当前登录用户
+        String currentUsername = getCurrentUsername();
+        
+        // 不能删除自己
+        if (user.getUsername().equals(currentUsername)) {
+            return ApiResponse.fail("不能删除自己的账号");
+        }
+        
         userMapper.deleteById(id);
         return ApiResponse.ok(null);
     }
@@ -74,5 +123,10 @@ public class UserController {
     @GetMapping("/roles")
     public ApiResponse<List<Role>> roles() {
         return ApiResponse.ok(roleMapper.selectList(null));
+    }
+    
+    private String getCurrentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : null;
     }
 }

@@ -185,18 +185,32 @@
       <el-divider />
 
       <el-table :data="signups" max-height="300">
-        <el-table-column prop="volunteerId" label="志愿者ID" width="100" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="volunteerName" label="姓名" min-width="100">
+          <template #default="scope">
+            {{ scope.row.volunteerName || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="volunteerPhone" label="电话" min-width="120">
+          <template #default="scope">
+            {{ scope.row.volunteerPhone || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="volunteerOrganization" label="组织" min-width="120">
+          <template #default="scope">
+            {{ scope.row.volunteerOrganization || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="90">
           <template #default="scope">
             <el-tag :type="scope.row.status === 'checked_in' ? 'success' : 'info'" size="small">
               {{ scope.row.status === 'checked_in' ? '已签到' : '已报名' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="报名时间">
+        <el-table-column prop="createdAt" label="报名时间" width="150">
           <template #default="scope">{{ formatDate(scope.row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column prop="checkinTime" label="签到时间">
+        <el-table-column prop="checkinTime" label="签到时间" width="150">
           <template #default="scope">{{ formatDate(scope.row.checkinTime) || '-' }}</template>
         </el-table-column>
       </el-table>

@@ -40,4 +40,10 @@ public class MenuCategoryController {
         wrapper.orderByAsc(MenuCategory::getSortOrder);
         return ApiResponse.ok(menuCategoryMapper.selectList(wrapper));
     }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        menuCategoryMapper.deleteById(id);
+        return ApiResponse.ok(null);
+    }
 }

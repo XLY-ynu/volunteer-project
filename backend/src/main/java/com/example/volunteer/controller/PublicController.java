@@ -85,6 +85,14 @@ public class PublicController {
 
     @PostMapping("/volunteer/register")
     public ApiResponse<Volunteer> registerVolunteer(@Valid @RequestBody Volunteer volunteer) {
+        // 检查手机号是否已存在
+        if (volunteer.getPhone() != null && !volunteer.getPhone().isEmpty()) {
+            Volunteer existing = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                    .eq(Volunteer::getPhone, volunteer.getPhone()));
+            if (existing != null) {
+                return ApiResponse.fail("该手机号已注册，请直接签到或联系管理员");
+            }
+        }
         volunteer.setStatus("pending");
         volunteer.setCreatedAt(LocalDateTime.now());
         volunteer.setUpdatedAt(LocalDateTime.now());
@@ -129,36 +137,62 @@ public class PublicController {
 
     @PostMapping("/activities/checkin")
     public ApiResponse<ActivitySignup> activityCheckin(@Valid @RequestBody ActivityCheckinPublicRequest request) {
-        Activity activity = activityMapper.selectById(request.getActivityId());
-        if (activity == null || activity.getCheckinCode() == null || !activity.getCheckinCode().equals(request.getCheckinCode())) {
-            return ApiResponse.fail("签到码无效");
+        // 通过签到码查找活动
+        if (request.getCheckinCode() == null || request.getCheckinCode().trim().isEmpty()) {
+            return ApiResponse.fail("请输入签到码");
         }
-        Volunteer volunteer = null;
-        if (request.getPhone() != null && !request.getPhone().isEmpty()) {
-            volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>().eq(Volunteer::getPhone, request.getPhone()));
+        
+        Activity activity = activityMapper.selectOne(new LambdaQueryWrapper<Activity>()
+                .eq(Activity::getCheckinCode, request.getCheckinCode().trim()));
+        
+        if (activity == null) {
+            return ApiResponse.fail("签到码无效，请检查后重试");
         }
+        
+        // 必须通过姓名+手机号匹配已注册的志愿者
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            return ApiResponse.fail("请输入姓名");
+        }
+        if (request.getPhone() == null || request.getPhone().trim().isEmpty()) {
+            return ApiResponse.fail("请输入手机号");
+        }
+        
+        // 查找已注册的志愿者（姓名+手机号匹配）
+        Volunteer volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                .eq(Volunteer::getName, request.getName().trim())
+                .eq(Volunteer::getPhone, request.getPhone().trim()));
+        
         if (volunteer == null) {
-            volunteer = new Volunteer();
-            volunteer.setName(request.getName());
-            volunteer.setPhone(request.getPhone());
-            volunteer.setEmail(request.getEmail());
-            volunteer.setOrganization(request.getOrganization());
-            volunteer.setStatus("pending");
-            volunteer.setCreatedAt(LocalDateTime.now());
-            volunteer.setUpdatedAt(LocalDateTime.now());
-            volunteerMapper.insert(volunteer);
+            return ApiResponse.fail("签到失败，未找到您的志愿者信息，请先完成注册");
         }
+        
+        // 检查志愿者是否已通过审核
+        if (!"approved".equals(volunteer.getStatus())) {
+            if ("pending".equals(volunteer.getStatus())) {
+                return ApiResponse.fail("您的志愿者申请正在审核中，请等待管理员审核通过后再签到");
+            } else if ("rejected".equals(volunteer.getStatus())) {
+                return ApiResponse.fail("您的志愿者申请已被拒绝，无法签到");
+            } else {
+                return ApiResponse.fail("您的志愿者状态异常，请联系管理员");
+            }
+        }
+        
+        // 检查是否已报名/签到
         ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
-                .eq(ActivitySignup::getActivityId, request.getActivityId())
+                .eq(ActivitySignup::getActivityId, activity.getId())
                 .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
+        
         if (signup == null) {
+            // 自动报名并签到
             signup = new ActivitySignup();
-            signup.setActivityId(request.getActivityId());
+            signup.setActivityId(activity.getId());
             signup.setVolunteerId(volunteer.getId());
             signup.setCreatedAt(LocalDateTime.now());
             signup.setStatus("checked_in");
             signup.setCheckinTime(LocalDateTime.now());
             activitySignupMapper.insert(signup);
+        } else if ("checked_in".equals(signup.getStatus())) {
+            return ApiResponse.fail("您已签到，无需重复签到");
         } else {
             signup.setStatus("checked_in");
             signup.setCheckinTime(LocalDateTime.now());

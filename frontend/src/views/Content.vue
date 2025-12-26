@@ -1,92 +1,132 @@
 <template>
-  <div>
-    <div class="header">
-      <h2>内容管理</h2>
-      <el-button type="primary" @click="onCreate">发布内容</el-button>
-    </div>
+  <div class="page-container">
+    <el-card class="page-header" shadow="never">
+      <div class="header-content">
+        <div class="header-left">
+          <h3>内容管理</h3>
+          <span class="subtitle">发布和管理图文内容</span>
+        </div>
+        <el-button type="primary" @click="onCreate"><el-icon><Plus /></el-icon>发布内容</el-button>
+      </div>
+    </el-card>
 
-    <el-form :inline="true" :model="filter" class="filter" @submit.prevent>
-      <el-form-item label="分类">
-        <el-select v-model="filter.categoryId" placeholder="全部" clearable style="width: 180px">
-          <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="状态">
-        <el-select v-model="filter.published" placeholder="全部" clearable style="width: 140px">
-          <el-option :value="true" label="已发布" />
-          <el-option :value="false" label="草稿" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="关键词">
-        <el-input v-model="filter.keyword" placeholder="标题/摘要" style="width: 200px" />
-      </el-form-item>
-      <el-form-item>
-        <el-button @click="load">查询</el-button>
-      </el-form-item>
-    </el-form>
-
-    <el-dialog v-model="dialogVisible" title="发布内容" width="640px">
-      <el-form :model="form" label-width="80px">
-        <el-form-item label="标题">
-          <el-input v-model="form.title" />
-        </el-form-item>
+    <el-card class="content-card" shadow="never">
+      <el-form :inline="true" :model="filter" class="filter" @submit.prevent>
         <el-form-item label="分类">
-          <el-select v-model="form.categoryId" placeholder="选择分类">
+          <el-select v-model="filter.categoryId" placeholder="全部" clearable style="width: 160px">
+            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="filter.published" placeholder="全部" clearable style="width: 120px">
+            <el-option :value="true" label="已发布" />
+            <el-option :value="false" label="草稿" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="关键词">
+          <el-input v-model="filter.keyword" placeholder="标题/摘要" style="width: 180px" clearable />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="load"><el-icon><Search /></el-icon>查询</el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-table :data="list" stripe>
+        <el-table-column label="封面" width="100">
+          <template #default="scope">
+            <div class="cover-cell">
+              <el-image v-if="scope.row.coverUrl" :src="scope.row.coverUrl" fit="cover" class="cover-img" />
+              <div v-else class="cover-empty"><el-icon><Picture /></el-icon></div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="title" label="标题" min-width="200">
+          <template #default="scope">
+            <div class="title-cell">
+              <span class="title-text">{{ scope.row.title }}</span>
+              <span class="summary-text">{{ scope.row.summary || '暂无摘要' }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="分类" width="120">
+          <template #default="scope">
+            <el-tag size="small">{{ getCategoryName(scope.row.categoryId) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="published" label="状态" width="90">
+          <template #default="scope">
+            <el-tag :type="scope.row.published ? 'success' : 'info'" size="small">{{ scope.row.published ? '已发布' : '草稿' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="publishTime" label="发布时间" width="160">
+          <template #default="scope">{{ formatDate(scope.row.publishTime) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="140" fixed="right">
+          <template #default="scope">
+            <el-button-group>
+              <el-button size="small" @click="edit(scope.row)" title="编辑"><el-icon><Edit /></el-icon></el-button>
+              <el-button size="small" type="danger" @click="onDelete(scope.row.id)" title="删除"><el-icon><Delete /></el-icon></el-button>
+            </el-button-group>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="pagination-wrapper">
+        <el-pagination layout="total, prev, pager, next" :total="total" :page-size="size" :current-page="page" @current-change="onPage" />
+      </div>
+    </el-card>
+
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑内容' : '发布内容'" width="680px" destroy-on-close>
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="标题" required>
+          <el-input v-model="form.title" placeholder="请输入内容标题" />
+        </el-form-item>
+        <el-form-item label="分类" required>
+          <el-select v-model="form.categoryId" placeholder="选择分类" style="width: 100%">
             <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="摘要">
-          <el-input v-model="form.summary" />
+          <el-input v-model="form.summary" placeholder="简短描述内容" />
         </el-form-item>
         <el-form-item label="封面">
-          <el-input v-model="form.coverUrl" placeholder="http://..." />
+          <div class="cover-upload-area">
+            <div class="cover-preview" v-if="form.coverUrl">
+              <el-image :src="form.coverUrl" fit="cover" class="preview-img" />
+              <div class="cover-actions">
+                <el-button size="small" type="danger" @click="form.coverUrl = ''"><el-icon><Delete /></el-icon>移除</el-button>
+              </div>
+            </div>
+            <el-upload v-else :headers="uploadHeaders" action="/api/media/upload-cover" :show-file-list="false" :on-success="onCoverUploaded" :before-upload="beforeCoverUpload" accept="image/*" class="cover-uploader">
+              <div class="upload-trigger">
+                <el-icon class="upload-icon"><Plus /></el-icon>
+                <span>上传封面</span>
+              </div>
+            </el-upload>
+          </div>
+          <div class="cover-tip">封面图片仅作为内容附属，不会出现在媒体库中</div>
         </el-form-item>
         <el-form-item label="正文">
-          <el-input v-model="form.body" type="textarea" :rows="4" />
+          <el-input v-model="form.body" type="textarea" :rows="6" placeholder="请输入正文内容" />
         </el-form-item>
         <el-form-item label="发布">
-          <el-switch v-model="form.published" />
+          <el-switch v-model="form.published" active-text="立即发布" inactive-text="存为草稿" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submit">提交</el-button>
+        <el-button type="primary" @click="submit">{{ editingId ? '保存' : '发布' }}</el-button>
       </template>
     </el-dialog>
-
-    <el-table :data="list" style="width: 100%">
-      <el-table-column prop="title" label="标题" />
-      <el-table-column prop="categoryId" label="分类ID" width="100" />
-      <el-table-column prop="published" label="状态" width="100">
-        <template #default="scope">
-          <el-tag :type="scope.row.published ? 'success' : 'info'">{{ scope.row.published ? '已发布' : '草稿' }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="publishTime" label="发布时间" width="180" />
-      <el-table-column label="操作" width="140">
-        <template #default="scope">
-          <el-button size="small" @click="edit(scope.row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="onDelete(scope.row.id)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <div class="pager">
-      <el-pagination
-        layout="prev, pager, next"
-        :total="total"
-        :page-size="size"
-        :current-page="page"
-        @current-change="onPage"
-      />
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { onMounted, ref, computed } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { createContent, deleteContent, fetchCategories, fetchContent, updateContent } from '../api';
+import { useUserStore } from '../stores/user';
+import { Plus, Search, Edit, Delete, Picture } from '@element-plus/icons-vue';
 
 const list = ref<any[]>([]);
 const page = ref(1);
@@ -95,6 +135,8 @@ const total = ref(0);
 const categories = ref<any[]>([]);
 const dialogVisible = ref(false);
 const editingId = ref<number | null>(null);
+const user = useUserStore();
+const uploadHeaders = computed(() => ({ Authorization: `Bearer ${user.token}` }));
 
 const form = ref({
   title: '',
@@ -109,7 +151,6 @@ const filter = ref<{ categoryId?: number; published?: boolean; keyword?: string 
 
 const load = async () => {
   const resp = await fetchContent(page.value, size.value, filter.value.categoryId, filter.value.published, filter.value.keyword);
-  // @ts-ignore
   const data = resp.data?.data || {};
   list.value = data.records || [];
   total.value = data.total || 0;
@@ -117,9 +158,15 @@ const load = async () => {
 
 const loadCategories = async () => {
   const resp = await fetchCategories();
-  // @ts-ignore
   categories.value = resp.data?.data || [];
 };
+
+const getCategoryName = (id: number) => {
+  const cat = categories.value.find(c => c.id === id);
+  return cat?.name || '未分类';
+};
+
+const formatDate = (d: string) => d ? d.replace('T', ' ').substring(0, 16) : '-';
 
 const onCreate = () => {
   editingId.value = null;
@@ -131,6 +178,21 @@ const edit = (row: any) => {
   editingId.value = row.id;
   form.value = { title: row.title, categoryId: row.categoryId, summary: row.summary, coverUrl: row.coverUrl, body: row.body, published: row.published };
   dialogVisible.value = true;
+};
+
+const beforeCoverUpload = (file: File) => {
+  if (!file.type.startsWith('image/')) { ElMessage.error('只能上传图片'); return false; }
+  if (file.size / 1024 / 1024 > 10) { ElMessage.error('图片不能超过10MB'); return false; }
+  return true;
+};
+
+const onCoverUploaded = (res: any) => {
+  if (res.success && res.data?.url) {
+    form.value.coverUrl = res.data.url;
+    ElMessage.success('封面上传成功');
+  } else {
+    ElMessage.error(res.message || '上传失败');
+  }
 };
 
 const submit = async () => {
@@ -150,6 +212,7 @@ const submit = async () => {
 };
 
 const onDelete = async (id: number) => {
+  await ElMessageBox.confirm('确定删除该内容？', '提示', { type: 'warning' });
   await deleteContent(id);
   ElMessage.success('已删除');
   load();
@@ -167,16 +230,28 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.filter {
-  margin: 12px 0;
-}
-.pager {
-  margin-top: 10px;
-  text-align: right;
-}
+.page-container { display: flex; flex-direction: column; gap: 16px; }
+.page-header, .content-card { border-radius: 12px; }
+.header-content { display: flex; justify-content: space-between; align-items: center; }
+.header-left h3 { margin: 0; font-size: 18px; }
+.subtitle { font-size: 13px; color: #909399; }
+.filter { margin-bottom: 16px; }
+.cover-cell { width: 70px; height: 50px; border-radius: 6px; overflow: hidden; }
+.cover-img { width: 100%; height: 100%; }
+.cover-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f5f7fa; color: #c0c4cc; font-size: 20px; }
+.title-cell { display: flex; flex-direction: column; gap: 4px; }
+.title-text { font-weight: 500; color: #303133; }
+.summary-text { font-size: 12px; color: #909399; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
+.pagination-wrapper { margin-top: 20px; display: flex; justify-content: flex-end; }
+
+.cover-upload-area { width: 200px; }
+.cover-preview { position: relative; width: 200px; height: 120px; border-radius: 8px; overflow: hidden; border: 1px solid #ebeef5; }
+.cover-preview .preview-img { width: 100%; height: 100%; }
+.cover-actions { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); padding: 6px; display: flex; justify-content: center; }
+.cover-uploader { width: 200px; }
+.upload-trigger { width: 200px; height: 120px; border: 2px dashed #dcdfe6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: border-color 0.3s; }
+.upload-trigger:hover { border-color: #409eff; }
+.upload-icon { font-size: 32px; color: #c0c4cc; margin-bottom: 8px; }
+.upload-trigger span { font-size: 14px; color: #909399; }
+.cover-tip { font-size: 12px; color: #909399; margin-top: 8px; }
 </style>

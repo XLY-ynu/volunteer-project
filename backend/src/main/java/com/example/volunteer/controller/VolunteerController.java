@@ -35,6 +35,14 @@ public class VolunteerController {
 
     @PostMapping
     public ApiResponse<Volunteer> create(@Valid @RequestBody Volunteer volunteer) {
+        // 检查手机号是否已存在
+        if (volunteer.getPhone() != null && !volunteer.getPhone().isEmpty()) {
+            Volunteer existing = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                    .eq(Volunteer::getPhone, volunteer.getPhone()));
+            if (existing != null) {
+                return ApiResponse.fail("该手机号已注册");
+            }
+        }
         volunteer.setStatus(volunteer.getStatus() == null ? "pending" : volunteer.getStatus());
         volunteer.setCreatedAt(LocalDateTime.now());
         volunteer.setUpdatedAt(LocalDateTime.now());
@@ -44,6 +52,15 @@ public class VolunteerController {
 
     @PutMapping("/{id}")
     public ApiResponse<Volunteer> update(@PathVariable Long id, @Valid @RequestBody Volunteer volunteer) {
+        // 检查手机号是否被其他人使用
+        if (volunteer.getPhone() != null && !volunteer.getPhone().isEmpty()) {
+            Volunteer existing = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                    .eq(Volunteer::getPhone, volunteer.getPhone())
+                    .ne(Volunteer::getId, id));
+            if (existing != null) {
+                return ApiResponse.fail("该手机号已被其他志愿者使用");
+            }
+        }
         volunteer.setId(id);
         volunteer.setUpdatedAt(LocalDateTime.now());
         volunteerMapper.updateById(volunteer);

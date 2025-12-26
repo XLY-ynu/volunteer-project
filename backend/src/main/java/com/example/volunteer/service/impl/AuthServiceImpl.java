@@ -31,6 +31,8 @@ public class AuthServiceImpl implements AuthService {
         Assert.notNull(user, "用户不存在");
         Assert.isTrue(Boolean.TRUE.equals(user.getEnabled()), "账号已禁用");
         Assert.isTrue(passwordEncoder.matches(request.getPassword(), user.getPassword()), "密码错误");
+        // 管理后台只允许 ADMIN 角色登录
+        Assert.isTrue("ADMIN".equals(user.getRoleCode()), "您没有管理后台的访问权限");
         String token = jwtUtil.generateToken(user.getUsername(), user.getRoleCode());
         return new LoginResponse(token, user.getUsername(), user.getRoleCode());
     }

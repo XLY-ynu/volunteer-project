@@ -61,11 +61,7 @@
         </el-menu-item>
         <el-menu-item index="/volunteer-public">
           <el-icon><User /></el-icon>
-          <span>志愿者注册</span>
-        </el-menu-item>
-        <el-menu-item index="/public-activities">
-          <el-icon><Tickets /></el-icon>
-          <span>活动报名</span>
+          <span>志愿者管理</span>
         </el-menu-item>
 
         <!-- 系统管理 -->
@@ -81,13 +77,6 @@
         <el-menu-item index="/system">
           <el-icon><Setting /></el-icon>
           <span>系统设置</span>
-        </el-menu-item>
-
-        <!-- 公共页面 -->
-        <div class="menu-group">公共展示</div>
-        <el-menu-item index="/public-content">
-          <el-icon><Reading /></el-icon>
-          <span>内容展示</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -113,7 +102,7 @@ import { computed } from 'vue';
 import { useUserStore } from '../stores/user';
 import {
   HomeFilled, Picture, Folder, Document, Grid, VideoPlay, Bell,
-  Monitor, View, Calendar, User, Tickets, UserFilled, List, Setting, Reading
+  Monitor, View, Calendar, User, UserFilled, List, Setting
 } from '@element-plus/icons-vue';
 
 const router = useRouter();
@@ -134,12 +123,10 @@ const pageTitle = computed(() => {
     '/terminals': '终端管理',
     '/terminal-preview': '终端预览',
     '/activities': '活动管理',
-    '/volunteer-public': '志愿者注册',
-    '/public-activities': '活动报名',
+    '/volunteer-public': '志愿者管理',
     '/users': '用户管理',
     '/ops': '操作日志',
-    '/system': '系统设置',
-    '/public-content': '内容展示'
+    '/system': '系统设置'
   };
   return titles[route.path] || '志愿者多媒体平台';
 });

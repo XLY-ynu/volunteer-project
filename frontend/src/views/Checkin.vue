@@ -1,27 +1,38 @@
 <template>
   <div class="page">
-    <h2>活动签到</h2>
-    <p class="hint">请输入姓名和手机号完成签到</p>
-    <el-form label-width="90px" class="form">
-      <el-form-item label="姓名">
-        <el-input v-model="form.name" />
-      </el-form-item>
-      <el-form-item label="手机号">
-        <el-input v-model="form.phone" />
-      </el-form-item>
-      <el-form-item label="邮箱">
-        <el-input v-model="form.email" />
-      </el-form-item>
-      <el-form-item label="机构">
-        <el-input v-model="form.organization" />
-      </el-form-item>
-      <el-form-item label="签到码">
-        <el-input v-model="checkinCode" disabled />
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" @click="submit">提交签到</el-button>
-      </el-form-item>
-    </el-form>
+    <div class="checkin-card">
+      <div class="card-header">
+        <el-icon class="header-icon"><Checked /></el-icon>
+        <h2>活动签到</h2>
+      </div>
+      
+      <el-alert type="info" :closable="false" class="info-alert">
+        <template #title>请输入签到码和您注册时填写的姓名、手机号</template>
+      </el-alert>
+
+      <el-form label-width="80px" class="checkin-form">
+        <el-form-item label="签到码" required>
+          <el-input v-model="checkinCode" placeholder="请输入活动签到码" />
+        </el-form-item>
+        <el-form-item label="姓名" required>
+          <el-input v-model="form.name" placeholder="请输入姓名" />
+        </el-form-item>
+        <el-form-item label="手机号" required>
+          <el-input v-model="form.phone" placeholder="请输入手机号" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" size="large" @click="submit" :loading="loading" style="width: 100%">
+            <el-icon><Check /></el-icon>
+            提交签到
+          </el-button>
+        </el-form-item>
+      </el-form>
+
+      <div class="tip-text">
+        <el-icon><InfoFilled /></el-icon>
+        <span>如未注册，请先联系管理员或在志愿者端完成注册</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -30,52 +41,113 @@ import { onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import http from '../api/http';
+import { Checked, Check, InfoFilled } from '@element-plus/icons-vue';
 
 const route = useRoute();
-const activityId = ref<number | null>(null);
 const checkinCode = ref('');
-const form = ref({ name: '', phone: '', email: '', organization: '' });
+const form = ref({ name: '', phone: '' });
+const loading = ref(false);
 
 onMounted(() => {
-  const id = route.query.activityId;
+  // 如果 URL 带参数，自动填入签到码
   const code = route.query.code;
-  activityId.value = id ? Number(id) : null;
-  checkinCode.value = (code as string) || '';
+  if (code) {
+    checkinCode.value = code as string;
+  }
 });
 
 const submit = async () => {
-  if (!activityId.value || !checkinCode.value) {
-    ElMessage.error('链接无效，请联系管理员');
+  if (!checkinCode.value.trim()) {
+    ElMessage.warning('请输入签到码');
     return;
   }
-  if (!form.value.name) {
+  if (!form.value.name.trim()) {
     ElMessage.warning('请输入姓名');
     return;
   }
+  if (!form.value.phone.trim()) {
+    ElMessage.warning('请输入手机号');
+    return;
+  }
+  
+  loading.value = true;
   try {
-    await http.post('/public/activities/checkin', {
-      activityId: activityId.value,
-      checkinCode: checkinCode.value,
-      ...form.value
+    const res = await http.post('/public/activities/checkin', {
+      checkinCode: checkinCode.value.trim(),
+      name: form.value.name.trim(),
+      phone: form.value.phone.trim()
     });
-    ElMessage.success('签到成功');
+    // 检查响应中的 success 字段
+    if (res.data.success) {
+      ElMessage.success('签到成功！');
+    } else {
+      ElMessage.error(res.data.message || '签到失败');
+    }
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '签到失败');
+    const msg = e?.response?.data?.message || '签到失败';
+    ElMessage.error(msg);
+  } finally {
+    loading.value = false;
   }
 };
 </script>
 
 <style scoped>
 .page {
-  max-width: 480px;
-  margin: 40px auto;
-  padding: 24px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.checkin-card {
+  width: 100%;
+  max-width: 420px;
   background: #fff;
-  border: 1px solid #ebeef5;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.card-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.header-icon {
+  font-size: 48px;
+  color: #67c23a;
+  margin-bottom: 12px;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #303133;
+}
+
+.info-alert {
+  margin-bottom: 20px;
   border-radius: 8px;
 }
-.hint {
+
+.checkin-form {
+  margin-top: 20px;
+}
+
+.checkin-form :deep(.el-form-item__label) {
+  font-weight: 500;
+}
+
+.tip-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 20px;
   color: #909399;
-  margin-bottom: 12px;
+  font-size: 13px;
 }
 </style>

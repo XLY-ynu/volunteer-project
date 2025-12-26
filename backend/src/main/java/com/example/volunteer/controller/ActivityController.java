@@ -57,7 +57,9 @@ public class ActivityController {
         a.setStartTime(request.getStartTime());
         a.setEndTime(request.getEndTime());
         a.setCapacity(request.getCapacity());
-        a.setCheckinCode(request.getCheckinCode() != null ? request.getCheckinCode() : generateCode());
+        // 如果签到码为空或空字符串，自动生成
+        String code = request.getCheckinCode();
+        a.setCheckinCode((code != null && !code.trim().isEmpty()) ? code : generateCode());
         a.setCreatedAt(LocalDateTime.now());
         a.setUpdatedAt(LocalDateTime.now());
         activityMapper.insert(a);
@@ -74,7 +76,14 @@ public class ActivityController {
         a.setStartTime(request.getStartTime());
         a.setEndTime(request.getEndTime());
         a.setCapacity(request.getCapacity());
-        a.setCheckinCode(request.getCheckinCode() != null ? request.getCheckinCode() : a.getCheckinCode());
+        // 如果签到码为空或空字符串，保留原有签到码
+        String code = request.getCheckinCode();
+        if (code != null && !code.trim().isEmpty()) {
+            a.setCheckinCode(code);
+        } else if (a.getCheckinCode() == null || a.getCheckinCode().trim().isEmpty()) {
+            // 如果原来也没有签到码，生成一个
+            a.setCheckinCode(generateCode());
+        }
         a.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(a);
         return ApiResponse.ok(a);
@@ -87,12 +96,40 @@ public class ActivityController {
     }
 
     @GetMapping("/{id}/signups")
-    public ApiResponse<Page<ActivitySignup>> signups(@PathVariable Long id,
-                                                     @RequestParam(defaultValue = "1") int page,
-                                                     @RequestParam(defaultValue = "50") int size) {
+    public ApiResponse<?> signups(@PathVariable Long id,
+                                  @RequestParam(defaultValue = "1") int page,
+                                  @RequestParam(defaultValue = "50") int size) {
         Page<ActivitySignup> p = new Page<>(page, size);
         activitySignupMapper.selectPage(p, new LambdaQueryWrapper<ActivitySignup>().eq(ActivitySignup::getActivityId, id));
-        return ApiResponse.ok(p);
+        
+        // 获取志愿者详细信息
+        List<java.util.Map<String, Object>> result = p.getRecords().stream().map(signup -> {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", signup.getId());
+            map.put("activityId", signup.getActivityId());
+            map.put("volunteerId", signup.getVolunteerId());
+            map.put("status", signup.getStatus());
+            map.put("createdAt", signup.getCreatedAt());
+            map.put("checkinTime", signup.getCheckinTime());
+            
+            // 获取志愿者信息
+            Volunteer volunteer = volunteerMapper.selectById(signup.getVolunteerId());
+            if (volunteer != null) {
+                map.put("volunteerName", volunteer.getName());
+                map.put("volunteerPhone", volunteer.getPhone());
+                map.put("volunteerEmail", volunteer.getEmail());
+                map.put("volunteerOrganization", volunteer.getOrganization());
+            }
+            return map;
+        }).collect(Collectors.toList());
+        
+        java.util.Map<String, Object> pageResult = new java.util.HashMap<>();
+        pageResult.put("records", result);
+        pageResult.put("total", p.getTotal());
+        pageResult.put("current", p.getCurrent());
+        pageResult.put("size", p.getSize());
+        
+        return ApiResponse.ok(pageResult);
     }
 
     @PostMapping("/signup")
@@ -134,12 +171,21 @@ public class ActivityController {
         List<ActivitySignup> records = activitySignupMapper.selectList(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getActivityId, id));
         StringBuilder sb = new StringBuilder();
-        sb.append("volunteerId,status,createdAt,checkinTime\n");
+        sb.append("姓名,电话,邮箱,组织,状态,报名时间,签到时间\n");
         for (ActivitySignup s : records) {
-            sb.append(s.getVolunteerId()).append(",")
-                    .append(s.getStatus()).append(",")
-                    .append(s.getCreatedAt() != null ? s.getCreatedAt() : "").append(",")
-                    .append(s.getCheckinTime() != null ? s.getCheckinTime() : "").append("\n");
+            Volunteer v = volunteerMapper.selectById(s.getVolunteerId());
+            String name = v != null ? v.getName() : "";
+            String phone = v != null ? v.getPhone() : "";
+            String email = v != null ? v.getEmail() : "";
+            String org = v != null ? v.getOrganization() : "";
+            String status = "checked_in".equals(s.getStatus()) ? "已签到" : "已报名";
+            sb.append(name).append(",")
+                    .append(phone).append(",")
+                    .append(email).append(",")
+                    .append(org).append(",")
+                    .append(status).append(",")
+                    .append(s.getCreatedAt() != null ? s.getCreatedAt().toString().replace("T", " ") : "").append(",")
+                    .append(s.getCheckinTime() != null ? s.getCheckinTime().toString().replace("T", " ") : "").append("\n");
         }
         byte[] bytes = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         return ResponseEntity.ok()

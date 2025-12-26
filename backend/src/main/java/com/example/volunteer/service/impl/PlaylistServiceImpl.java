@@ -3,11 +3,13 @@ package com.example.volunteer.service.impl;
 import com.example.volunteer.dto.PlaylistItemDto;
 import com.example.volunteer.dto.PlaylistPreviewDto;
 import com.example.volunteer.dto.PlaylistRequest;
+import com.example.volunteer.entity.ContentItem;
 import com.example.volunteer.entity.Layout;
 import com.example.volunteer.entity.MediaAsset;
 import com.example.volunteer.entity.Playlist;
 import com.example.volunteer.entity.PlaylistItem;
 import com.example.volunteer.entity.TerminalPlaylist;
+import com.example.volunteer.mapper.ContentItemMapper;
 import com.example.volunteer.mapper.LayoutMapper;
 import com.example.volunteer.mapper.MediaAssetMapper;
 import com.example.volunteer.mapper.PlaylistItemMapper;
@@ -30,16 +32,19 @@ public class PlaylistServiceImpl implements PlaylistService {
     private final TerminalPlaylistMapper terminalPlaylistMapper;
     private final LayoutMapper layoutMapper;
     private final MediaAssetMapper mediaAssetMapper;
+    private final ContentItemMapper contentItemMapper;
 
     public PlaylistServiceImpl(PlaylistMapper playlistMapper, PlaylistItemMapper playlistItemMapper,
                                TerminalPlaylistMapper terminalPlaylistMapper,
                                LayoutMapper layoutMapper,
-                               MediaAssetMapper mediaAssetMapper) {
+                               MediaAssetMapper mediaAssetMapper,
+                               ContentItemMapper contentItemMapper) {
         this.playlistMapper = playlistMapper;
         this.playlistItemMapper = playlistItemMapper;
         this.terminalPlaylistMapper = terminalPlaylistMapper;
         this.layoutMapper = layoutMapper;
         this.mediaAssetMapper = mediaAssetMapper;
+        this.contentItemMapper = contentItemMapper;
     }
 
     @Override
@@ -115,19 +120,31 @@ public class PlaylistServiceImpl implements PlaylistService {
         }
         List<PlaylistItem> items = items(playlistId);
         Layout layout = playlist.getLayoutId() != null ? layoutMapper.selectById(playlist.getLayoutId()) : null;
+        
+        // 加载媒体资源
         Set<Long> mediaIds = items.stream()
                 .filter(i -> i.getMediaId() != null)
                 .map(PlaylistItem::getMediaId)
                 .collect(Collectors.toSet());
-        List<MediaAsset> assets = mediaIds.isEmpty()
+        List<MediaAsset> mediaAssets = mediaIds.isEmpty()
                 ? List.of()
                 : mediaAssetMapper.selectBatchIds(mediaIds);
+        
+        // 加载内容资源
+        Set<Long> contentIds = items.stream()
+                .filter(i -> i.getContentId() != null)
+                .map(PlaylistItem::getContentId)
+                .collect(Collectors.toSet());
+        List<ContentItem> contentAssets = contentIds.isEmpty()
+                ? List.of()
+                : contentItemMapper.selectBatchIds(contentIds);
 
         PlaylistPreviewDto dto = new PlaylistPreviewDto();
         dto.setPlaylist(playlist);
         dto.setLayout(layout);
         dto.setItems(items);
-        dto.setMediaAssets(assets);
+        dto.setMediaAssets(mediaAssets);
+        dto.setContentAssets(contentAssets);
         return dto;
     }
 

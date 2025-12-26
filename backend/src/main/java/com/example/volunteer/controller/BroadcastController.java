@@ -33,8 +33,20 @@ public class BroadcastController {
 
     @GetMapping("/active")
     public ApiResponse<Page<BroadcastJob>> active(@RequestParam String terminalCode,
+                                                  @RequestParam(required = false) String groupName,
                                                   @RequestParam(defaultValue = "1") int page,
                                                   @RequestParam(defaultValue = "10") int size) {
-        return ApiResponse.ok(broadcastService.activeForTerminal(terminalCode, page, size));
+        return ApiResponse.ok(broadcastService.activeForTerminal(terminalCode, groupName, page, size));
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        broadcastService.delete(id);
+        return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/status-count")
+    public ApiResponse<java.util.Map<String, Long>> statusCount() {
+        return ApiResponse.ok(broadcastService.countByStatus());
     }
 }
