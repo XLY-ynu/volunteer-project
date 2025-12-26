@@ -55,9 +55,16 @@
               <el-card class="content-card" shadow="hover" @click="openContent(item.id)">
                 <div class="content-cover" v-if="item.coverUrl">
                   <img :src="item.coverUrl" :alt="item.title" />
+                  <div class="cover-tag">{{ activeParent?.name }}</div>
                 </div>
-                <h4>{{ item.title }}</h4>
-                <p class="summary">{{ item.summary || '查看详情' }}</p>
+                <div class="content-meta">
+                  <h4>{{ item.title }}</h4>
+                  <p class="summary">{{ item.summary || '查看详情' }}</p>
+                  <div class="tags">
+                    <el-tag size="small" type="info">{{ activeChild?.name || activeParent?.name }}</el-tag>
+                    <el-tag v-if="item.publishTime" size="small">{{ item.publishTime }}</el-tag>
+                  </div>
+                </div>
               </el-card>
             </el-col>
           </el-row>
@@ -73,18 +80,34 @@
         <h2>视频展示</h2>
         <p class="sub">终端播放拉取绑定的播放列表（默认 public-screen）</p>
         <div class="terminal-input">
-          <el-input v-model="terminalCode" placeholder="终端代码，例如 public-screen" style="width: 260px" @change="loadPlayback" />
+          <el-select v-model="terminalCode" placeholder="输入或选择终端" filterable allow-create style="width: 260px" @change="loadPlayback">
+            <el-option v-for="t in favoriteTerminals" :key="t" :label="t" :value="t" />
+          </el-select>
           <el-button @click="loadPlayback" :loading="playbackLoading">刷新</el-button>
+          <el-button type="primary" plain @click="saveFavorite">收藏终端</el-button>
         </div>
       </div>
       <el-row :gutter="12">
         <el-col :span="12">
-          <video v-if="currentMedia?.url" controls autoplay style="width: 100%; border-radius: 8px" :src="currentMedia.url"></video>
+          <video
+            v-if="currentMedia?.url"
+            ref="videoRef"
+            controls
+            autoplay
+            style="width: 100%; border-radius: 8px"
+            :src="currentMedia.url"
+            :muted="muted"
+          ></video>
           <div v-else class="video-placeholder">暂无可播媒体</div>
           <div class="player-controls" v-if="mediaAssets.length">
             <el-button size="small" @click="prevMedia">上一条</el-button>
             <el-button size="small" @click="togglePlay">{{ autoPlay ? '暂停轮播' : '继续轮播' }}</el-button>
             <el-button size="small" @click="nextMedia">下一条</el-button>
+            <el-select v-model="playbackRate" size="small" style="width: 120px" @change="changeRate">
+              <el-option v-for="r in rates" :key="r" :label="r + 'x'" :value="r" />
+            </el-select>
+            <el-switch v-model="muted" active-text="静音" @change="applyVolume" />
+            <el-slider v-model="volume" :min="0" :max="1" :step="0.05" style="width: 120px" @change="applyVolume" />
           </div>
           <div class="playlist-select" v-if="playback.length">
             <el-select v-model="activePlaylistId" placeholder="选择播放列表" size="small" @change="onPlaylistChange">
@@ -93,15 +116,18 @@
           </div>
         </el-col>
         <el-col :span="12">
-          <el-table :data="mediaAssets" size="small" @row-click="playMedia">
-            <el-table-column prop="name" label="媒体" />
-            <el-table-column prop="type" label="类型" width="100" />
-            <el-table-column label="时长" width="80">
-              <template #default="scope">
-                <span>{{ scope.row.durationSeconds ? scope.row.durationSeconds + 's' : '-' }}</span>
-              </template>
-            </el-table-column>
-          </el-table>
+          <el-row :gutter="10">
+            <el-col :span="12" v-for="m in mediaAssets" :key="m.id">
+              <el-card class="media-card" shadow="hover" @click="playMedia(m)">
+                <div class="media-thumb">
+                  <img v-if="m.thumbUrl" :src="m.thumbUrl" />
+                  <div v-else class="thumb-placeholder">{{ m.type }}</div>
+                  <span class="badge">{{ m.durationSeconds ? m.durationSeconds + 's' : '—' }}</span>
+                </div>
+                <p class="media-title">{{ m.name }}</p>
+              </el-card>
+            </el-col>
+          </el-row>
         </el-col>
       </el-row>
     </section>
@@ -186,6 +212,16 @@
     </el-dialog>
 
     <el-dialog v-model="contentDialog" :title="contentDetail?.title" width="720px">
+      <div class="breadcrumb">
+        <el-breadcrumb separator="/">
+          <el-breadcrumb-item>{{ activeParent?.name || '内容' }}</el-breadcrumb-item>
+          <el-breadcrumb-item>{{ activeChild?.name || '子菜单' }}</el-breadcrumb-item>
+          <el-breadcrumb-item>{{ contentDetail?.title }}</el-breadcrumb-item>
+        </el-breadcrumb>
+      </div>
+      <div class="detail-cover" v-if="contentDetail?.coverUrl">
+        <img :src="contentDetail.coverUrl" />
+      </div>
       <div v-html="contentDetail?.body || contentDetail?.summary"></div>
     </el-dialog>
   </div>
@@ -226,6 +262,15 @@ const playerTimer = ref<number | null>(null);
 const autoPlay = ref(true);
 const activePlaylistId = ref<number | null>(null);
 const playbackLoading = ref(false);
+const playbackRate = ref(1);
+const rates = [0.75, 1, 1.25, 1.5];
+const volume = ref(0.8);
+const muted = ref(false);
+const videoRef = ref<HTMLVideoElement>();
+const favoriteTerminals = ref<string[]>(() => {
+  const saved = localStorage.getItem('portal_fav_terminals');
+  return saved ? JSON.parse(saved) : [];
+} as any);
 
 const activities = ref<any[]>([]);
 const activityPage = ref(1);
@@ -314,6 +359,8 @@ const loadPlayback = async () => {
     mediaAssets.value = first?.mediaAssets || [];
     currentMedia.value = mediaAssets.value[0] || null;
     scheduleNext();
+    applyVolume();
+    changeRate(playbackRate.value);
   } finally {
     playbackLoading.value = false;
   }
@@ -439,6 +486,29 @@ const onPlaylistChange = (id: number) => {
   scheduleNext();
 };
 
+const changeRate = (rate: number) => {
+  playbackRate.value = rate;
+  if (videoRef.value) {
+    videoRef.value.playbackRate = rate;
+  }
+};
+
+const applyVolume = () => {
+  if (videoRef.value) {
+    videoRef.value.muted = muted.value;
+    videoRef.value.volume = muted.value ? 0 : volume.value;
+  }
+};
+
+const saveFavorite = () => {
+  if (!terminalCode.value) return;
+  if (!favoriteTerminals.value.includes(terminalCode.value)) {
+    favoriteTerminals.value.push(terminalCode.value);
+    localStorage.setItem('portal_fav_terminals', JSON.stringify(favoriteTerminals.value));
+    ElMessage.success('已收藏终端');
+  }
+};
+
 onMounted(async () => {
   await loadCategories();
   await loadContent();
@@ -470,12 +540,24 @@ onBeforeUnmount(() => {
 .sub { color: #909399; margin: 4px 0 0; }
 .menu, .submenu { border-radius: 8px; margin-bottom: 10px; }
 .content-card { cursor: pointer; margin-bottom: 12px; min-height: 140px; }
-.content-cover { height: 120px; overflow: hidden; border-radius: 6px; margin-bottom: 8px; }
+.content-cover { position: relative; height: 160px; overflow: hidden; border-radius: 6px; margin-bottom: 8px; }
+.cover-tag { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.55); color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
 .content-cover img { width: 100%; height: 100%; object-fit: cover; }
+.content-meta { min-height: 110px; display: flex; flex-direction: column; gap: 6px; }
 .summary { color: #606266; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .pager { margin-top: 10px; text-align: right; }
 .video-placeholder { height: 260px; border: 1px dashed #dcdfe6; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #909399; }
 .register-form { max-width: 420px; }
 .query { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
 .terminal-input { display: flex; gap: 8px; align-items: center; }
+.media-card { margin-bottom: 10px; }
+.media-thumb { position: relative; height: 120px; border-radius: 8px; overflow: hidden; background: #f5f7fa; display: flex; align-items: center; justify-content: center; }
+.media-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb-placeholder { color: #909399; text-transform: uppercase; }
+.badge { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,0.6); color: #fff; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+.media-title { margin: 6px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.breadcrumb { margin-bottom: 10px; }
+.detail-cover { margin-bottom: 12px; }
+.detail-cover img { width: 100%; border-radius: 8px; object-fit: cover; }
 </style>
