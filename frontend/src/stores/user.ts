@@ -3,7 +3,8 @@ import { defineStore } from 'pinia';
 export const useUserStore = defineStore('user', {
   state: () => ({
     token: localStorage.getItem('token') || '',
-    username: localStorage.getItem('username') || ''
+    username: localStorage.getItem('username') || '',
+    role: localStorage.getItem('role') || ''
   }),
   actions: {
     setToken(token: string) {
@@ -14,11 +15,17 @@ export const useUserStore = defineStore('user', {
       this.username = username;
       localStorage.setItem('username', username);
     },
+    setRole(role: string) {
+      this.role = role;
+      localStorage.setItem('role', role);
+    },
     logout() {
       this.token = '';
       this.username = '';
+      this.role = '';
       localStorage.removeItem('token');
       localStorage.removeItem('username');
+      localStorage.removeItem('role');
     }
   }
 });

@@ -21,6 +21,9 @@
             <span>活动管理</span>
           </div>
         </div>
+        <div class="portal-entry">
+          <el-button type="success" plain @click="goPortal">访问门户</el-button>
+        </div>
       </div>
       <div class="login-right">
         <el-card class="login-card" shadow="never">
@@ -85,6 +88,7 @@ const onSubmit = async () => {
     const data = resp.data.data;
     userStore.setToken(data.token);
     userStore.setUsername(data.username);
+    if (data.role) userStore.setRole(data.role);
     ElMessage.success('登录成功');
     router.push('/dashboard');
   } catch (e: any) {
@@ -92,6 +96,10 @@ const onSubmit = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const goPortal = () => {
+  router.push('/portal');
 };
 </script>
 
@@ -144,6 +152,9 @@ const onSubmit = async () => {
   font-size: 16px;
   opacity: 0.9;
   margin-bottom: 40px;
+}
+.portal-entry {
+  margin-top: 20px;
 }
 
 .features {

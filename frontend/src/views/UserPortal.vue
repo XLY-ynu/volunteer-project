@@ -24,6 +24,7 @@
           <div class="meta-value">{{ stats.mediaTotal }}</div>
           <div class="meta-label">媒体</div>
         </div>
+        <el-button v-if="isAdmin" type="warning" plain @click="goAdmin" class="admin-btn">返回管理后台</el-button>
       </div>
     </section>
 
@@ -69,7 +70,10 @@
       <div class="section-head">
         <h2>视频展示</h2>
         <p class="sub">终端播放拉取绑定的播放列表（默认 public-screen）</p>
-        <el-input v-model="terminalCode" placeholder="终端代码，例如 public-screen" style="width: 260px" @change="loadPlayback" />
+        <div class="terminal-input">
+          <el-input v-model="terminalCode" placeholder="终端代码，例如 public-screen" style="width: 260px" @change="loadPlayback" />
+          <el-button @click="loadPlayback">刷新</el-button>
+        </div>
       </div>
       <el-row :gutter="12">
         <el-col :span="12">
@@ -146,7 +150,11 @@
       </div>
       <el-table :data="signups" size="small">
         <el-table-column prop="title" label="活动" />
-        <el-table-column prop="status" label="状态" width="120" />
+        <el-table-column prop="status" label="状态" width="120">
+          <template #default="scope">
+            <el-tag :type="statusTag(scope.row.status)">{{ scope.row.status }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="signupTime" label="报名时间" width="160" />
         <el-table-column prop="checkinTime" label="签到时间" width="160" />
       </el-table>
@@ -172,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, onBeforeUnmount, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
   fetchActivitiesPublic,
@@ -201,6 +209,7 @@ const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
 const mediaAssets = ref<any[]>([]);
 const currentMedia = ref<any | null>(null);
+const playerTimer = ref<number | null>(null);
 
 const activities = ref<any[]>([]);
 const activityPage = ref(1);
@@ -219,6 +228,7 @@ const stats = ref<{ playlistTotal: number; activityTotal: number; mediaTotal: nu
   activityTotal: 0,
   mediaTotal: 0
 });
+const isAdmin = ref(!!localStorage.getItem('token'));
 
 const scrollTo = (id: string) => {
   const el = document.getElementById(id);
@@ -273,10 +283,12 @@ const loadPlayback = async () => {
   const first = playback.value[0];
   mediaAssets.value = first?.mediaAssets || [];
   currentMedia.value = mediaAssets.value[0] || null;
+  scheduleNext();
 };
 
 const playMedia = (row: any) => {
   currentMedia.value = row;
+  scheduleNext();
 };
 
 const loadActivities = async () => {
@@ -337,12 +349,40 @@ const loadStats = async () => {
   };
 };
 
+const scheduleNext = () => {
+  if (playerTimer.value) {
+    clearTimeout(playerTimer.value);
+  }
+  if (!mediaAssets.value.length || !currentMedia.value) return;
+  const idx = mediaAssets.value.findIndex((m: any) => m.id === currentMedia.value.id);
+  const duration = (currentMedia.value.durationSeconds || 10) * 1000;
+  playerTimer.value = window.setTimeout(() => {
+    const next = mediaAssets.value[(idx + 1) % mediaAssets.value.length];
+    currentMedia.value = next;
+    scheduleNext();
+  }, duration);
+};
+
+const statusTag = (status: string) => {
+  if (status === 'checked_in') return 'success';
+  if (status === 'applied') return 'warning';
+  return 'info';
+};
+
+const goAdmin = () => {
+  window.location.href = '/dashboard';
+};
+
 onMounted(async () => {
   await loadCategories();
   await loadContent();
   await loadPlayback();
   await loadActivities();
   loadStats();
+});
+
+onBeforeUnmount(() => {
+  if (playerTimer.value) clearTimeout(playerTimer.value);
 });
 </script>
 
@@ -352,10 +392,11 @@ onMounted(async () => {
 .eyebrow { margin: 0; opacity: 0.9; }
 .desc { margin: 6px 0 12px; opacity: 0.9; }
 .hero-actions :deep(.el-button) { margin-right: 8px; }
-.hero-meta { display: flex; gap: 12px; }
+.hero-meta { display: flex; gap: 12px; align-items: center; }
 .meta-card { background: rgba(255,255,255,0.12); padding: 10px 14px; border-radius: 10px; text-align: center; min-width: 90px; }
 .meta-value { font-size: 24px; font-weight: 700; }
 .meta-label { font-size: 13px; opacity: 0.9; }
+.admin-btn { margin-left: 8px; }
 
 .section-head { margin: 16px 0 10px; }
 .sub { color: #909399; margin: 4px 0 0; }
@@ -368,4 +409,5 @@ onMounted(async () => {
 .video-placeholder { height: 260px; border: 1px dashed #dcdfe6; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #909399; }
 .register-form { max-width: 420px; }
 .query { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.terminal-input { display: flex; gap: 8px; align-items: center; }
 </style>

@@ -84,6 +84,7 @@
       <el-header class="header">
         <div class="header-title">{{ pageTitle }}</div>
         <div class="user">
+          <el-button type="primary" link @click="goPortal">访问门户</el-button>
           <el-avatar :size="32" class="avatar">{{ userStore.username?.charAt(0)?.toUpperCase() || 'U' }}</el-avatar>
           <span class="user-info">{{ userStore.username || '未登录' }}</span>
           <el-button type="danger" link @click="logout">退出登录</el-button>
@@ -138,6 +139,10 @@ const onSelect = (path: string) => {
 const logout = () => {
   userStore.logout();
   router.push('/login');
+};
+
+const goPortal = () => {
+  window.open('/portal', '_blank');
 };
 </script>
 
