@@ -293,6 +293,23 @@
             <span>{{ scope.row.errorMessage || '-' }}</span>
           </template>
         </el-table-column>
+        <el-table-column prop="nextRetryAt" label="下次重试" width="160">
+          <template #default="scope">
+            <span>{{ scope.row.nextRetryAt || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120">
+          <template #default="scope">
+            <el-button
+              size="small"
+              type="primary"
+              :disabled="scope.row.status !== 'failed' || (scope.row.retryCount ?? 0) >= (scope.row.maxRetries ?? 0)"
+              @click="retryLog(scope.row.id)"
+            >
+              重试
+            </el-button>
+          </template>
+        </el-table-column>
       </el-table>
       <div class="pagination">
         <el-pagination layout="prev, pager, next" :total="logTotal" :page-size="logSize" :current-page="logPage" @current-change="onLogPage" />
@@ -327,6 +344,7 @@
             <el-button-group>
               <el-button size="small" @click="openConfig(scope.row)">编辑</el-button>
               <el-button size="small" @click="openTest(scope.row)">测试</el-button>
+              <el-button size="small" @click="validateConfig(scope.row)">校验</el-button>
             </el-button-group>
           </template>
         </el-table-column>
@@ -784,6 +802,8 @@ import {
   fetchNotificationConfigs,
   saveNotificationConfig,
   sendNotificationTest,
+  validateNotificationConfig,
+  retryNotificationLog,
   fetchAlertSubscriptions,
   createAlertSubscription,
   updateAlertSubscription,
@@ -1033,6 +1053,22 @@ const configSummary = (row: any) => {
     return cfg.webhookUrl || cfg.webhook || '-';
   }
   return '-';
+};
+
+const validateConfig = async (row: any) => {
+  const resp = await validateNotificationConfig(row.channel, { config: row.config });
+  const data = resp.data?.data;
+  if (data?.valid) {
+    ElMessage.success(data.message || '配置校验通过');
+  } else {
+    ElMessage.warning(data?.message || '配置校验未通过');
+  }
+};
+
+const retryLog = async (id: number) => {
+  await retryNotificationLog(id);
+  ElMessage.success('已触发重试');
+  loadNotificationLogs();
 };
 
 const openConfig = (row: any) => {

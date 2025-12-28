@@ -44,6 +44,47 @@
       </el-col>
     </el-row>
 
+    <!-- 插播队列预览 -->
+    <el-card class="content-card" shadow="never">
+      <div class="header-content">
+        <div class="header-left">
+          <h4>插播队列预览</h4>
+          <span class="subtitle">抢占优先 > 优先级 > 开始时间</span>
+        </div>
+        <div class="queue-actions">
+          <el-select v-model="queueTerminal" placeholder="选择终端" filterable style="width: 240px" @change="loadQueuePreview">
+            <el-option v-for="t in terminalList" :key="t.code" :label="`${t.name} (${t.code})`" :value="t.code" />
+          </el-select>
+          <el-button size="small" @click="loadQueuePreview">刷新队列</el-button>
+        </div>
+      </div>
+      <el-table :data="queueList" size="small">
+        <el-table-column prop="job.priority" label="优先级" width="90">
+          <template #default="scope">
+            <el-tag size="small" type="warning">{{ scope.row.job?.priority ?? 0 }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="job.queueMode" label="策略" width="100">
+          <template #default="scope">
+            <el-tag size="small" :type="scope.row.job?.queueMode === 'interrupt' ? 'danger' : 'info'">
+              {{ scope.row.job?.queueMode === 'interrupt' ? '抢占' : '排队' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="内容" min-width="180">
+          <template #default="scope">
+            <span v-if="scope.row.media">媒体：{{ scope.row.media.name }}</span>
+            <span v-else-if="scope.row.content">内容：{{ scope.row.content.title }}</span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="job.startTime" label="开始时间" width="160">
+          <template #default="scope">{{ formatTime(scope.row.job?.startTime) }}</template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="queueTerminal && queueList.length === 0" description="暂无插播队列" />
+    </el-card>
+
     <!-- 插播列表 -->
     <el-card class="content-card" shadow="never">
       <el-table :data="list" stripe>
@@ -209,7 +250,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { createBroadcast, fetchBroadcasts, deleteBroadcast, fetchBroadcastStatusCount, fetchMedia, fetchContent, fetchTerminals } from '../api';
+import { createBroadcast, fetchBroadcasts, deleteBroadcast, fetchBroadcastStatusCount, fetchMedia, fetchContent, fetchTerminals, fetchPublicBroadcasts } from '../api';
 import { Bell, VideoPlay, Clock, CircleCheck, Close, Folder, Monitor } from '@element-plus/icons-vue';
 
 const list = ref<any[]>([]);
@@ -223,6 +264,8 @@ const mediaList = ref<any[]>([]);
 const contentList = ref<any[]>([]);
 const terminalList = ref<any[]>([]);
 const groupList = ref<string[]>([]);
+const queueTerminal = ref('');
+const queueList = ref<any[]>([]);
 
 const form = ref({
   title: '',
@@ -277,6 +320,19 @@ const loadTerminals = async () => {
     if (t.groupName) groups.add(t.groupName);
   });
   groupList.value = Array.from(groups);
+  if (!queueTerminal.value && terminalList.value.length) {
+    queueTerminal.value = terminalList.value[0].code;
+    loadQueuePreview();
+  }
+};
+
+const loadQueuePreview = async () => {
+  if (!queueTerminal.value) {
+    queueList.value = [];
+    return;
+  }
+  const resp = await fetchPublicBroadcasts(queueTerminal.value);
+  queueList.value = resp.data?.data || [];
 };
 
 const getMediaName = (id: number) => mediaList.value.find(m => m.id === id)?.name || `媒体#${id}`;
@@ -397,7 +453,9 @@ onMounted(() => {
 .page-header, .content-card { border-radius: 12px; }
 .header-content { display: flex; justify-content: space-between; align-items: center; }
 .header-left h3 { margin: 0; font-size: 18px; }
+.header-left h4 { margin: 0; font-size: 16px; }
 .subtitle { font-size: 13px; color: #909399; }
+.queue-actions { display: flex; align-items: center; gap: 8px; }
 
 .status-row { margin-bottom: 0; }
 .status-card { border-radius: 12px; }

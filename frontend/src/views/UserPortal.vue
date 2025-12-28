@@ -432,6 +432,12 @@
               <span class="reminder-unit">分钟前提醒</span>
             </div>
           </div>
+          <div class="security-settings" v-if="!profileEditing">
+            <div class="reminder-title">安全设置</div>
+            <el-button size="small" @click="changePwdDialog = true">修改密码</el-button>
+            <el-button size="small" @click="openResetDialog">重置密码</el-button>
+            <el-tag size="small" type="info">账号类型：志愿者</el-tag>
+          </div>
         </el-card>
       </div>
       <el-alert v-if="upcomingReminder" type="info" show-icon :closable="false" class="audit-alert" :title="upcomingReminder" />
@@ -482,6 +488,44 @@
         <el-table-column prop="signupTime" label="报名时间" width="160" />
         <el-table-column prop="checkinTime" label="签到时间" width="160" />
       </el-table>
+
+      <el-card v-if="portalLoggedIn" class="message-card" shadow="never">
+        <template #header>
+          <div class="card-title">消息中心</div>
+        </template>
+        <el-empty v-if="messageItems.length === 0" description="暂无消息" />
+        <el-timeline v-else>
+          <el-timeline-item v-for="item in messageItems" :key="item.time + item.title" :timestamp="formatDateTime(item.time)" :type="messageTagType(item)">
+            <div class="message-title">{{ item.title }}</div>
+            <div class="message-meta" v-if="item.message">{{ item.message }}</div>
+            <el-tag v-if="item.type === 'reminder'" size="small" type="info">{{ item.channel }}</el-tag>
+          </el-timeline-item>
+        </el-timeline>
+      </el-card>
+
+      <el-card v-if="portalLoggedIn" class="message-card" shadow="never">
+        <template #header>
+          <div class="card-title">
+            提醒日志
+            <el-button size="small" text type="primary" @click="loadPortalReminderLogs">刷新</el-button>
+          </div>
+        </template>
+        <el-table :data="portalReminderLogs" size="small">
+          <el-table-column prop="createdAt" label="时间" width="160">
+            <template #default="scope">{{ formatDateTime(scope.row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column prop="activityTitle" label="活动" />
+          <el-table-column prop="channel" label="通道" width="100" />
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="scope">
+              <el-tag size="small" :type="scope.row.status === 'sent' ? 'success' : 'danger'">
+                {{ scope.row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="message" label="内容" min-width="200" />
+        </el-table>
+      </el-card>
     </section>
 
     <el-dialog v-model="dialogVisible" title="活动报名" width="520px">
@@ -606,6 +650,7 @@ import {
   fetchPortalReminderSettings,
   updatePortalReminderSettings,
   fetchPortalReminders,
+  fetchPortalReminderLogs,
   signupActivityPortal,
   updateContentConfig,
   fetchVolunteerSignups,
@@ -660,6 +705,7 @@ const reminderSettings = ref<{ signupReminder: boolean; checkinReminder: boolean
   })()
 );
 const portalReminders = ref<any[]>([]);
+const portalReminderLogs = ref<any[]>([]);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -824,6 +870,48 @@ const detailTags = computed(() => {
   return tags.filter(Boolean);
 });
 
+const messageItems = computed(() => {
+  const items: any[] = [];
+  signups.value.forEach((s: any) => {
+    if (s.signupTime) {
+      items.push({
+        time: s.signupTime,
+        title: `报名活动 · ${s.title || ''}`,
+        type: 'signup',
+        status: s.status
+      });
+    }
+    if (s.checkinTime) {
+      items.push({
+        time: s.checkinTime,
+        title: `签到成功 · ${s.title || ''}`,
+        type: 'checkin',
+        status: 'checked_in'
+      });
+    }
+  });
+  portalReminderLogs.value.forEach((log: any) => {
+    items.push({
+      time: log.createdAt,
+      title: `提醒推送 · ${log.activityTitle || ''}`,
+      type: 'reminder',
+      status: log.status,
+      channel: log.channel,
+      message: log.message
+    });
+  });
+  return items.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
+});
+
+const messageTagType = (item: any) => {
+  if (item.type === 'checkin') return 'success';
+  if (item.type === 'reminder') {
+    if (item.status === 'failed' || item.status === 'abandoned') return 'danger';
+    return 'warning';
+  }
+  return 'info';
+};
+
 const formatCountdown = (seconds: number) => {
   if (!seconds || seconds <= 0) return '即将开始';
   const mins = Math.floor(seconds / 60);
@@ -832,6 +920,11 @@ const formatCountdown = (seconds: number) => {
   if (days > 0) return `${days}天${hrs % 24}小时`;
   if (hrs > 0) return `${hrs}小时${mins % 60}分钟`;
   return `${mins}分钟`;
+};
+
+const formatDateTime = (val: string) => {
+  if (!val) return '-';
+  return val.replace('T', ' ').substring(0, 19);
 };
 
 const scrollTo = (id: string) => {
@@ -1087,6 +1180,7 @@ const registerVolunteer = async () => {
       await loadPortalStats();
       await loadReminderSettings();
       await loadPortalReminders();
+      await loadPortalReminderLogs();
       ElMessage.success('注册成功');
       pendingRegisterPhone.value = '';
     } else {
@@ -1129,6 +1223,7 @@ const loadSignups = async () => {
     signups.value = resp.data?.data || [];
     await loadPortalStats();
     await loadPortalReminders();
+    await loadPortalReminderLogs();
     return;
   }
   if (!queryPhone.value) {
@@ -1181,6 +1276,19 @@ const loadPortalReminders = async () => {
   } catch (e) {
     portalReminders.value = [];
     stopReminderTimer();
+  }
+};
+
+const loadPortalReminderLogs = async () => {
+  if (!portalLoggedIn.value) {
+    portalReminderLogs.value = [];
+    return;
+  }
+  try {
+    const resp = await fetchPortalReminderLogs();
+    portalReminderLogs.value = resp.data?.data || [];
+  } catch (e) {
+    portalReminderLogs.value = [];
   }
 };
 
@@ -1238,6 +1346,7 @@ const portalLoginSubmit = async () => {
     await loadAuditLogs();
     await loadReminderSettings();
     await loadPortalReminders();
+    await loadPortalReminderLogs();
     ElMessage.success('登录成功');
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '登录失败');
@@ -1349,6 +1458,7 @@ const portalLogout = () => {
   portalStats.value = { total: 0, applied: 0, checkedIn: 0, upcoming: 0 };
   auditLogs.value = [];
   portalReminders.value = [];
+  portalReminderLogs.value = [];
   reminderSettings.value = { signupReminder: true, checkinReminder: true, channel: 'sms', reminderMinutes: 30 };
   stopReminderTimer();
 };
@@ -1807,6 +1917,7 @@ onMounted(async () => {
     await loadPortalStats();
     await loadReminderSettings();
     await loadPortalReminders();
+    await loadPortalReminderLogs();
   }
   const saved = localStorage.getItem('portal_terminal_code');
   if (saved) terminalCode.value = saved;
@@ -1883,12 +1994,16 @@ onBeforeUnmount(() => {
 .profile-info { color: #606266; display: flex; flex-direction: column; gap: 6px; }
 .reminder-settings { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .reminder-title { font-size: 13px; color: #909399; margin-right: 6px; }
+.security-settings { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.message-card { margin-top: 12px; }
+.message-title { font-weight: 600; }
+.message-meta { font-size: 12px; color: #909399; margin-top: 2px; }
 .signup-stats { margin: 10px 0; }
 .stat-card { text-align: center; }
 .stat-value { font-size: 20px; font-weight: 700; color: #409eff; }
 .stat-label { font-size: 12px; color: #909399; }
 .audit-card { margin: 12px 0; }
-.card-title { font-weight: 600; }
+.card-title { font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
 .audit-remark { color: #909399; font-size: 12px; }
 .terminal-input { display: flex; gap: 8px; align-items: center; }
 .media-card { margin-bottom: 10px; }

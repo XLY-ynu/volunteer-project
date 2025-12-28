@@ -3,14 +3,19 @@ package com.example.volunteer.controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
+import com.example.volunteer.dto.ActivityReminderLogDto;
 import com.example.volunteer.entity.AlertSilence;
 import com.example.volunteer.entity.AlertSubscription;
+import com.example.volunteer.entity.Activity;
+import com.example.volunteer.entity.ActivityReminderLog;
 import com.example.volunteer.entity.NotificationLog;
 import com.example.volunteer.entity.Terminal;
 import com.example.volunteer.entity.TerminalAlertHistory;
 import com.example.volunteer.entity.TerminalGroupRule;
 import com.example.volunteer.entity.TerminalHeartbeat;
+import com.example.volunteer.entity.Volunteer;
 import com.example.volunteer.mapper.ActivityMapper;
+import com.example.volunteer.mapper.ActivityReminderLogMapper;
 import com.example.volunteer.mapper.MediaAssetMapper;
 import com.example.volunteer.mapper.PlaylistMapper;
 import com.example.volunteer.mapper.AlertSilenceMapper;
@@ -20,6 +25,7 @@ import com.example.volunteer.mapper.TerminalGroupRuleMapper;
 import com.example.volunteer.mapper.TerminalHeartbeatMapper;
 import com.example.volunteer.mapper.TerminalAlertHistoryMapper;
 import com.example.volunteer.mapper.TerminalMapper;
+import com.example.volunteer.mapper.VolunteerMapper;
 import com.example.volunteer.service.NotificationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
@@ -58,6 +64,8 @@ public class MonitorController {
     private final MediaAssetMapper mediaAssetMapper;
     private final PlaylistMapper playlistMapper;
     private final ActivityMapper activityMapper;
+    private final ActivityReminderLogMapper activityReminderLogMapper;
+    private final VolunteerMapper volunteerMapper;
     private final long offlineSeconds;
     private final long alertIntervalSeconds;
 
@@ -70,6 +78,8 @@ public class MonitorController {
                              NotificationService notificationService,
                              AlertSubscriptionMapper alertSubscriptionMapper,
                              AlertSilenceMapper alertSilenceMapper,
+                             ActivityReminderLogMapper activityReminderLogMapper,
+                             VolunteerMapper volunteerMapper,
                              @Value("${app.terminal.offline-seconds:300}") long offlineSeconds,
                              @Value("${app.monitor.alert-interval-seconds:300}") long alertIntervalSeconds) {
         this.terminalMapper = terminalMapper;
@@ -83,6 +93,8 @@ public class MonitorController {
         this.mediaAssetMapper = mediaAssetMapper;
         this.playlistMapper = playlistMapper;
         this.activityMapper = activityMapper;
+        this.activityReminderLogMapper = activityReminderLogMapper;
+        this.volunteerMapper = volunteerMapper;
         this.offlineSeconds = offlineSeconds;
         this.alertIntervalSeconds = alertIntervalSeconds;
     }
@@ -284,6 +296,57 @@ public class MonitorController {
         Page<NotificationLog> p = new Page<>(page, size);
         notificationLogMapper.selectPage(p, w);
         return ApiResponse.ok(p);
+    }
+
+    @PostMapping("/notification-logs/{id}/retry")
+    public ApiResponse<NotificationLog> retryNotification(@PathVariable Long id) {
+        NotificationLog log = notificationLogMapper.selectById(id);
+        if (log == null) {
+            return ApiResponse.fail("通知记录不存在");
+        }
+        return ApiResponse.ok(notificationService.retry(log));
+    }
+
+    @GetMapping("/reminder-logs")
+    public ApiResponse<Page<ActivityReminderLogDto>> reminderLogs(@RequestParam(defaultValue = "1") int page,
+                                                                  @RequestParam(defaultValue = "20") int size,
+                                                                  @RequestParam(required = false) Long activityId,
+                                                                  @RequestParam(required = false) String status,
+                                                                  @RequestParam(required = false) String type) {
+        QueryWrapper<ActivityReminderLog> w = new QueryWrapper<>();
+        if (activityId != null) {
+            w.eq("activity_id", activityId);
+        }
+        if (StringUtils.hasText(status)) {
+            w.eq("status", status);
+        }
+        if (StringUtils.hasText(type)) {
+            w.eq("reminder_type", type);
+        }
+        w.orderByDesc("created_at");
+        Page<ActivityReminderLog> p = new Page<>(page, size);
+        activityReminderLogMapper.selectPage(p, w);
+        List<ActivityReminderLogDto> records = p.getRecords().stream().map(log -> {
+            ActivityReminderLogDto dto = new ActivityReminderLogDto();
+            dto.setId(log.getId());
+            dto.setActivityId(log.getActivityId());
+            dto.setVolunteerId(log.getVolunteerId());
+            dto.setReminderType(log.getReminderType());
+            dto.setChannel(log.getChannel());
+            dto.setStatus(log.getStatus());
+            dto.setMessage(log.getMessage());
+            dto.setCreatedAt(log.getCreatedAt());
+            Activity activity = activityMapper.selectById(log.getActivityId());
+            Volunteer volunteer = volunteerMapper.selectById(log.getVolunteerId());
+            dto.setActivityTitle(activity != null ? activity.getTitle() : null);
+            dto.setVolunteerName(volunteer != null ? volunteer.getName() : null);
+            dto.setVolunteerPhone(volunteer != null ? volunteer.getPhone() : null);
+            return dto;
+        }).collect(Collectors.toList());
+        Page<ActivityReminderLogDto> result = new Page<>(page, size);
+        result.setTotal(p.getTotal());
+        result.setRecords(records);
+        return ApiResponse.ok(result);
     }
 
     @GetMapping("/alert-subscriptions")

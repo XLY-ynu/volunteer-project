@@ -294,15 +294,17 @@ const loadBroadcasts = async () => {
   }
 };
 
+const sendHeartbeat = () => {
+  sendPublicHeartbeat({ code: terminalCode.value, status: offlineMode.value ? 'offline' : 'online' });
+};
+
 const startTimers = () => {
   if (timer.value) clearInterval(timer.value);
   timer.value = window.setInterval(tick, 1000);
   if (broadcastTimer.value) clearInterval(broadcastTimer.value);
   broadcastTimer.value = window.setInterval(tickBroadcast, 1000);
   if (heartbeatTimer.value) clearInterval(heartbeatTimer.value);
-  heartbeatTimer.value = window.setInterval(() => {
-    sendPublicHeartbeat({ code: terminalCode.value, status: 'online' });
-  }, 60000);
+  heartbeatTimer.value = window.setInterval(sendHeartbeat, 60000);
   if (reloadTimer.value) clearInterval(reloadTimer.value);
   reloadTimer.value = window.setInterval(() => {
     loadPlayback();
@@ -313,7 +315,7 @@ const startTimers = () => {
 onMounted(async () => {
   await loadPlayback();
   await loadBroadcasts();
-  sendPublicHeartbeat({ code: terminalCode.value, status: 'online' });
+  sendHeartbeat();
   startTimers();
 });
 

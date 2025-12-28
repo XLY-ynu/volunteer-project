@@ -61,6 +61,26 @@
           </div>
         </el-form-item>
 
+        <el-form-item label="播放策略" v-if="areas[selectedArea]">
+          <div class="area-params">
+            <div class="param-row">
+              <span>轮播模式</span>
+              <el-select v-model="areas[selectedArea].playMode" size="small" style="width: 160px">
+                <el-option label="独立轮播" value="split" />
+                <el-option label="共享轮播" value="shared" />
+              </el-select>
+            </div>
+            <div class="param-row">
+              <span>默认时长(秒)</span>
+              <el-input-number v-model="areas[selectedArea].defaultDuration" :min="5" :max="60" size="small" />
+            </div>
+            <div class="param-row">
+              <span>随机播放</span>
+              <el-switch v-model="areas[selectedArea].shuffle" />
+            </div>
+          </div>
+        </el-form-item>
+
         <!-- 分区参数调整（自定义模式） -->
         <el-form-item label="分区设置" v-if="layoutType === 'custom'">
           <div class="area-settings">
@@ -127,22 +147,44 @@ const selectedArea = ref(0);
 const previewAreas = ref<any[]>([]);
 
 // 分区数据 (x, y, w, h 都是百分比 0-100)
-const areas = ref<{ x: number; y: number; w: number; h: number }[]>([
-  { x: 0, y: 0, w: 100, h: 100 }
+const areas = ref<any[]>([
+  { x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }
 ]);
 
 // 预设布局模板
-const layoutTemplates: Record<string, { x: number; y: number; w: number; h: number }[]> = {
-  single: [{ x: 0, y: 0, w: 100, h: 100 }],
-  lr: [{ x: 0, y: 0, w: 50, h: 100 }, { x: 50, y: 0, w: 50, h: 100 }],
-  tb: [{ x: 0, y: 0, w: 100, h: 50 }, { x: 0, y: 50, w: 100, h: 50 }],
-  grid4: [
-    { x: 0, y: 0, w: 50, h: 50 }, { x: 50, y: 0, w: 50, h: 50 },
-    { x: 0, y: 50, w: 50, h: 50 }, { x: 50, y: 50, w: 50, h: 50 }
+const layoutTemplates: Record<string, any[]> = {
+  single: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }],
+  lr: [
+    { x: 0, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 },
+    { x: 50, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }
   ],
-  'main-side': [{ x: 0, y: 0, w: 70, h: 100 }, { x: 70, y: 0, w: 30, h: 50 }, { x: 70, y: 50, w: 30, h: 50 }],
-  custom: [{ x: 0, y: 0, w: 100, h: 100 }]
+  tb: [
+    { x: 0, y: 0, w: 100, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 },
+    { x: 0, y: 50, w: 100, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 }
+  ],
+  grid4: [
+    { x: 0, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 },
+    { x: 50, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 },
+    { x: 0, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 },
+    { x: 50, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 }
+  ],
+  'main-side': [
+    { x: 0, y: 0, w: 70, h: 100, playMode: 'shared', shuffle: false, defaultDuration: 12 },
+    { x: 70, y: 0, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
+    { x: 70, y: 50, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 }
+  ],
+  custom: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }]
 };
+
+const normalizeArea = (area: any) => ({
+  x: area.x ?? 0,
+  y: area.y ?? 0,
+  w: area.w ?? 100,
+  h: area.h ?? 100,
+  playMode: area.playMode || 'split',
+  shuffle: area.shuffle ?? false,
+  defaultDuration: area.defaultDuration ?? 12
+});
 
 const load = async () => {
   const resp = await fetchLayouts();
@@ -152,7 +194,7 @@ const load = async () => {
 const parseAreas = (json: string) => {
   try {
     const obj = JSON.parse(json);
-    return obj.areas || [];
+    return (obj.areas || []).map(normalizeArea);
   } catch { return []; }
 };
 
@@ -171,7 +213,7 @@ const onLayoutTypeChange = (type: string) => {
 };
 
 const addArea = () => {
-  areas.value.push({ x: 0, y: 0, w: 30, h: 30 });
+  areas.value.push({ x: 0, y: 0, w: 30, h: 30, playMode: 'split', shuffle: false, defaultDuration: 12 });
   selectedArea.value = areas.value.length - 1;
 };
 
@@ -193,7 +235,7 @@ const onEdit = (item: any) => {
   editingId.value = item.id;
   form.value = { name: item.name };
   areas.value = parseAreas(item.layoutJson);
-  if (!areas.value.length) areas.value = [{ x: 0, y: 0, w: 100, h: 100 }];
+  if (!areas.value.length) areas.value = [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }];
   layoutType.value = 'custom';
   selectedArea.value = 0;
   dialogVisible.value = true;

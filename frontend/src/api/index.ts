@@ -131,6 +131,7 @@ export const fetchPortalReminderSettings = () => http.get('/portal/reminder-sett
 export const updatePortalReminderSettings = (payload: { signupReminder?: boolean; checkinReminder?: boolean; channel?: string; reminderMinutes?: number }) =>
   http.put('/portal/reminder-settings', payload);
 export const fetchPortalReminders = () => http.get('/portal/reminders');
+export const fetchPortalReminderLogs = () => http.get('/portal/reminder-logs');
 
 export const fetchGroupRules = () => http.get('/monitor/group-rules');
 export const createGroupRule = (payload: { groupName: string; offlineThreshold?: number; enabled?: boolean; notifyChannel?: string; notifyTarget?: string }) =>
@@ -148,8 +149,13 @@ export const fetchNotificationConfigs = () => http.get('/monitor/notification-co
 export const fetchNotificationConfig = (channel: string) => http.get(`/monitor/notification-configs/${channel}`);
 export const saveNotificationConfig = (channel: string, payload: { enabled?: boolean; config?: Record<string, any> }) =>
   http.put(`/monitor/notification-configs/${channel}`, payload);
+export const validateNotificationConfig = (channel: string, payload?: { config?: Record<string, any> }) =>
+  http.post(`/monitor/notification-configs/${channel}/validate`, payload || {});
 export const sendNotificationTest = (payload: { channel: string; target?: string; title?: string; content?: string }) =>
   http.post('/monitor/notification-test', payload);
+export const retryNotificationLog = (id: number) => http.post(`/monitor/notification-logs/${id}/retry`);
+export const fetchReminderLogs = (page = 1, size = 20, activityId?: number, status?: string, type?: string) =>
+  http.get('/monitor/reminder-logs', { params: { page, size, activityId, status, type } });
 export const fetchAlertSubscriptions = () => http.get('/monitor/alert-subscriptions');
 export const createAlertSubscription = (payload: { groupName?: string; channel?: string; target?: string; enabled?: boolean }) =>
   http.post('/monitor/alert-subscriptions', payload);

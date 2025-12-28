@@ -53,6 +53,10 @@
                 <el-icon><DataAnalysis /></el-icon>
                 统计
               </el-button>
+              <el-button size="small" type="warning" @click="viewReminderLogs(scope.row.id)">
+                <el-icon><Bell /></el-icon>
+                提醒日志
+              </el-button>
               <el-button size="small" @click="edit(scope.row)">
                 <el-icon><Edit /></el-icon>
                 编辑
@@ -216,6 +220,48 @@
       </el-table>
     </el-dialog>
 
+    <!-- 提醒日志弹窗 -->
+    <el-dialog v-model="reminderDialog" title="提醒日志" width="760px">
+      <div class="reminder-filter">
+        <el-select v-model="reminderStatus" placeholder="状态" size="small" style="width: 120px" @change="loadReminderLogs">
+          <el-option label="全部" value="" />
+          <el-option label="sent" value="sent" />
+          <el-option label="failed" value="failed" />
+          <el-option label="abandoned" value="abandoned" />
+        </el-select>
+        <el-select v-model="reminderType" placeholder="类型" size="small" style="width: 120px" @change="loadReminderLogs">
+          <el-option label="全部" value="" />
+          <el-option label="checkin" value="checkin" />
+        </el-select>
+        <el-button size="small" @click="loadReminderLogs">刷新</el-button>
+      </div>
+      <el-table :data="reminderLogs" size="small">
+        <el-table-column prop="createdAt" label="时间" width="160">
+          <template #default="scope">{{ formatDate(scope.row.createdAt) }}</template>
+        </el-table-column>
+        <el-table-column prop="volunteerName" label="姓名" width="100" />
+        <el-table-column prop="volunteerPhone" label="手机号" width="140" />
+        <el-table-column prop="channel" label="通道" width="120" />
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="scope">
+            <el-tag size="small" :type="reminderStatusType(scope.row.status)">
+              {{ scope.row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="message" label="内容" min-width="200" />
+      </el-table>
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="reminderPage"
+          :total="reminderTotal"
+          :page-size="reminderSize"
+          layout="total, prev, pager, next"
+          @current-change="loadReminderLogs"
+        />
+      </div>
+    </el-dialog>
+
     <!-- 二维码弹窗 -->
     <el-dialog v-model="qrDialog" title="签到二维码" width="360px">
       <div class="qr-wrapper">
@@ -232,8 +278,8 @@ import { computed, onMounted, ref } from 'vue';
 import QRCode from 'qrcode';
 import http from '../api/http';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { fetchActivityStats } from '../api';
-import { Plus, CopyDocument, DataAnalysis, Edit, Delete, Iphone, Download } from '@element-plus/icons-vue';
+import { fetchActivityStats, fetchReminderLogs } from '../api';
+import { Plus, CopyDocument, DataAnalysis, Edit, Delete, Iphone, Download, Bell } from '@element-plus/icons-vue';
 
 const list = ref<any[]>([]);
 const page = ref(1);
@@ -249,6 +295,14 @@ const form = ref({ title: '', description: '', location: '', startTime: '', endT
 const qrDialog = ref(false);
 const qrImage = ref('');
 const checkinUrl = ref('');
+const reminderDialog = ref(false);
+const reminderLogs = ref<any[]>([]);
+const reminderPage = ref(1);
+const reminderSize = ref(10);
+const reminderTotal = ref(0);
+const reminderStatus = ref('');
+const reminderType = ref('');
+const reminderActivityId = ref<number | null>(null);
 
 const progressPercent = computed(() => {
   if (!stats.value.total) return 0;
@@ -308,6 +362,28 @@ const viewSignups = async (id: number) => {
   stats.value = statResp.data?.data || { total: 0, checkedIn: 0 };
   checkinUrl.value = `${window.location.origin}/checkin?activityId=${id}&code=${stats.value.checkinCode || ''}`;
   signupDialog.value = true;
+};
+
+const viewReminderLogs = (id: number) => {
+  reminderActivityId.value = id;
+  reminderPage.value = 1;
+  reminderDialog.value = true;
+  loadReminderLogs();
+};
+
+const loadReminderLogs = async () => {
+  if (!reminderActivityId.value) return;
+  const resp = await fetchReminderLogs(reminderPage.value, reminderSize.value, reminderActivityId.value, reminderStatus.value || undefined, reminderType.value || undefined);
+  const data = resp.data?.data || {};
+  reminderLogs.value = data.records || [];
+  reminderTotal.value = data.total || 0;
+};
+
+const reminderStatusType = (status: string) => {
+  if (status === 'sent') return 'success';
+  if (status === 'failed') return 'danger';
+  if (status === 'abandoned') return 'warning';
+  return 'info';
 };
 
 const copyCode = (code?: string) => {
@@ -517,5 +593,12 @@ onMounted(load);
   color: #909399;
   font-size: 14px;
   margin: 0;
+}
+
+.reminder-filter {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
 }
 </style>

@@ -9,17 +9,20 @@ import com.example.volunteer.dto.PortalLoginRequest;
 import com.example.volunteer.dto.PortalProfileDto;
 import com.example.volunteer.dto.PortalProfileRequest;
 import com.example.volunteer.dto.PortalReminderDto;
+import com.example.volunteer.dto.PortalReminderLogDto;
 import com.example.volunteer.dto.PortalReminderSettingRequest;
 import com.example.volunteer.dto.PortalRegisterRequest;
 import com.example.volunteer.dto.PortalResetPasswordRequest;
 import com.example.volunteer.dto.VolunteerSignupDto;
 import com.example.volunteer.entity.Activity;
 import com.example.volunteer.entity.ActivitySignup;
+import com.example.volunteer.entity.ActivityReminderLog;
 import com.example.volunteer.entity.User;
 import com.example.volunteer.entity.Volunteer;
 import com.example.volunteer.entity.VolunteerReminderSetting;
 import com.example.volunteer.entity.VolunteerStatusLog;
 import com.example.volunteer.mapper.ActivityMapper;
+import com.example.volunteer.mapper.ActivityReminderLogMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.UserMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
@@ -55,6 +58,7 @@ public class PortalController {
     private final ActivitySignupMapper activitySignupMapper;
     private final VolunteerStatusLogMapper volunteerStatusLogMapper;
     private final VolunteerReminderSettingMapper reminderSettingMapper;
+    private final ActivityReminderLogMapper activityReminderLogMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -64,6 +68,7 @@ public class PortalController {
                             ActivitySignupMapper activitySignupMapper,
                             VolunteerStatusLogMapper volunteerStatusLogMapper,
                             VolunteerReminderSettingMapper reminderSettingMapper,
+                            ActivityReminderLogMapper activityReminderLogMapper,
                             PasswordEncoder passwordEncoder,
                             JwtUtil jwtUtil) {
         this.userMapper = userMapper;
@@ -72,6 +77,7 @@ public class PortalController {
         this.activitySignupMapper = activitySignupMapper;
         this.volunteerStatusLogMapper = volunteerStatusLogMapper;
         this.reminderSettingMapper = reminderSettingMapper;
+        this.activityReminderLogMapper = activityReminderLogMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -347,6 +353,31 @@ public class PortalController {
                     return dto;
                 })
                 .collect(Collectors.toList());
+        return ApiResponse.ok(list);
+    }
+
+    @GetMapping("/reminder-logs")
+    public ApiResponse<List<PortalReminderLogDto>> reminderLogs() {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        List<ActivityReminderLog> logs = activityReminderLogMapper.selectList(
+                new LambdaQueryWrapper<ActivityReminderLog>()
+                        .eq(ActivityReminderLog::getVolunteerId, volunteer.getId())
+                        .orderByDesc(ActivityReminderLog::getCreatedAt)
+                        .last("limit 50"));
+        List<PortalReminderLogDto> list = logs.stream().map(log -> {
+            PortalReminderLogDto dto = new PortalReminderLogDto();
+            dto.setId(log.getId());
+            dto.setActivityId(log.getActivityId());
+            dto.setReminderType(log.getReminderType());
+            dto.setChannel(log.getChannel());
+            dto.setStatus(log.getStatus());
+            dto.setMessage(log.getMessage());
+            dto.setCreatedAt(log.getCreatedAt());
+            Activity activity = activityMapper.selectById(log.getActivityId());
+            dto.setActivityTitle(activity != null ? activity.getTitle() : null);
+            return dto;
+        }).collect(Collectors.toList());
         return ApiResponse.ok(list);
     }
 
