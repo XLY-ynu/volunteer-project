@@ -45,8 +45,10 @@
       </el-card>
       <el-carousel
         v-if="recommendedList.length > 1"
+        ref="recommendCarouselRef"
         height="200px"
         :interval="recommendIntervalSec * 1000"
+        :autoplay="recommendAutoplay"
         indicator-position="outside"
         class="recommend-carousel"
       >
@@ -61,6 +63,12 @@
           </div>
         </el-carousel-item>
       </el-carousel>
+      <div v-if="recommendedList.length > 1" class="carousel-controls">
+        <el-button-group size="small">
+          <el-button @click="toggleRecommendAutoplay">{{ recommendAutoplay ? '暂停轮播' : '继续轮播' }}</el-button>
+          <el-button @click="fastForwardRecommend">快进</el-button>
+        </el-button-group>
+      </div>
       <el-row :gutter="12">
         <el-col :span="6">
           <el-menu :default-active="activeParent?.id?.toString()" class="menu">
@@ -124,14 +132,17 @@
       <div class="video-filters">
         <el-select v-model="qualityFilter" placeholder="画质" size="small" style="width: 120px">
           <el-option label="全部" value="all" />
-          <el-option label="HD" value="HD" />
-          <el-option label="SD" value="SD" />
+          <el-option label="超清(4K)" value="uhd" />
+          <el-option label="1080p+" value="fhd" />
+          <el-option label="720p" value="hd" />
+          <el-option label="标清(SD)" value="sd" />
         </el-select>
         <el-select v-model="durationFilter" placeholder="时长" size="small" style="width: 140px">
           <el-option label="全部" value="all" />
           <el-option label="<=30s" value="short" />
           <el-option label="31-60s" value="medium" />
-          <el-option label=">60s" value="long" />
+          <el-option label="61-120s" value="long" />
+          <el-option label=">120s" value="xlong" />
         </el-select>
       </div>
       <el-row :gutter="12">
@@ -191,6 +202,7 @@
                   <span v-if="m.height" class="badge res">{{ resolutionLabel(m) }}</span>
                 </div>
                 <p class="media-title">{{ m.name }}</p>
+                <p class="media-meta" v-if="mediaMeta(m)">{{ mediaMeta(m) }}</p>
               </el-card>
             </el-col>
           </el-row>
@@ -206,6 +218,7 @@
           <el-input-number v-model="previewInterval" :min="5" :max="60" size="small" @change="startMultiPolling" />
           <span class="interval-text">刷新间隔(秒)</span>
           <el-switch v-model="previewPollingEnabled" active-text="实时轮询" @change="startMultiPolling" />
+          <el-button v-if="isAdmin" size="small" @click="savePreviewIntervalAsDefault">设为全局默认</el-button>
         </div>
         <el-row :gutter="10">
           <el-col :span="8" v-for="p in multiPreviews" :key="p.terminal">
@@ -215,6 +228,7 @@
                 <div class="mini-now" v-if="p.currentMedia">
                   <div class="mini-name">播放中：{{ p.currentMedia.name }}</div>
                   <div class="mini-count">时长：{{ p.currentMedia.durationSeconds || '-' }}s</div>
+                  <div class="mini-count" v-if="previewRemaining(p) !== null">剩余：{{ formatTime(previewRemaining(p) || 0) }}</div>
                   <el-progress :percentage="previewProgress(p)" :stroke-width="8" />
                 </div>
                 <div v-if="p.playlists.length === 0" class="mini-empty">无可播列表</div>
@@ -353,6 +367,7 @@ import {
   fetchPublicContent,
   fetchPublicContentById,
   fetchPublicContentConfig,
+  updateContentConfig,
   fetchVolunteerSignups,
   registerVolunteerPublic,
   signupActivityPublic
@@ -376,6 +391,9 @@ const headlineIndex = ref(0);
 const headlineTimer = ref<number | null>(null);
 const recommendedList = ref<any[]>([]);
 const recommendIntervalSec = ref(6);
+const recommendCount = ref(6);
+const recommendCarouselRef = ref();
+const recommendAutoplay = ref(true);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -422,14 +440,22 @@ const durationFilter = ref('all');
 const visibleMediaAssets = computed(() => {
   let list = mediaAssets.value;
   if (qualityFilter.value !== 'all') {
-    list = list.filter((m: any) => qualityLabel(m) === qualityFilter.value);
+    list = list.filter((m: any) => {
+      const bucket = qualityBucket(m);
+      if (qualityFilter.value === 'uhd') return bucket === 'uhd';
+      if (qualityFilter.value === 'fhd') return bucket === 'fhd' || bucket === 'uhd';
+      if (qualityFilter.value === 'hd') return bucket === 'hd';
+      if (qualityFilter.value === 'sd') return bucket === 'sd';
+      return true;
+    });
   }
   if (durationFilter.value !== 'all') {
     list = list.filter((m: any) => {
       const d = m.durationSeconds || 0;
       if (durationFilter.value === 'short') return d > 0 && d <= 30;
       if (durationFilter.value === 'medium') return d > 30 && d <= 60;
-      if (durationFilter.value === 'long') return d > 60;
+      if (durationFilter.value === 'long') return d > 60 && d <= 120;
+      if (durationFilter.value === 'xlong') return d > 120;
       return true;
     });
   }
@@ -473,11 +499,17 @@ const loadContentConfig = async () => {
     if (data?.recommendIntervalSec) {
       recommendIntervalSec.value = data.recommendIntervalSec;
     }
+    if (data?.recommendCount) {
+      recommendCount.value = data.recommendCount;
+    }
     if (data?.previewIntervalSec) {
       const local = localStorage.getItem('portal_preview_interval');
       if (!local) {
         previewInterval.value = data.previewIntervalSec;
       }
+    }
+    if (contentList.value.length) {
+      syncRecommendedList();
     }
   } catch (e) {
     // ignore
@@ -509,14 +541,7 @@ const loadContent = async () => {
     const data = resp.data?.data || {};
     contentList.value = data.records || [];
     contentTotal.value = data.total || 0;
-    recommendedList.value = contentList.value
-      .filter((i: any) => i.recommended)
-      .sort((a: any, b: any) => {
-        const sa = a.sortOrder ?? 0;
-        const sb = b.sortOrder ?? 0;
-        if (sa !== sb) return sa - sb;
-        return new Date(b.publishTime || b.createdAt || 0).getTime() - new Date(a.publishTime || a.createdAt || 0).getTime();
-      });
+    syncRecommendedList();
     if (contentPage.value === 1 && contentList.value.length) {
       const list = [...contentList.value];
       const pick = list.find((i: any) => i.headline) || list.find((i: any) => i.recommended);
@@ -542,6 +567,19 @@ const loadContent = async () => {
   } finally {
     contentLoading.value = false;
   }
+};
+
+const syncRecommendedList = () => {
+  const sorted = contentList.value
+    .filter((i: any) => i.recommended)
+    .sort((a: any, b: any) => {
+      const sa = a.sortOrder ?? 0;
+      const sb = b.sortOrder ?? 0;
+      if (sa !== sb) return sa - sb;
+      return new Date(b.publishTime || b.createdAt || 0).getTime() - new Date(a.publishTime || a.createdAt || 0).getTime();
+    });
+  const limit = recommendCount.value || sorted.length;
+  recommendedList.value = sorted.slice(0, limit);
 };
 
 const onContentPage = (p: number) => {
@@ -699,6 +737,14 @@ const togglePlay = () => {
   } else if (playerTimer.value) {
     clearTimeout(playerTimer.value);
   }
+};
+
+const toggleRecommendAutoplay = () => {
+  recommendAutoplay.value = !recommendAutoplay.value;
+};
+
+const fastForwardRecommend = () => {
+  recommendCarouselRef.value?.next?.();
 };
 
 const nextMedia = () => {
@@ -910,6 +956,15 @@ const stopMultiPolling = () => {
   stopPreviewClock();
 };
 
+const savePreviewIntervalAsDefault = async () => {
+  try {
+    await updateContentConfig({ previewIntervalSec: previewInterval.value });
+    ElMessage.success('已保存为全局默认');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '保存失败');
+  }
+};
+
 const startPreviewClock = () => {
   if (previewClockTimer.value) clearInterval(previewClockTimer.value);
   previewClockTimer.value = window.setInterval(() => {
@@ -930,6 +985,14 @@ const previewProgress = (p: any) => {
   return Math.round(((elapsed % p.currentMedia.durationSeconds) / p.currentMedia.durationSeconds) * 100);
 };
 
+const previewRemaining = (p: any) => {
+  if (!p?.currentMedia?.durationSeconds) return null;
+  const elapsed = (previewClock.value - p.startedAt) / 1000;
+  const durationSec = p.currentMedia.durationSeconds;
+  const remaining = durationSec - (elapsed % durationSec);
+  return Math.max(0, Math.round(remaining));
+};
+
 const tagColor = (name?: string) => {
   if (!name) return 'info';
   const map: Record<string, string> = {
@@ -942,17 +1005,21 @@ const tagColor = (name?: string) => {
 };
 
 const qualityLabel = (m: any) => {
-  const hd =
-    (m.width && m.width >= 1280) ||
-    (m.height && m.height >= 720) ||
-    (m.bitrateKbps && m.bitrateKbps >= 2500) ||
-    (m.frameRate && m.frameRate >= 30) ||
-    (m.sizeBytes && m.sizeBytes > 50 * 1024 * 1024);
-  return hd ? 'HD' : 'SD';
+  return qualityBucket(m) === 'sd' ? 'SD' : 'HD';
 };
 
 const qualityClass = (m: any) => {
   return qualityLabel(m) === 'HD' ? 'hd' : 'sd';
+};
+
+const qualityBucket = (m: any) => {
+  const height = m.height || 0;
+  const width = m.width || 0;
+  if (height >= 2160 || width >= 3840) return 'uhd';
+  if (height >= 1080 || width >= 1920) return 'fhd';
+  if (height >= 720 || width >= 1280) return 'hd';
+  if (m.bitrateKbps && m.bitrateKbps >= 2500) return 'hd';
+  return 'sd';
 };
 
 const resolutionLabel = (m: any) => {
@@ -961,6 +1028,31 @@ const resolutionLabel = (m: any) => {
   if (m.height >= 720) return '720p';
   if (m.height >= 480) return '480p';
   return m.height + 'p';
+};
+
+const frameRateLabel = (m: any) => {
+  if (!m.frameRate) return '';
+  const rounded = Number.isInteger(m.frameRate) ? m.frameRate : Number(m.frameRate).toFixed(1);
+  return `${rounded}fps`;
+};
+
+const bitrateLabel = (m: any) => {
+  if (!m.bitrateKbps) return '';
+  if (m.bitrateKbps >= 1000) {
+    return `${(m.bitrateKbps / 1000).toFixed(1)}Mbps`;
+  }
+  return `${Math.round(m.bitrateKbps)}kbps`;
+};
+
+const mediaMeta = (m: any) => {
+  const parts: string[] = [];
+  const res = resolutionLabel(m);
+  const fps = frameRateLabel(m);
+  const bitrate = bitrateLabel(m);
+  if (res) parts.push(res);
+  if (fps) parts.push(fps);
+  if (bitrate) parts.push(bitrate);
+  return parts.join(' · ');
 };
 
 onMounted(async () => {
@@ -1006,6 +1098,7 @@ onBeforeUnmount(() => {
 .recommend-info { position: absolute; inset: 0; padding: 14px; background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.7)); color: #fff; }
 .recommend-info h4 { margin: 6px 0 4px; }
 .recommend-tag { display: inline-block; background: #f59e0b; color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+.carousel-controls { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 
 .section-head { margin: 16px 0 10px; }
 .sub { color: #909399; margin: 4px 0 0; }
@@ -1029,6 +1122,7 @@ onBeforeUnmount(() => {
 .badge { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,0.6); color: #fff; padding: 2px 6px; border-radius: 6px; font-size: 12px; }
 .badge.type { left: 6px; right: auto; top: 6px; bottom: auto; background: #409eff; }
 .media-title { margin: 6px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.media-meta { margin: 2px 0 0; font-size: 12px; color: #909399; }
 .breadcrumb { margin-bottom: 10px; }
 .detail-cover { margin-bottom: 12px; }
 .detail-cover img { width: 100%; border-radius: 8px; object-fit: cover; }

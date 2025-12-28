@@ -70,7 +70,7 @@ export const updateContentFlags = (id: number, payload: { headline?: boolean; re
 export const updateContentOrder = (items: { id: number; sortOrder: number }[]) =>
   http.put('/content/reorder', { items });
 export const fetchContentConfig = () => http.get('/content/config');
-export const updateContentConfig = (payload: { recommendIntervalSec?: number; previewIntervalSec?: number }) =>
+export const updateContentConfig = (payload: { recommendIntervalSec?: number; recommendCount?: number; previewIntervalSec?: number }) =>
   http.put('/content/config', payload);
 export const fetchPublicContentConfig = () => http.get('/public/content-config');
 export const fetchRecommendedContent = () => http.get('/content/recommended');

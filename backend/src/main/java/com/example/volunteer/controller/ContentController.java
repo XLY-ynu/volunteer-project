@@ -62,6 +62,7 @@ public class ContentController {
         if (config == null) {
             config = new ContentConfig();
             config.setRecommendIntervalSec(6);
+            config.setRecommendCount(6);
             config.setPreviewIntervalSec(10);
             config.setUpdatedAt(java.time.LocalDateTime.now());
             contentConfigMapper.insert(config);
@@ -77,6 +78,9 @@ public class ContentController {
         }
         if (request.getRecommendIntervalSec() != null) {
             config.setRecommendIntervalSec(request.getRecommendIntervalSec());
+        }
+        if (request.getRecommendCount() != null) {
+            config.setRecommendCount(request.getRecommendCount());
         }
         if (request.getPreviewIntervalSec() != null) {
             config.setPreviewIntervalSec(request.getPreviewIntervalSec());

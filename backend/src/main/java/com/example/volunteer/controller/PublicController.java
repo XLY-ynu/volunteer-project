@@ -84,6 +84,7 @@ public class PublicController {
         if (config == null) {
             config = new ContentConfig();
             config.setRecommendIntervalSec(6);
+            config.setRecommendCount(6);
             config.setPreviewIntervalSec(10);
             config.setUpdatedAt(LocalDateTime.now());
             contentConfigMapper.insert(config);

@@ -5,5 +5,6 @@ import lombok.Data;
 @Data
 public class ContentConfigRequest {
     private Integer recommendIntervalSec;
+    private Integer recommendCount;
     private Integer previewIntervalSec;
 }

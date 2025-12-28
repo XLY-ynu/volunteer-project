@@ -13,6 +13,7 @@ public class ContentConfig {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Integer recommendIntervalSec;
+    private Integer recommendCount;
     private Integer previewIntervalSec;
     private LocalDateTime updatedAt;
 }

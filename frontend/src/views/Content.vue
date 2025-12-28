@@ -9,6 +9,7 @@
         <div class="header-actions">
           <el-button @click="openHeadlineDialog">头条排序</el-button>
           <el-button @click="openRecommendDialog">推荐排序</el-button>
+          <el-button @click="openRecommendPreviewDialog">轮播顺序预览</el-button>
           <el-button @click="openConfigDialog">轮播配置</el-button>
           <el-button @click="previewPortal">推荐预览</el-button>
           <el-button type="primary" @click="onCreate"><el-icon><Plus /></el-icon>发布内容</el-button>
@@ -192,10 +193,29 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="recommendPreviewDialog" title="轮播顺序预览" width="520px">
+      <div class="preview-hint">轮播数量：{{ configForm.recommendCount }} 条</div>
+      <div class="preview-list">
+        <div v-for="(item, index) in recommendPreviewList" :key="item.id" class="preview-item" :class="{ inactive: index >= configForm.recommendCount }">
+          <span class="preview-index">{{ index + 1 }}</span>
+          <span class="preview-title">{{ item.title }}</span>
+          <el-tag size="small" :type="index < configForm.recommendCount ? 'success' : 'info'">
+            {{ index < configForm.recommendCount ? '轮播' : '不轮播' }}
+          </el-tag>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="recommendPreviewDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="configDialog" title="轮播配置" width="420px">
       <el-form label-width="120px">
         <el-form-item label="推荐轮播(秒)">
           <el-input-number v-model="configForm.recommendIntervalSec" :min="3" :max="30" />
+        </el-form-item>
+        <el-form-item label="轮播数量">
+          <el-input-number v-model="configForm.recommendCount" :min="1" :max="20" />
         </el-form-item>
         <el-form-item label="预览轮询(秒)">
           <el-input-number v-model="configForm.previewIntervalSec" :min="5" :max="60" />
@@ -231,10 +251,16 @@ const tableRef = ref();
 const sortableRef = ref<Sortable | null>(null);
 const recommendDialog = ref(false);
 const recommendList = ref<any[]>([]);
+const recommendPreviewDialog = ref(false);
 const headlineDialog = ref(false);
 const headlineList = ref<any[]>([]);
 const configDialog = ref(false);
-const configForm = ref({ recommendIntervalSec: 6, previewIntervalSec: 10 });
+const configForm = ref({ recommendIntervalSec: 6, recommendCount: 6, previewIntervalSec: 10 });
+
+const recommendPreviewList = computed(() => {
+  if (!recommendList.value.length) return [];
+  return [...recommendList.value];
+});
 
 const form = ref({
   title: '',
@@ -399,6 +425,11 @@ const loadRecommendList = async () => {
   recommendList.value = resp.data?.data || [];
 };
 
+const openRecommendPreviewDialog = async () => {
+  await loadRecommendList();
+  recommendPreviewDialog.value = true;
+};
+
 const loadHeadlineList = async () => {
   const resp = await fetchHeadlineContent();
   headlineList.value = resp.data?.data || [];
@@ -413,6 +444,7 @@ const loadConfig = async () => {
   const data = resp.data?.data;
   if (data) {
     configForm.value.recommendIntervalSec = data.recommendIntervalSec || 6;
+    configForm.value.recommendCount = data.recommendCount || 6;
     configForm.value.previewIntervalSec = data.previewIntervalSec || 10;
   }
 };
@@ -458,4 +490,10 @@ const previewPortal = () => {
 .header-actions { display: flex; gap: 8px; align-items: center; }
 .recommend-item { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px dashed #e4e7ed; border-radius: 6px; margin-bottom: 8px; }
 .recommend-title { flex: 1; }
+.preview-hint { margin-bottom: 10px; color: #909399; }
+.preview-list { max-height: 320px; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.preview-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #ebeef5; border-radius: 6px; }
+.preview-item.inactive { opacity: 0.6; }
+.preview-index { width: 22px; height: 22px; border-radius: 50%; background: #f2f6fc; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #409eff; }
+.preview-title { flex: 1; }
 </style>

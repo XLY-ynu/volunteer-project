@@ -107,6 +107,10 @@ CREATE TABLE IF NOT EXISTS activity_checkin_log (
 CREATE TABLE IF NOT EXISTS content_config (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     recommend_interval_sec INT DEFAULT 6,
+    recommend_count INT DEFAULT 6,
     preview_interval_sec INT DEFAULT 10,
     updated_at DATETIME
 );
+
+-- 14) 推荐轮播数量配置（若字段已存在会报错可忽略）
+-- ALTER TABLE content_config ADD COLUMN recommend_count INT DEFAULT 6 AFTER recommend_interval_sec;
