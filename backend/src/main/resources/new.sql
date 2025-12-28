@@ -131,3 +131,7 @@ CREATE TABLE IF NOT EXISTS terminal_group_rule (
     created_at DATETIME,
     updated_at DATETIME
 );
+
+-- 17) 终端告警通知通道字段（若字段已存在会报错可忽略）
+-- ALTER TABLE terminal_group_rule ADD COLUMN notify_channel VARCHAR(32) NULL AFTER enabled;
+-- ALTER TABLE terminal_group_rule ADD COLUMN notify_target VARCHAR(128) NULL AFTER notify_channel;

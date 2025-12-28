@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/portal")
 public class PortalController {
 
+    private static final String PHONE_REGEX = "^1[3-9]\\d{9}$";
     private final UserMapper userMapper;
     private final VolunteerMapper volunteerMapper;
     private final ActivityMapper activityMapper;
@@ -148,9 +149,20 @@ public class PortalController {
 
     @GetMapping("/auth/check-phone")
     public ApiResponse<java.util.Map<String, Object>> checkPhone(@RequestParam String phone) {
-        boolean exists = userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getUsername, phone)) > 0;
+        boolean valid = phone != null && phone.matches(PHONE_REGEX);
+        boolean exists = valid && userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getUsername, phone)) > 0;
+        String status = null;
+        if (valid) {
+            Volunteer volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                    .eq(Volunteer::getPhone, phone));
+            if (volunteer != null) {
+                status = volunteer.getStatus();
+            }
+        }
         java.util.Map<String, Object> map = new java.util.HashMap<>();
         map.put("exists", exists);
+        map.put("valid", valid);
+        map.put("status", status);
         return ApiResponse.ok(map);
     }
 

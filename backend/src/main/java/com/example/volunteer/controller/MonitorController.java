@@ -107,6 +107,9 @@ public class MonitorController {
         }
         rule.setOfflineThreshold(rule.getOfflineThreshold() == null ? 1 : rule.getOfflineThreshold());
         rule.setEnabled(rule.getEnabled() == null ? Boolean.TRUE : rule.getEnabled());
+        if (!StringUtils.hasText(rule.getNotifyChannel())) {
+            rule.setNotifyChannel("web");
+        }
         rule.setCreatedAt(LocalDateTime.now());
         rule.setUpdatedAt(LocalDateTime.now());
         terminalGroupRuleMapper.insert(rule);
@@ -127,6 +130,12 @@ public class MonitorController {
         }
         if (rule.getEnabled() != null) {
             existing.setEnabled(rule.getEnabled());
+        }
+        if (rule.getNotifyChannel() != null) {
+            existing.setNotifyChannel(rule.getNotifyChannel());
+        }
+        if (rule.getNotifyTarget() != null) {
+            existing.setNotifyTarget(rule.getNotifyTarget());
         }
         existing.setUpdatedAt(LocalDateTime.now());
         terminalGroupRuleMapper.updateById(existing);
@@ -165,6 +174,8 @@ public class MonitorController {
             map.put("ruleThreshold", thresholdCount);
             map.put("ruleEnabled", enabled);
             map.put("alert", alert);
+            map.put("notifyChannel", rule != null ? rule.getNotifyChannel() : null);
+            map.put("notifyTarget", rule != null ? rule.getNotifyTarget() : null);
             list.add(map);
         }
         return ApiResponse.ok(list);

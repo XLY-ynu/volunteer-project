@@ -5,6 +5,7 @@ import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.dto.ContentItemRequest;
 import com.example.volunteer.dto.ContentFlagsRequest;
 import com.example.volunteer.dto.ContentOrderRequest;
+import com.example.volunteer.dto.ContentWeightRequest;
 import com.example.volunteer.dto.ContentConfigRequest;
 import com.example.volunteer.entity.ContentConfig;
 import com.example.volunteer.mapper.ContentConfigMapper;
@@ -43,6 +44,12 @@ public class ContentController {
     @PutMapping("/reorder")
     public ApiResponse<Void> reorder(@RequestBody ContentOrderRequest request) {
         contentService.reorder(request.getItems());
+        return ApiResponse.ok(null);
+    }
+
+    @PutMapping("/weights")
+    public ApiResponse<Void> updateWeights(@Valid @RequestBody ContentWeightRequest request) {
+        contentService.updateWeights(request.getItems());
         return ApiResponse.ok(null);
     }
 

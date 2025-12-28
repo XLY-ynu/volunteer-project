@@ -9,6 +9,8 @@
         <div class="header-actions">
           <el-button @click="openHeadlineDialog">头条排序</el-button>
           <el-button @click="openRecommendDialog">推荐排序</el-button>
+          <el-button @click="sortByWeight">权重排序</el-button>
+          <el-button :disabled="selectedRows.length === 0" @click="openWeightBatchDialog">批量调整权重</el-button>
           <el-button @click="openRecommendPreviewDialog">轮播顺序预览</el-button>
           <el-button @click="openConfigDialog">轮播配置</el-button>
           <el-button @click="previewPortal">推荐预览</el-button>
@@ -38,7 +40,8 @@
         </el-form-item>
       </el-form>
 
-      <el-table ref="tableRef" :data="list" stripe>
+      <el-table ref="tableRef" :data="list" stripe @selection-change="onSelectionChange">
+        <el-table-column type="selection" width="50" />
         <el-table-column label="排序" width="60">
           <template #default>
             <el-icon class="drag-handle"><Rank /></el-icon>
@@ -76,9 +79,12 @@
             <el-tag v-if="scope.row.recommended" size="small" type="warning" style="margin-left: 6px">推荐</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="recommendWeight" label="权重" width="90">
+        <el-table-column prop="recommendWeight" label="权重" width="160">
           <template #default="scope">
-            <span>{{ scope.row.recommendWeight ?? 0 }}</span>
+            <div class="weight-cell">
+              <el-progress :percentage="weightPercent(scope.row)" :show-text="false" />
+              <span class="weight-value">{{ scope.row.recommendWeight ?? 0 }}</span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="publishTime" label="发布时间" width="160">
@@ -241,13 +247,33 @@
         <el-button type="primary" @click="saveConfig">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="weightBatchDialog" title="批量调整权重" width="420px">
+      <el-form label-width="90px">
+        <el-form-item label="调整方式">
+          <el-radio-group v-model="weightBatchForm.mode">
+            <el-radio label="set">设为</el-radio>
+            <el-radio label="inc">增加</el-radio>
+            <el-radio label="dec">减少</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="权重值">
+          <el-input-number v-model="weightBatchForm.value" :min="0" :max="999" />
+          <span class="weight-hint">已选 {{ selectedRows.length }} 条</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="weightBatchDialog = false">取消</el-button>
+        <el-button type="primary" @click="applyWeightBatch">应用</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, computed, nextTick, onBeforeUnmount } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { createContent, deleteContent, fetchCategories, fetchContent, updateContent, updateContentFlags, updateContentOrder, fetchContentConfig, updateContentConfig, fetchRecommendedContent, fetchHeadlineContent } from '../api';
+import { createContent, deleteContent, fetchCategories, fetchContent, updateContent, updateContentFlags, updateContentOrder, updateContentWeights, fetchContentConfig, updateContentConfig, fetchRecommendedContent, fetchHeadlineContent } from '../api';
 import { useUserStore } from '../stores/user';
 import { Plus, Search, Edit, Delete, Picture, Rank } from '@element-plus/icons-vue';
 import Sortable from 'sortablejs';
@@ -271,6 +297,9 @@ const headlineDialog = ref(false);
 const headlineList = ref<any[]>([]);
 const configDialog = ref(false);
 const configForm = ref({ recommendIntervalSec: 6, recommendCount: 6, recommendStrategy: 'prefer', previewIntervalSec: 10 });
+const selectedRows = ref<any[]>([]);
+const weightBatchDialog = ref(false);
+const weightBatchForm = ref({ mode: 'set', value: 0 });
 
 const recommendPreviewList = computed(() => {
   if (!recommendList.value.length) return [];
@@ -290,6 +319,10 @@ const form = ref({
 });
 
 const filter = ref<{ categoryId?: number; published?: boolean; keyword?: string }>({});
+
+const maxWeight = computed(() => {
+  return Math.max(1, ...list.value.map((item) => Number(item.recommendWeight || 0)));
+});
 
 const load = async () => {
   const resp = await fetchContent(page.value, size.value, filter.value.categoryId, filter.value.published, filter.value.keyword);
@@ -376,6 +409,15 @@ const toggleFlags = async (row: any) => {
   ElMessage.success('标记已更新');
 };
 
+const onSelectionChange = (rows: any[]) => {
+  selectedRows.value = rows;
+};
+
+const weightPercent = (row: any) => {
+  const weight = Number(row.recommendWeight || 0);
+  return Math.round((weight / maxWeight.value) * 100);
+};
+
 const onPage = (p: number) => {
   page.value = p;
   load();
@@ -452,6 +494,43 @@ const loadHeadlineList = async () => {
   headlineList.value = resp.data?.data || [];
 };
 
+const sortByWeight = async () => {
+  const resp = await fetchRecommendedContent();
+  const items = resp.data?.data || [];
+  if (!items.length) {
+    ElMessage.info('暂无推荐内容可排序');
+    return;
+  }
+  items.sort((a: any, b: any) => (b.recommendWeight || 0) - (a.recommendWeight || 0));
+  const payload = items.map((item: any, idx: number) => ({ id: item.id, sortOrder: idx + 1 }));
+  await updateContentOrder(payload);
+  ElMessage.success('已按权重排序');
+  load();
+};
+
+const openWeightBatchDialog = () => {
+  if (!selectedRows.value.length) return;
+  weightBatchForm.value = { mode: 'set', value: 0 };
+  weightBatchDialog.value = true;
+};
+
+const applyWeightBatch = async () => {
+  if (!selectedRows.value.length) return;
+  const value = Number(weightBatchForm.value.value || 0);
+  const items = selectedRows.value.map((row: any) => {
+    const current = Number(row.recommendWeight || 0);
+    let next = current;
+    if (weightBatchForm.value.mode === 'set') next = value;
+    if (weightBatchForm.value.mode === 'inc') next = current + value;
+    if (weightBatchForm.value.mode === 'dec') next = Math.max(0, current - value);
+    return { id: row.id, recommendWeight: next };
+  });
+  await updateContentWeights(items);
+  ElMessage.success('权重已更新');
+  weightBatchDialog.value = false;
+  load();
+};
+
 const openConfigDialog = () => {
   configDialog.value = true;
 };
@@ -514,4 +593,8 @@ const previewPortal = () => {
 .preview-item.inactive { opacity: 0.6; }
 .preview-index { width: 22px; height: 22px; border-radius: 50%; background: #f2f6fc; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: #409eff; }
 .preview-title { flex: 1; }
+.weight-cell { display: flex; align-items: center; gap: 8px; }
+.weight-cell :deep(.el-progress) { flex: 1; }
+.weight-value { width: 32px; text-align: right; font-size: 12px; color: #606266; }
+.weight-hint { margin-left: 8px; color: #909399; font-size: 12px; }
 </style>

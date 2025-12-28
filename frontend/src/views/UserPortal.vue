@@ -315,6 +315,14 @@
         <h2>志愿者注册</h2>
         <p class="sub">注册后可在个人中心查看报名/签到记录</p>
       </div>
+      <el-alert
+        v-if="pendingRegisterPhone"
+        type="warning"
+        show-icon
+        :closable="false"
+        class="audit-alert"
+        :title="`手机号 ${pendingRegisterPhone} 已提交审核，审核结果会在个人中心提示`"
+      />
       <el-form label-width="90px" class="register-form">
         <el-form-item label="姓名">
           <el-input v-model="portalRegisterForm.name" />
@@ -322,9 +330,12 @@
         <el-form-item label="手机号">
           <el-input v-model="portalRegisterForm.phone" @blur="checkPhoneUnique" />
         </el-form-item>
-        <div v-if="phoneExists" class="phone-tip">该手机号已注册，请直接登录</div>
+        <div v-if="!phoneValid" class="phone-tip error">手机号格式不正确</div>
+        <div v-else-if="phoneExists" class="phone-tip error">该手机号已注册，请直接登录</div>
+        <div v-else-if="phoneStatus" class="phone-tip warn">当前状态：{{ statusLabel(phoneStatus) }}</div>
         <el-form-item label="密码">
           <el-input v-model="portalRegisterForm.password" show-password />
+          <div class="field-hint">8-20位，至少包含字母和数字</div>
         </el-form-item>
         <el-form-item label="邮箱">
           <el-input v-model="portalRegisterForm.email" />
@@ -378,6 +389,14 @@
               <el-button size="small" @click="portalLogout">退出</el-button>
             </div>
           </div>
+          <el-alert
+            v-if="portalAuditNotice"
+            class="audit-alert"
+            show-icon
+            :type="portalAuditNotice.type"
+            :title="portalAuditNotice.title"
+            :description="portalAuditNotice.description"
+          />
           <el-form v-if="profileEditing" label-width="80px">
             <el-form-item label="姓名">
               <el-input v-model="profileForm.name" />
@@ -462,6 +481,7 @@
         </el-form-item>
         <el-form-item label="新密码">
           <el-input v-model="resetForm.newPassword" show-password />
+          <div class="field-hint">8-20位，至少包含字母和数字</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -477,6 +497,7 @@
         </el-form-item>
         <el-form-item label="新密码">
           <el-input v-model="changePwdForm.newPassword" show-password />
+          <div class="field-hint">8-20位，至少包含字母和数字</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -547,6 +568,9 @@ const resetForm = ref({ phone: '', newPassword: '' });
 const changePwdDialog = ref(false);
 const changePwdForm = ref({ oldPassword: '', newPassword: '' });
 const phoneExists = ref(false);
+const phoneValid = ref(true);
+const phoneStatus = ref('');
+const pendingRegisterPhone = ref('');
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -665,6 +689,20 @@ const stats = ref<{ playlistTotal: number; activityTotal: number; mediaTotal: nu
   mediaTotal: 0
 });
 const isAdmin = ref(localStorage.getItem('role') === 'ADMIN');
+const phonePattern = /^1[3-9]\d{9}$/;
+const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d).{8,20}$/;
+
+const portalAuditNotice = computed(() => {
+  const status = portalProfile.value?.status;
+  if (!status || status === 'approved') return null;
+  if (status === 'pending') {
+    return { type: 'warning', title: '账号审核中', description: '审核通过后可报名/签到，结果会在个人中心提示' };
+  }
+  if (status === 'rejected') {
+    return { type: 'error', title: '账号审核未通过', description: '请完善资料后联系管理员重新审核' };
+  }
+  return { type: 'info', title: '账号状态异常', description: '请联系管理员核实' };
+});
 
 const scrollTo = (id: string) => {
   const el = document.getElementById(id);
@@ -872,6 +910,15 @@ const registerVolunteer = async () => {
     ElMessage.warning('请输入姓名、手机号和密码');
     return;
   }
+  if (!isPhoneValid(portalRegisterForm.value.phone)) {
+    phoneValid.value = false;
+    ElMessage.warning('手机号格式不正确');
+    return;
+  }
+  if (!isPasswordValid(portalRegisterForm.value.password)) {
+    ElMessage.warning('密码需8-20位且包含字母和数字');
+    return;
+  }
   if (phoneExists.value) {
     ElMessage.warning('该手机号已注册，请直接登录');
     return;
@@ -888,8 +935,10 @@ const registerVolunteer = async () => {
       localStorage.setItem('portal_token', data.token);
       await loadPortalProfile();
       ElMessage.success('注册成功');
+      pendingRegisterPhone.value = '';
     } else {
       ElMessage.success('注册成功，等待审核');
+      pendingRegisterPhone.value = portalRegisterForm.value.phone;
     }
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '提交失败');
@@ -899,13 +948,25 @@ const registerVolunteer = async () => {
 const checkPhoneUnique = async () => {
   if (!portalRegisterForm.value.phone) {
     phoneExists.value = false;
+    phoneValid.value = true;
+    phoneStatus.value = '';
+    return;
+  }
+  if (!isPhoneValid(portalRegisterForm.value.phone)) {
+    phoneValid.value = false;
+    phoneExists.value = false;
+    phoneStatus.value = '';
     return;
   }
   try {
     const resp = await portalCheckPhone(portalRegisterForm.value.phone);
-    phoneExists.value = !!resp.data?.data?.exists;
+    const data = resp.data?.data || {};
+    phoneValid.value = data.valid !== false;
+    phoneExists.value = !!data.exists;
+    phoneStatus.value = data.status || '';
   } catch (e) {
     phoneExists.value = false;
+    phoneStatus.value = '';
   }
 };
 
@@ -926,6 +987,10 @@ const loadSignups = async () => {
 const portalLoginSubmit = async () => {
   if (!portalLoginForm.value.phone || !portalLoginForm.value.password) {
     ElMessage.warning('请输入手机号和密码');
+    return;
+  }
+  if (!isPhoneValid(portalLoginForm.value.phone)) {
+    ElMessage.warning('手机号格式不正确');
     return;
   }
   try {
@@ -957,6 +1022,14 @@ const resetPassword = async () => {
     ElMessage.warning('请输入手机号和新密码');
     return;
   }
+  if (!isPhoneValid(resetForm.value.phone)) {
+    ElMessage.warning('手机号格式不正确');
+    return;
+  }
+  if (!isPasswordValid(resetForm.value.newPassword)) {
+    ElMessage.warning('密码需8-20位且包含字母和数字');
+    return;
+  }
   try {
     const resp = await portalResetPassword(resetForm.value);
     if (!resp.data?.success) {
@@ -974,6 +1047,14 @@ const resetPassword = async () => {
 const changePassword = async () => {
   if (!changePwdForm.value.oldPassword || !changePwdForm.value.newPassword) {
     ElMessage.warning('请输入原密码和新密码');
+    return;
+  }
+  if (!isPasswordValid(changePwdForm.value.newPassword)) {
+    ElMessage.warning('密码需8-20位且包含字母和数字');
+    return;
+  }
+  if (changePwdForm.value.newPassword === changePwdForm.value.oldPassword) {
+    ElMessage.warning('新密码不能与原密码相同');
     return;
   }
   try {
@@ -1002,6 +1083,9 @@ const loadPortalProfile = async () => {
         email: portalProfile.value.email || '',
         organization: portalProfile.value.organization || ''
       };
+      if (portalProfile.value.status === 'approved') {
+        pendingRegisterPhone.value = '';
+      }
     }
   } catch (e) {
     portalLogout();
@@ -1025,6 +1109,10 @@ const portalLogout = () => {
   profileEditing.value = false;
   portalLoginForm.value = { phone: '', password: '' };
   signups.value = [];
+  pendingRegisterPhone.value = '';
+  phoneStatus.value = '';
+  phoneExists.value = false;
+  phoneValid.value = true;
 };
 
 const loadStats = async () => {
@@ -1054,6 +1142,16 @@ const statusTag = (status: string) => {
   if (status === 'checked_in') return 'success';
   if (status === 'applied') return 'warning';
   return 'info';
+};
+
+const isPhoneValid = (phone: string) => phonePattern.test(phone);
+const isPasswordValid = (pwd: string) => passwordPattern.test(pwd);
+
+const statusLabel = (status: string) => {
+  if (status === 'approved') return '已通过';
+  if (status === 'pending') return '审核中';
+  if (status === 'rejected') return '已拒绝';
+  return status;
 };
 
 const goAdmin = () => {
@@ -1512,7 +1610,11 @@ onBeforeUnmount(() => {
 .auth-card { width: 320px; }
 .auth-title { font-weight: 600; margin-bottom: 8px; }
 .auth-actions { display: flex; gap: 8px; }
-.phone-tip { color: #f56c6c; font-size: 12px; margin: -6px 0 8px 90px; }
+.phone-tip { font-size: 12px; margin: -6px 0 8px 90px; }
+.phone-tip.error { color: #f56c6c; }
+.phone-tip.warn { color: #e6a23c; }
+.field-hint { font-size: 12px; color: #909399; margin-top: 4px; }
+.audit-alert { margin-bottom: 12px; }
 .profile-card { margin-bottom: 10px; }
 .profile-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .profile-name { font-size: 16px; font-weight: 600; }

@@ -69,6 +69,8 @@ export const updateContentFlags = (id: number, payload: { headline?: boolean; re
   http.put(`/content/${id}/flags`, payload);
 export const updateContentOrder = (items: { id: number; sortOrder: number }[]) =>
   http.put('/content/reorder', { items });
+export const updateContentWeights = (items: { id: number; recommendWeight: number }[]) =>
+  http.put('/content/weights', { items });
 export const fetchContentConfig = () => http.get('/content/config');
 export const updateContentConfig = (payload: { recommendIntervalSec?: number; recommendCount?: number; recommendStrategy?: string; previewIntervalSec?: number }) =>
   http.put('/content/config', payload);
@@ -125,9 +127,9 @@ export const fetchPortalSignups = () => http.get('/portal/my-signups');
 export const signupActivityPortal = (payload: { activityId: number }) => http.post('/portal/activities/signup', payload);
 
 export const fetchGroupRules = () => http.get('/monitor/group-rules');
-export const createGroupRule = (payload: { groupName: string; offlineThreshold?: number; enabled?: boolean }) =>
+export const createGroupRule = (payload: { groupName: string; offlineThreshold?: number; enabled?: boolean; notifyChannel?: string; notifyTarget?: string }) =>
   http.post('/monitor/group-rules', payload);
-export const updateGroupRule = (id: number, payload: { groupName?: string; offlineThreshold?: number; enabled?: boolean }) =>
+export const updateGroupRule = (id: number, payload: { groupName?: string; offlineThreshold?: number; enabled?: boolean; notifyChannel?: string; notifyTarget?: string }) =>
   http.put(`/monitor/group-rules/${id}`, payload);
 export const deleteGroupRule = (id: number) => http.delete(`/monitor/group-rules/${id}`);
 export const fetchGroupAlerts = () => http.get('/monitor/group-alerts');

@@ -100,6 +100,22 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
+    public void updateWeights(java.util.List<com.example.volunteer.dto.ContentWeightItem> items) {
+        if (items == null) {
+            return;
+        }
+        for (com.example.volunteer.dto.ContentWeightItem item : items) {
+            ContentItem entity = contentItemMapper.selectById(item.getId());
+            if (entity == null) {
+                continue;
+            }
+            entity.setRecommendWeight(item.getRecommendWeight());
+            entity.setUpdatedAt(LocalDateTime.now());
+            contentItemMapper.updateById(entity);
+        }
+    }
+
+    @Override
     public java.util.List<ContentItem> listRecommended() {
         return contentItemMapper.selectList(
                 new LambdaQueryWrapper<ContentItem>()

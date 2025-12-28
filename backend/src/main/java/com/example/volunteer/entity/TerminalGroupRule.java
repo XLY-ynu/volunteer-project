@@ -15,6 +15,8 @@ public class TerminalGroupRule {
     private String groupName;
     private Integer offlineThreshold;
     private Boolean enabled;
+    private String notifyChannel;
+    private String notifyTarget;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

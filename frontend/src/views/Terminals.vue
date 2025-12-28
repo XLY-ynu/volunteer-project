@@ -49,6 +49,18 @@
       <el-table :data="groupRules" size="small">
         <el-table-column prop="groupName" label="分组" width="140" />
         <el-table-column prop="offlineThreshold" label="离线阈值" width="120" />
+        <el-table-column prop="notifyChannel" label="通知通道" width="120">
+          <template #default="scope">
+            <el-tag size="small" :type="channelTagType(scope.row.notifyChannel)">
+              {{ channelLabel(scope.row.notifyChannel) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="notifyTarget" label="通知目标" min-width="160">
+          <template #default="scope">
+            <span>{{ scope.row.notifyTarget || '-' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="enabled" label="启用" width="80">
           <template #default="scope">
             <el-tag :type="scope.row.enabled ? 'success' : 'info'" size="small">{{ scope.row.enabled ? '是' : '否' }}</el-tag>
@@ -75,6 +87,13 @@
         <el-table-column prop="total" label="总数" width="80" />
         <el-table-column prop="offline" label="离线" width="80" />
         <el-table-column prop="ruleThreshold" label="阈值" width="80" />
+        <el-table-column prop="notifyChannel" label="通知通道" width="120">
+          <template #default="scope">
+            <el-tag size="small" :type="channelTagType(scope.row.notifyChannel)">
+              {{ channelLabel(scope.row.notifyChannel) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="alert" label="告警" width="90">
           <template #default="scope">
             <el-tag :type="scope.row.alert ? 'danger' : 'success'" size="small">
@@ -87,6 +106,27 @@
 
     <el-card class="group-alert-card" shadow="never">
       <div class="group-head">
+        <div class="group-title">告警通知通道</div>
+        <el-button size="small" @click="loadGroupAlerts">刷新</el-button>
+      </div>
+      <el-empty v-if="activeAlerts.length === 0" description="暂无告警通知" />
+      <el-table v-else :data="activeAlerts" size="small">
+        <el-table-column prop="groupName" label="分组" width="160" />
+        <el-table-column prop="offline" label="离线" width="80" />
+        <el-table-column prop="ruleThreshold" label="阈值" width="80" />
+        <el-table-column prop="notifyChannel" label="通道" width="120">
+          <template #default="scope">
+            <el-tag size="small" :type="channelTagType(scope.row.notifyChannel)">
+              {{ channelLabel(scope.row.notifyChannel) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="notifyTarget" label="目标" min-width="180" />
+      </el-table>
+    </el-card>
+
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
         <div class="group-title">离线趋势</div>
         <div class="group-actions">
           <el-select v-model="trendGroup" placeholder="全部分组" clearable size="small" style="width: 160px">
@@ -94,6 +134,13 @@
           </el-select>
           <el-input-number v-model="trendDays" :min="3" :max="30" size="small" />
           <el-button size="small" @click="loadOfflineTrend">刷新</el-button>
+        </div>
+      </div>
+      <div v-if="offlineTrend.length" class="trend-chart">
+        <div v-for="row in offlineTrend" :key="row.day" class="trend-bar">
+          <div class="bar" :style="{ height: trendPercent(row) + '%' }"></div>
+          <div class="trend-value">{{ row.offlineCount || 0 }}</div>
+          <div class="trend-label">{{ formatDay(row.day) }}</div>
         </div>
       </div>
       <el-table :data="offlineTrend" size="small">
@@ -218,6 +265,14 @@
         </el-form-item>
         <el-form-item label="离线阈值">
           <el-input-number v-model="ruleForm.offlineThreshold" :min="1" :max="99" />
+        </el-form-item>
+        <el-form-item label="通知通道">
+          <el-select v-model="ruleForm.notifyChannel" placeholder="选择通道">
+            <el-option v-for="c in channelOptions" :key="c.value" :label="c.label" :value="c.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="通知目标">
+          <el-input v-model="ruleForm.notifyTarget" placeholder="手机号/邮箱/机器人Webhook" />
         </el-form-item>
         <el-form-item label="启用">
           <el-switch v-model="ruleForm.enabled" />
@@ -397,7 +452,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElNotification } from 'element-plus';
 import {
   bindPlaylistToTerminals,
   fetchPlaylists,
@@ -430,7 +485,7 @@ const trendGroup = ref('');
 const trendDays = ref(7);
 const ruleDialog = ref(false);
 const ruleEditingId = ref<number | null>(null);
-const ruleForm = ref({ groupName: '', offlineThreshold: 1, enabled: true });
+const ruleForm = ref({ groupName: '', offlineThreshold: 1, enabled: true, notifyChannel: 'web', notifyTarget: '' });
 const showRegisterDialog = ref(false);
 const form = ref({ code: '', name: '', groupName: '' });
 const heartbeatDialog = ref(false);
@@ -455,6 +510,24 @@ const groupOptions = computed(() => {
   });
   return Array.from(set);
 });
+
+const channelOptions = [
+  { label: '站内通知', value: 'web' },
+  { label: '短信', value: 'sms' },
+  { label: '邮件', value: 'email' },
+  { label: '企业微信', value: 'wechat' },
+  { label: '钉钉', value: 'dingtalk' }
+];
+
+const activeAlerts = computed(() => {
+  return groupAlerts.value.filter((item) => item.alert);
+});
+
+const trendMax = computed(() => {
+  return Math.max(1, ...offlineTrend.value.map((row: any) => Number(row.offlineCount || 0)));
+});
+
+const notifiedAlertKeys = new Set<string>();
 
 const attrForm = ref({
   brightness: 80,
@@ -490,7 +563,9 @@ const loadGroupRules = async () => {
 };
 const loadGroupAlerts = async () => {
   const resp = await fetchGroupAlerts();
-  groupAlerts.value = resp.data?.data || [];
+  const alerts = resp.data?.data || [];
+  groupAlerts.value = alerts;
+  notifyAlerts(alerts);
 };
 const loadOfflineTrend = async () => {
   const resp = await fetchOfflineTrend(trendDays.value, trendGroup.value || undefined);
@@ -509,6 +584,55 @@ const onSelect = (rows: any[]) => { selectedTerminalIds.value = rows.map(r => r.
 const formatTime = (t: string) => {
   if (!t) return '-';
   return t.replace('T', ' ').substring(0, 19);
+};
+
+const channelLabel = (channel?: string) => {
+  const target = channel || 'web';
+  const found = channelOptions.find((c) => c.value === target);
+  return found ? found.label : '站内通知';
+};
+
+const channelTagType = (channel?: string) => {
+  const target = channel || 'web';
+  if (target === 'sms') return 'warning';
+  if (target === 'email') return 'success';
+  if (target === 'wechat') return 'info';
+  if (target === 'dingtalk') return 'danger';
+  return 'info';
+};
+
+const formatDay = (day: string) => {
+  if (!day) return '-';
+  return day.length > 5 ? day.slice(5) : day;
+};
+
+const trendPercent = (row: any) => {
+  const count = Number(row.offlineCount || 0);
+  return Math.round((count / trendMax.value) * 100);
+};
+
+const notifyAlerts = (alerts: any[]) => {
+  const activeKeys = new Set<string>();
+  alerts.forEach((item) => {
+    const channel = item.notifyChannel || 'web';
+    const key = `${item.groupName}-${channel}`;
+    if (item.alert) {
+      activeKeys.add(key);
+      if (!notifiedAlertKeys.has(key) && channel === 'web') {
+        ElNotification({
+          title: '分组离线告警',
+          message: `${item.groupName} 离线 ${item.offline}/${item.total}，超过阈值 ${item.ruleThreshold}`,
+          type: 'warning'
+        });
+        notifiedAlertKeys.add(key);
+      }
+    }
+  });
+  Array.from(notifiedAlertKeys).forEach((key) => {
+    if (!activeKeys.has(key)) {
+      notifiedAlertKeys.delete(key);
+    }
+  });
 };
 
 // 根据心跳时间判断当时的状态（5分钟内为在线，与后端保持一致）
@@ -546,19 +670,29 @@ const viewBroadcasts = async (row: any) => {
 
 const openRuleDialog = () => {
   ruleEditingId.value = null;
-  ruleForm.value = { groupName: '', offlineThreshold: 1, enabled: true };
+  ruleForm.value = { groupName: '', offlineThreshold: 1, enabled: true, notifyChannel: 'web', notifyTarget: '' };
   ruleDialog.value = true;
 };
 
 const editRule = (row: any) => {
   ruleEditingId.value = row.id;
-  ruleForm.value = { groupName: row.groupName, offlineThreshold: row.offlineThreshold, enabled: row.enabled };
+  ruleForm.value = {
+    groupName: row.groupName,
+    offlineThreshold: row.offlineThreshold,
+    enabled: row.enabled,
+    notifyChannel: row.notifyChannel || 'web',
+    notifyTarget: row.notifyTarget || ''
+  };
   ruleDialog.value = true;
 };
 
 const saveRule = async () => {
   if (!ruleForm.value.groupName) {
     ElMessage.warning('请输入分组名称');
+    return;
+  }
+  if (ruleForm.value.notifyChannel !== 'web' && !ruleForm.value.notifyTarget) {
+    ElMessage.warning('请填写通知目标');
     return;
   }
   if (ruleEditingId.value) {
@@ -713,6 +847,11 @@ onMounted(() => {
 .group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .group-title { font-weight: 600; }
 .group-actions { display: flex; align-items: center; gap: 8px; }
+.trend-chart { display: flex; align-items: flex-end; gap: 12px; height: 140px; padding: 8px 4px; margin-bottom: 12px; }
+.trend-bar { flex: 1; min-width: 24px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
+.trend-bar .bar { width: 100%; background: linear-gradient(180deg, #409eff, #67c23a); border-radius: 6px 6px 0 0; min-height: 6px; }
+.trend-label { font-size: 12px; color: #909399; }
+.trend-value { font-size: 12px; color: #606266; }
 
 /* 绑定区域样式 */
 .bind-card { background: linear-gradient(135deg, #f0f9eb, #e1f3d8); border: 1px solid #c2e7b0; }
