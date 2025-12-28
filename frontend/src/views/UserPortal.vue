@@ -199,7 +199,7 @@
         <el-col :span="12">
           <el-row :gutter="10">
             <el-col :span="12" v-for="m in visibleMediaAssets" :key="m.id">
-              <el-card class="media-card" shadow="hover" @click="playMedia(m)">
+              <el-card class="media-card" shadow="hover" :class="{ active: currentMedia?.id === m.id }" @click="playMedia(m)">
                 <div class="media-thumb">
                   <img v-if="m.thumbUrl" :src="m.thumbUrl" />
                   <div v-else class="thumb-placeholder">{{ m.type }}</div>
@@ -207,6 +207,8 @@
                   <span class="badge type">{{ m.type?.toUpperCase() || 'MEDIA' }}</span>
                   <span v-if="m.type === 'video'" class="badge quality" :class="qualityClass(m)">{{ qualityLabel(m) }}</span>
                   <span v-if="m.height" class="badge res">{{ resolutionLabel(m) }}</span>
+                  <span v-if="currentMedia?.id === m.id" class="badge playing">播放中</span>
+                  <el-button class="info-btn" size="small" circle text @click.stop="openMediaDetail(m)">i</el-button>
                 </div>
                 <p class="media-title">{{ m.name }}</p>
                 <p class="media-meta" v-if="mediaMeta(m)">{{ mediaMeta(m) }}</p>
@@ -416,8 +418,51 @@
             <div>组织：{{ portalProfile?.organization || '未填写' }}</div>
             <div>状态：{{ portalProfile?.status || '—' }}</div>
           </div>
+          <div class="reminder-settings" v-if="!profileEditing">
+            <div class="reminder-title">提醒设置</div>
+            <el-switch v-model="reminderSettings.signupReminder" active-text="活动提醒" @change="saveReminderSettings" />
+            <el-switch v-model="reminderSettings.checkinReminder" active-text="签到提醒" @change="saveReminderSettings" />
+          </div>
         </el-card>
       </div>
+      <el-alert v-if="upcomingReminder" type="info" show-icon :closable="false" class="audit-alert" :title="upcomingReminder" />
+      <el-alert v-if="checkinReminder" type="warning" show-icon :closable="false" class="audit-alert" :title="checkinReminder" />
+      <el-row :gutter="12" class="signup-stats" v-if="portalLoggedIn">
+        <el-col :span="6">
+          <el-card shadow="never" class="stat-card">
+            <div class="stat-value">{{ portalStats.total }}</div>
+            <div class="stat-label">报名总数</div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card shadow="never" class="stat-card">
+            <div class="stat-value">{{ portalStats.applied }}</div>
+            <div class="stat-label">待签到</div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card shadow="never" class="stat-card">
+            <div class="stat-value">{{ portalStats.checkedIn }}</div>
+            <div class="stat-label">已签到</div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card shadow="never" class="stat-card">
+            <div class="stat-value">{{ portalStats.upcoming }}</div>
+            <div class="stat-label">7天内活动</div>
+          </el-card>
+        </el-col>
+      </el-row>
+      <el-card v-if="portalLoggedIn && auditLogs.length" class="audit-card" shadow="never">
+        <template #header>
+          <div class="card-title">审核状态跟踪</div>
+        </template>
+        <el-timeline>
+          <el-timeline-item v-for="log in auditLogs" :key="log.id" :timestamp="log.createdAt" :type="auditTagType(log.status)">
+            {{ statusLabel(log.status) }} <span class="audit-remark" v-if="log.remark">· {{ log.remark }}</span>
+          </el-timeline-item>
+        </el-timeline>
+      </el-card>
       <el-table :data="signups" size="small">
         <el-table-column prop="title" label="活动" />
         <el-table-column prop="status" label="状态" width="120">
@@ -443,18 +488,37 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="contentDialog" :title="contentDetail?.title" width="720px">
-      <div class="breadcrumb">
+    <el-dialog v-model="detailDialog" :title="detailData?.title || detailData?.name" width="760px">
+      <div class="breadcrumb" v-if="detailType === 'content'">
         <el-breadcrumb separator="/">
           <el-breadcrumb-item>{{ activeParent?.name || '内容' }}</el-breadcrumb-item>
           <el-breadcrumb-item>{{ activeChild?.name || '子菜单' }}</el-breadcrumb-item>
-          <el-breadcrumb-item>{{ contentDetail?.title }}</el-breadcrumb-item>
+          <el-breadcrumb-item>{{ detailData?.title }}</el-breadcrumb-item>
         </el-breadcrumb>
       </div>
-      <div class="detail-cover" v-if="contentDetail?.coverUrl">
-        <img :src="contentDetail.coverUrl" />
+      <div class="detail-hero">
+        <img v-if="detailType === 'content' && detailData?.coverUrl" :src="detailData.coverUrl" />
+        <img v-else-if="detailType === 'media' && (detailData?.thumbUrl || detailData?.coverUrl)" :src="detailData.thumbUrl || detailData.coverUrl" />
+        <div v-else class="detail-hero-fallback">
+          {{ detailType === 'media' ? (detailData?.type || 'MEDIA') : '内容详情' }}
+        </div>
+        <div class="detail-meta">
+          <div class="detail-title">{{ detailData?.title || detailData?.name }}</div>
+          <div class="detail-tags">
+            <el-tag v-for="tag in detailTags" :key="tag" size="small" type="info">{{ tag }}</el-tag>
+          </div>
+          <div class="detail-desc" v-if="detailType === 'media'">
+            <span>{{ mediaMeta(detailData) || '媒体素材' }}</span>
+            <el-button size="small" type="primary" plain @click="playMedia(detailData)">播放此媒体</el-button>
+          </div>
+        </div>
       </div>
-      <div class="detail-body" v-html="contentDetail?.body || contentDetail?.summary"></div>
+      <div class="detail-body" v-if="detailType === 'content'" v-html="detailData?.body || detailData?.summary"></div>
+      <div v-else class="detail-body media-body">
+        <p>时长：{{ detailData?.durationSeconds ? detailData.durationSeconds + ' 秒' : '—' }}</p>
+        <p>分辨率：{{ resolutionLabel(detailData) || '—' }}</p>
+        <p>码率：{{ bitrateLabel(detailData) || '—' }}</p>
+      </div>
     </el-dialog>
 
     <el-dialog v-model="favDialog" title="收藏终端管理" width="520px">
@@ -528,6 +592,8 @@ import {
   fetchPortalMe,
   updatePortalMe,
   fetchPortalSignups,
+  fetchPortalAuditLogs,
+  fetchPortalStats,
   signupActivityPortal,
   updateContentConfig,
   fetchVolunteerSignups,
@@ -544,8 +610,9 @@ const contentLoading = ref(false);
 const contentPage = ref(1);
 const contentSize = ref(6);
 const contentTotal = ref(0);
-const contentDialog = ref(false);
-const contentDetail = ref<any | null>(null);
+const detailDialog = ref(false);
+const detailType = ref<'content' | 'media'>('content');
+const detailData = ref<any | null>(null);
 const headline = ref<any | null>(null);
 const headlinePool = ref<any[]>([]);
 const headlineIndex = ref(0);
@@ -571,6 +638,14 @@ const phoneExists = ref(false);
 const phoneValid = ref(true);
 const phoneStatus = ref('');
 const pendingRegisterPhone = ref('');
+const auditLogs = ref<any[]>([]);
+const portalStats = ref({ total: 0, applied: 0, checkedIn: 0, upcoming: 0 });
+const reminderSettings = ref<{ signupReminder: boolean; checkinReminder: boolean }>(
+  (() => {
+    const saved = localStorage.getItem('portal_reminders');
+    return saved ? JSON.parse(saved) : { signupReminder: true, checkinReminder: true };
+  })()
+);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -704,6 +779,36 @@ const portalAuditNotice = computed(() => {
   return { type: 'info', title: '账号状态异常', description: '请联系管理员核实' };
 });
 
+const upcomingReminder = computed(() => {
+  if (!reminderSettings.value.signupReminder) return '';
+  if (portalStats.value.upcoming > 0) {
+    return `未来7天有 ${portalStats.value.upcoming} 个已报名活动即将开始`;
+  }
+  return '';
+});
+
+const checkinReminder = computed(() => {
+  if (!reminderSettings.value.checkinReminder) return '';
+  if (portalStats.value.applied > 0) {
+    return `还有 ${portalStats.value.applied} 个活动待签到`;
+  }
+  return '';
+});
+
+const detailTags = computed(() => {
+  if (!detailData.value) return [];
+  if (detailType.value === 'content') {
+    return [activeChild.value?.name || activeParent.value?.name, detailData.value.headline ? '头条' : '', detailData.value.recommended ? '推荐' : '']
+      .filter(Boolean);
+  }
+  const tags = [detailData.value.type?.toUpperCase() || 'MEDIA'];
+  if (detailData.value.type === 'video') {
+    tags.push(qualityLabel(detailData.value));
+    tags.push(resolutionLabel(detailData.value));
+  }
+  return tags.filter(Boolean);
+});
+
 const scrollTo = (id: string) => {
   const el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -798,7 +903,19 @@ const loadRecommendations = async () => {
     const parentId = recommendStrategy.value === 'global' ? undefined : activeParent.value?.id;
     const strategy = recommendStrategy.value === 'global' ? 'prefer' : recommendStrategy.value;
     const resp = await fetchPublicRecommendations(parentId, recommendCount.value, strategy);
-    recommendedList.value = resp.data?.data || [];
+    let list = resp.data?.data || [];
+    if (recommendStrategy.value !== 'global' && list.length < recommendCount.value) {
+      const fallbackResp = await fetchPublicRecommendations(undefined, recommendCount.value, 'prefer');
+      const fallback = fallbackResp.data?.data || [];
+      const map = new Map(list.map((i: any) => [i.id, i]));
+      fallback.forEach((item: any) => {
+        if (!map.has(item.id) && map.size < recommendCount.value) {
+          map.set(item.id, item);
+        }
+      });
+      list = Array.from(map.values());
+    }
+    recommendedList.value = list;
   } catch (e) {
     syncRecommendedList();
   }
@@ -824,8 +941,15 @@ const onContentPage = (p: number) => {
 
 const openContent = async (id: number) => {
   const resp = await fetchPublicContentById(id);
-  contentDetail.value = resp.data?.data || null;
-  contentDialog.value = true;
+  detailType.value = 'content';
+  detailData.value = resp.data?.data || null;
+  detailDialog.value = true;
+};
+
+const openMediaDetail = (media: any) => {
+  detailType.value = 'media';
+  detailData.value = media;
+  detailDialog.value = true;
 };
 
 const loadPlayback = async () => {
@@ -934,6 +1058,8 @@ const registerVolunteer = async () => {
       portalToken.value = data.token;
       localStorage.setItem('portal_token', data.token);
       await loadPortalProfile();
+      await loadAuditLogs();
+      await loadPortalStats();
       ElMessage.success('注册成功');
       pendingRegisterPhone.value = '';
     } else {
@@ -974,6 +1100,7 @@ const loadSignups = async () => {
   if (portalLoggedIn.value) {
     const resp = await fetchPortalSignups();
     signups.value = resp.data?.data || [];
+    await loadPortalStats();
     return;
   }
   if (!queryPhone.value) {
@@ -982,6 +1109,26 @@ const loadSignups = async () => {
   }
   const resp = await fetchVolunteerSignups(queryPhone.value);
   signups.value = resp.data?.data || [];
+};
+
+const loadPortalStats = async () => {
+  if (!portalLoggedIn.value) return;
+  try {
+    const resp = await fetchPortalStats();
+    portalStats.value = resp.data?.data || portalStats.value;
+  } catch (e) {
+    // ignore
+  }
+};
+
+const loadAuditLogs = async () => {
+  if (!portalLoggedIn.value) return;
+  try {
+    const resp = await fetchPortalAuditLogs();
+    auditLogs.value = resp.data?.data || [];
+  } catch (e) {
+    auditLogs.value = [];
+  }
 };
 
 const portalLoginSubmit = async () => {
@@ -1006,6 +1153,7 @@ const portalLoginSubmit = async () => {
     }
     await loadPortalProfile();
     await loadSignups();
+    await loadAuditLogs();
     ElMessage.success('登录成功');
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '登录失败');
@@ -1113,6 +1261,8 @@ const portalLogout = () => {
   phoneStatus.value = '';
   phoneExists.value = false;
   phoneValid.value = true;
+  portalStats.value = { total: 0, applied: 0, checkedIn: 0, upcoming: 0 };
+  auditLogs.value = [];
 };
 
 const loadStats = async () => {
@@ -1152,6 +1302,17 @@ const statusLabel = (status: string) => {
   if (status === 'pending') return '审核中';
   if (status === 'rejected') return '已拒绝';
   return status;
+};
+
+const auditTagType = (status: string) => {
+  if (status === 'approved') return 'success';
+  if (status === 'pending') return 'warning';
+  if (status === 'rejected') return 'danger';
+  return 'info';
+};
+
+const saveReminderSettings = () => {
+  localStorage.setItem('portal_reminders', JSON.stringify(reminderSettings.value));
 };
 
 const goAdmin = () => {
@@ -1548,6 +1709,8 @@ onMounted(async () => {
   if (portalLoggedIn.value) {
     await loadPortalProfile();
     await loadSignups();
+    await loadAuditLogs();
+    await loadPortalStats();
   }
   const saved = localStorage.getItem('portal_terminal_code');
   if (saved) terminalCode.value = saved;
@@ -1621,8 +1784,18 @@ onBeforeUnmount(() => {
 .profile-meta { color: #909399; font-size: 12px; }
 .profile-actions { display: flex; gap: 6px; }
 .profile-info { color: #606266; display: flex; flex-direction: column; gap: 6px; }
+.reminder-settings { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.reminder-title { font-size: 13px; color: #909399; margin-right: 6px; }
+.signup-stats { margin: 10px 0; }
+.stat-card { text-align: center; }
+.stat-value { font-size: 20px; font-weight: 700; color: #409eff; }
+.stat-label { font-size: 12px; color: #909399; }
+.audit-card { margin: 12px 0; }
+.card-title { font-weight: 600; }
+.audit-remark { color: #909399; font-size: 12px; }
 .terminal-input { display: flex; gap: 8px; align-items: center; }
 .media-card { margin-bottom: 10px; }
+.media-card.active { border: 1px solid #409eff; box-shadow: 0 2px 8px rgba(64,158,255,0.2); }
 .media-thumb { position: relative; height: 120px; border-radius: 8px; overflow: hidden; background: #f5f7fa; display: flex; align-items: center; justify-content: center; }
 .media-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .thumb-placeholder { color: #909399; text-transform: uppercase; }
@@ -1630,15 +1803,23 @@ onBeforeUnmount(() => {
 .badge.type { left: 6px; right: auto; top: 6px; bottom: auto; background: #409eff; }
 .media-title { margin: 6px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .media-meta { margin: 2px 0 0; font-size: 12px; color: #909399; }
+.badge.playing { left: 6px; bottom: 6px; right: auto; top: auto; background: #10b981; }
+.info-btn { position: absolute; right: 6px; top: 6px; background: rgba(255,255,255,0.9); }
 .breadcrumb { margin-bottom: 10px; }
-.detail-cover { margin-bottom: 12px; }
-.detail-cover img { width: 100%; border-radius: 8px; object-fit: cover; }
+.detail-hero { position: relative; border-radius: 10px; overflow: hidden; background: #f5f7fa; margin-bottom: 12px; }
+.detail-hero img { width: 100%; height: 240px; object-fit: cover; display: block; }
+.detail-hero-fallback { height: 200px; display: flex; align-items: center; justify-content: center; color: #909399; }
+.detail-meta { position: absolute; left: 0; right: 0; bottom: 0; padding: 16px; color: #fff; background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%); }
+.detail-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.detail-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.detail-desc { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: 12px; }
 .detail-body { line-height: 1.8; letter-spacing: 0.3px; color: #303133; }
 .detail-body p { margin: 10px 0; }
 .detail-body h2 { margin: 14px 0 8px; font-size: 18px; }
 .detail-body ul { padding-left: 18px; }
 .detail-body li { margin: 6px 0; }
 .detail-body blockquote { border-left: 4px solid #409eff; padding: 6px 12px; color: #606266; background: #f5f7fa; margin: 10px 0; }
+.detail-body.media-body { font-size: 14px; }
 .preview-card { margin-top: 12px; }
 .preview-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin-bottom: 8px; }
 .offline-alert { margin-bottom: 8px; }

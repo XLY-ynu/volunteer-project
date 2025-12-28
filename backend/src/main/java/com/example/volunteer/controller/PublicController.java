@@ -12,15 +12,23 @@ import com.example.volunteer.dto.TerminalPlaybackDto;
 import com.example.volunteer.service.TerminalService;
 import com.example.volunteer.entity.Activity;
 import com.example.volunteer.entity.ActivitySignup;
+import com.example.volunteer.entity.BroadcastJob;
 import com.example.volunteer.entity.Volunteer;
 import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
 import com.example.volunteer.mapper.ContentConfigMapper;
+import com.example.volunteer.mapper.ContentItemMapper;
+import com.example.volunteer.mapper.MediaAssetMapper;
 import com.example.volunteer.mapper.TerminalMapper;
+import com.example.volunteer.mapper.VolunteerStatusLogMapper;
 import com.example.volunteer.entity.Terminal;
 import com.example.volunteer.entity.ContentConfig;
 import com.example.volunteer.dto.TerminalPublicDto;
+import com.example.volunteer.dto.BroadcastPlaybackDto;
+import com.example.volunteer.entity.VolunteerStatusLog;
+import com.example.volunteer.entity.MediaAsset;
+import com.example.volunteer.service.BroadcastService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +38,7 @@ import java.util.Set;
 
 import com.example.volunteer.dto.ActivitySignupPublicRequest;
 import com.example.volunteer.dto.ActivityCheckinPublicRequest;
+import com.example.volunteer.dto.HeartbeatRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,6 +61,10 @@ public class PublicController {
     private final VolunteerMapper volunteerMapper;
     private final ContentConfigMapper contentConfigMapper;
     private final TerminalMapper terminalMapper;
+    private final VolunteerStatusLogMapper volunteerStatusLogMapper;
+    private final BroadcastService broadcastService;
+    private final MediaAssetMapper mediaAssetMapper;
+    private final ContentItemMapper contentItemMapper;
 
     @Value("${app.terminal.offline-seconds:300}")
     private long offlineSeconds;
@@ -59,7 +72,11 @@ public class PublicController {
     public PublicController(MenuCategoryMapper menuCategoryMapper, ContentService contentService, TerminalService terminalService,
                             ActivityMapper activityMapper, ActivitySignupMapper activitySignupMapper,
                             VolunteerMapper volunteerMapper, ContentConfigMapper contentConfigMapper,
-                            TerminalMapper terminalMapper) {
+                            TerminalMapper terminalMapper,
+                            VolunteerStatusLogMapper volunteerStatusLogMapper,
+                            BroadcastService broadcastService,
+                            MediaAssetMapper mediaAssetMapper,
+                            ContentItemMapper contentItemMapper) {
         this.menuCategoryMapper = menuCategoryMapper;
         this.contentService = contentService;
         this.terminalService = terminalService;
@@ -68,6 +85,10 @@ public class PublicController {
         this.volunteerMapper = volunteerMapper;
         this.contentConfigMapper = contentConfigMapper;
         this.terminalMapper = terminalMapper;
+        this.volunteerStatusLogMapper = volunteerStatusLogMapper;
+        this.broadcastService = broadcastService;
+        this.mediaAssetMapper = mediaAssetMapper;
+        this.contentItemMapper = contentItemMapper;
     }
 
     @GetMapping("/categories")
@@ -205,6 +226,7 @@ public class PublicController {
         volunteer.setCreatedAt(LocalDateTime.now());
         volunteer.setUpdatedAt(LocalDateTime.now());
         volunteerMapper.insert(volunteer);
+        logStatus(volunteer.getId(), volunteer.getStatus(), "游客注册");
         return ApiResponse.ok(volunteer);
     }
 
@@ -232,6 +254,7 @@ public class PublicController {
             v.setCreatedAt(LocalDateTime.now());
             v.setUpdatedAt(LocalDateTime.now());
             volunteerMapper.insert(v);
+            logStatus(v.getId(), v.getStatus(), "活动报名自动注册");
             existing = v;
         }
         ActivitySignup signup = new ActivitySignup();
@@ -314,6 +337,32 @@ public class PublicController {
         return ApiResponse.ok(contentService.findById(id));
     }
 
+    @PostMapping("/heartbeat")
+    public ApiResponse<Terminal> heartbeat(@Valid @RequestBody HeartbeatRequest request) {
+        return ApiResponse.ok(terminalService.heartbeat(request));
+    }
+
+    @GetMapping("/broadcasts/active")
+    public ApiResponse<List<BroadcastPlaybackDto>> activeBroadcasts(@RequestParam String terminalCode) {
+        Terminal terminal = terminalMapper.selectOne(new LambdaQueryWrapper<Terminal>().eq(Terminal::getCode, terminalCode));
+        String groupName = terminal != null ? terminal.getGroupName() : null;
+        Page<BroadcastJob> page = broadcastService.activeForTerminal(terminalCode, groupName, 1, 50);
+        List<BroadcastPlaybackDto> list = page.getRecords().stream().map(job -> {
+            BroadcastPlaybackDto dto = new BroadcastPlaybackDto();
+            dto.setJob(job);
+            if (job.getMediaId() != null) {
+                MediaAsset media = mediaAssetMapper.selectById(job.getMediaId());
+                dto.setMedia(media);
+            }
+            if (job.getContentId() != null) {
+                ContentItem content = contentItemMapper.selectById(job.getContentId());
+                dto.setContent(content);
+            }
+            return dto;
+        }).collect(Collectors.toList());
+        return ApiResponse.ok(list);
+    }
+
     @GetMapping("/volunteer/signups")
     public ApiResponse<List<VolunteerSignupDto>> volunteerSignups(@RequestParam String phone) {
         Volunteer volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>().eq(Volunteer::getPhone, phone));
@@ -336,6 +385,15 @@ public class PublicController {
             return dto;
         }).collect(java.util.stream.Collectors.toList());
         return ApiResponse.ok(list);
+    }
+
+    private void logStatus(Long volunteerId, String status, String remark) {
+        VolunteerStatusLog log = new VolunteerStatusLog();
+        log.setVolunteerId(volunteerId);
+        log.setStatus(status);
+        log.setRemark(remark);
+        log.setCreatedAt(LocalDateTime.now());
+        volunteerStatusLogMapper.insert(log);
     }
 
     private int resolveRecommendLimit(Integer limit) {

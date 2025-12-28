@@ -1,15 +1,24 @@
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
+import com.example.volunteer.entity.AlertSilence;
+import com.example.volunteer.entity.AlertSubscription;
+import com.example.volunteer.entity.NotificationLog;
 import com.example.volunteer.entity.Terminal;
+import com.example.volunteer.entity.TerminalAlertHistory;
 import com.example.volunteer.entity.TerminalGroupRule;
 import com.example.volunteer.entity.TerminalHeartbeat;
 import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.MediaAssetMapper;
 import com.example.volunteer.mapper.PlaylistMapper;
+import com.example.volunteer.mapper.AlertSilenceMapper;
+import com.example.volunteer.mapper.AlertSubscriptionMapper;
+import com.example.volunteer.mapper.NotificationLogMapper;
 import com.example.volunteer.mapper.TerminalGroupRuleMapper;
 import com.example.volunteer.mapper.TerminalHeartbeatMapper;
+import com.example.volunteer.mapper.TerminalAlertHistoryMapper;
 import com.example.volunteer.mapper.TerminalMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
@@ -40,23 +49,38 @@ public class MonitorController {
     private final TerminalMapper terminalMapper;
     private final TerminalHeartbeatMapper terminalHeartbeatMapper;
     private final TerminalGroupRuleMapper terminalGroupRuleMapper;
+    private final TerminalAlertHistoryMapper terminalAlertHistoryMapper;
+    private final NotificationLogMapper notificationLogMapper;
+    private final AlertSubscriptionMapper alertSubscriptionMapper;
+    private final AlertSilenceMapper alertSilenceMapper;
     private final MediaAssetMapper mediaAssetMapper;
     private final PlaylistMapper playlistMapper;
     private final ActivityMapper activityMapper;
     private final long offlineSeconds;
+    private final long alertIntervalSeconds;
 
     public MonitorController(TerminalMapper terminalMapper, MediaAssetMapper mediaAssetMapper,
                              PlaylistMapper playlistMapper, ActivityMapper activityMapper,
                              TerminalHeartbeatMapper terminalHeartbeatMapper,
                              TerminalGroupRuleMapper terminalGroupRuleMapper,
-                             @Value("${app.terminal.offline-seconds:300}") long offlineSeconds) {
+                             TerminalAlertHistoryMapper terminalAlertHistoryMapper,
+                             NotificationLogMapper notificationLogMapper,
+                             AlertSubscriptionMapper alertSubscriptionMapper,
+                             AlertSilenceMapper alertSilenceMapper,
+                             @Value("${app.terminal.offline-seconds:300}") long offlineSeconds,
+                             @Value("${app.monitor.alert-interval-seconds:300}") long alertIntervalSeconds) {
         this.terminalMapper = terminalMapper;
         this.terminalHeartbeatMapper = terminalHeartbeatMapper;
         this.terminalGroupRuleMapper = terminalGroupRuleMapper;
+        this.terminalAlertHistoryMapper = terminalAlertHistoryMapper;
+        this.notificationLogMapper = notificationLogMapper;
+        this.alertSubscriptionMapper = alertSubscriptionMapper;
+        this.alertSilenceMapper = alertSilenceMapper;
         this.mediaAssetMapper = mediaAssetMapper;
         this.playlistMapper = playlistMapper;
         this.activityMapper = activityMapper;
         this.offlineSeconds = offlineSeconds;
+        this.alertIntervalSeconds = alertIntervalSeconds;
     }
 
     @GetMapping("/summary")
@@ -156,6 +180,8 @@ public class MonitorController {
                 .collect(Collectors.groupingBy(t -> t.getGroupName() == null ? "未分组" : t.getGroupName()));
         Map<String, TerminalGroupRule> ruleMap = terminalGroupRuleMapper.selectList(new QueryWrapper<>()).stream()
                 .collect(Collectors.toMap(TerminalGroupRule::getGroupName, r -> r, (a, b) -> a));
+        List<AlertSubscription> subscriptions = alertSubscriptionMapper.selectList(new QueryWrapper<>());
+        List<AlertSilence> silences = alertSilenceMapper.selectList(new QueryWrapper<>());
         List<Map<String, Object>> list = new ArrayList<>();
         for (Map.Entry<String, List<Terminal>> entry : grouped.entrySet()) {
             String group = entry.getKey();
@@ -167,6 +193,7 @@ public class MonitorController {
             Integer thresholdCount = rule != null ? rule.getOfflineThreshold() : null;
             boolean enabled = rule != null && Boolean.TRUE.equals(rule.getEnabled());
             boolean alert = enabled && thresholdCount != null && offline >= thresholdCount;
+            boolean silenced = alert && isSilenced(group, rule != null ? rule.getNotifyChannel() : null, silences);
             Map<String, Object> map = new HashMap<>();
             map.put("groupName", group);
             map.put("total", items.size());
@@ -176,7 +203,24 @@ public class MonitorController {
             map.put("alert", alert);
             map.put("notifyChannel", rule != null ? rule.getNotifyChannel() : null);
             map.put("notifyTarget", rule != null ? rule.getNotifyTarget() : null);
+            map.put("silenced", silenced);
             list.add(map);
+            if (alert) {
+                List<Recipient> recipients = buildRecipients(group, rule, subscriptions);
+                if (recipients.isEmpty()) {
+                    recipients.add(new Recipient("web", "admin"));
+                }
+                for (Recipient recipient : recipients) {
+                    boolean recipientSilenced = isSilenced(group, recipient.channel, silences);
+                    boolean canNotify = !recipientSilenced && shouldNotify(group, recipient);
+                    if (canNotify) {
+                        sendNotification(group, offline, thresholdCount, recipient);
+                    }
+                    if (canNotify || recipientSilenced) {
+                        recordAlertHistory(group, (int) items.size(), (int) offline, thresholdCount, recipient, recipientSilenced);
+                    }
+                }
+            }
         }
         return ApiResponse.ok(list);
     }
@@ -208,5 +252,226 @@ public class MonitorController {
         }
         List<Map<String, Object>> result = new ArrayList<>(sorted.values());
         return ApiResponse.ok(result);
+    }
+
+    @GetMapping("/alert-history")
+    public ApiResponse<Page<TerminalAlertHistory>> alertHistory(@RequestParam(defaultValue = "1") int page,
+                                                                @RequestParam(defaultValue = "20") int size,
+                                                                @RequestParam(required = false) String groupName) {
+        QueryWrapper<TerminalAlertHistory> w = new QueryWrapper<>();
+        if (StringUtils.hasText(groupName)) {
+            w.eq("group_name", groupName);
+        }
+        w.orderByDesc("created_at");
+        Page<TerminalAlertHistory> p = new Page<>(page, size);
+        terminalAlertHistoryMapper.selectPage(p, w);
+        return ApiResponse.ok(p);
+    }
+
+    @GetMapping("/notification-logs")
+    public ApiResponse<Page<NotificationLog>> notificationLogs(@RequestParam(defaultValue = "1") int page,
+                                                               @RequestParam(defaultValue = "20") int size,
+                                                               @RequestParam(required = false) String channel) {
+        QueryWrapper<NotificationLog> w = new QueryWrapper<>();
+        if (StringUtils.hasText(channel)) {
+            w.eq("channel", channel);
+        }
+        w.orderByDesc("created_at");
+        Page<NotificationLog> p = new Page<>(page, size);
+        notificationLogMapper.selectPage(p, w);
+        return ApiResponse.ok(p);
+    }
+
+    @GetMapping("/alert-subscriptions")
+    public ApiResponse<List<AlertSubscription>> alertSubscriptions() {
+        return ApiResponse.ok(alertSubscriptionMapper.selectList(new QueryWrapper<>()));
+    }
+
+    @PostMapping("/alert-subscriptions")
+    public ApiResponse<AlertSubscription> createAlertSubscription(@RequestBody AlertSubscription subscription) {
+        if (!StringUtils.hasText(subscription.getChannel())) {
+            subscription.setChannel("web");
+        }
+        if (subscription.getEnabled() == null) {
+            subscription.setEnabled(true);
+        }
+        subscription.setCreatedAt(LocalDateTime.now());
+        subscription.setUpdatedAt(LocalDateTime.now());
+        alertSubscriptionMapper.insert(subscription);
+        return ApiResponse.ok(subscription);
+    }
+
+    @PutMapping("/alert-subscriptions/{id}")
+    public ApiResponse<AlertSubscription> updateAlertSubscription(@PathVariable Long id, @RequestBody AlertSubscription subscription) {
+        AlertSubscription existing = alertSubscriptionMapper.selectById(id);
+        if (existing == null) {
+            return ApiResponse.fail("订阅不存在");
+        }
+        if (subscription.getGroupName() != null) {
+            existing.setGroupName(subscription.getGroupName());
+        }
+        if (subscription.getChannel() != null) {
+            existing.setChannel(subscription.getChannel());
+        }
+        if (subscription.getTarget() != null) {
+            existing.setTarget(subscription.getTarget());
+        }
+        if (subscription.getEnabled() != null) {
+            existing.setEnabled(subscription.getEnabled());
+        }
+        existing.setUpdatedAt(LocalDateTime.now());
+        alertSubscriptionMapper.updateById(existing);
+        return ApiResponse.ok(existing);
+    }
+
+    @DeleteMapping("/alert-subscriptions/{id}")
+    public ApiResponse<Void> deleteAlertSubscription(@PathVariable Long id) {
+        alertSubscriptionMapper.deleteById(id);
+        return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/alert-silences")
+    public ApiResponse<List<AlertSilence>> alertSilences() {
+        return ApiResponse.ok(alertSilenceMapper.selectList(new QueryWrapper<>()));
+    }
+
+    @PostMapping("/alert-silences")
+    public ApiResponse<AlertSilence> createAlertSilence(@RequestBody AlertSilence silence) {
+        if (!StringUtils.hasText(silence.getChannel())) {
+            silence.setChannel("web");
+        }
+        if (silence.getEnabled() == null) {
+            silence.setEnabled(true);
+        }
+        silence.setCreatedAt(LocalDateTime.now());
+        silence.setUpdatedAt(LocalDateTime.now());
+        alertSilenceMapper.insert(silence);
+        return ApiResponse.ok(silence);
+    }
+
+    @PutMapping("/alert-silences/{id}")
+    public ApiResponse<AlertSilence> updateAlertSilence(@PathVariable Long id, @RequestBody AlertSilence silence) {
+        AlertSilence existing = alertSilenceMapper.selectById(id);
+        if (existing == null) {
+            return ApiResponse.fail("静默配置不存在");
+        }
+        if (silence.getGroupName() != null) {
+            existing.setGroupName(silence.getGroupName());
+        }
+        if (silence.getChannel() != null) {
+            existing.setChannel(silence.getChannel());
+        }
+        if (silence.getStartTime() != null) {
+            existing.setStartTime(silence.getStartTime());
+        }
+        if (silence.getEndTime() != null) {
+            existing.setEndTime(silence.getEndTime());
+        }
+        if (silence.getEnabled() != null) {
+            existing.setEnabled(silence.getEnabled());
+        }
+        existing.setUpdatedAt(LocalDateTime.now());
+        alertSilenceMapper.updateById(existing);
+        return ApiResponse.ok(existing);
+    }
+
+    @DeleteMapping("/alert-silences/{id}")
+    public ApiResponse<Void> deleteAlertSilence(@PathVariable Long id) {
+        alertSilenceMapper.deleteById(id);
+        return ApiResponse.ok(null);
+    }
+
+    private boolean shouldNotify(String groupName, Recipient recipient) {
+        LocalDateTime since = LocalDateTime.now().minusSeconds(alertIntervalSeconds);
+        QueryWrapper<TerminalAlertHistory> w = new QueryWrapper<>();
+        w.eq("group_name", groupName)
+                .eq("channel", recipient.channel)
+                .eq("target", recipient.target)
+                .eq("silenced", false)
+                .ge("created_at", since)
+                .orderByDesc("created_at")
+                .last("limit 1");
+        return terminalAlertHistoryMapper.selectOne(w) == null;
+    }
+
+    private boolean isSilenced(String groupName, String channel, List<AlertSilence> silences) {
+        if (silences == null || silences.isEmpty()) {
+            return false;
+        }
+        String resolvedChannel = StringUtils.hasText(channel) ? channel : "web";
+        LocalDateTime now = LocalDateTime.now();
+        for (AlertSilence silence : silences) {
+            if (!Boolean.TRUE.equals(silence.getEnabled())) {
+                continue;
+            }
+            if (StringUtils.hasText(silence.getGroupName()) && !silence.getGroupName().equals(groupName)) {
+                continue;
+            }
+            if (StringUtils.hasText(silence.getChannel()) && !silence.getChannel().equals(resolvedChannel)) {
+                continue;
+            }
+            if (silence.getStartTime() != null && now.isBefore(silence.getStartTime())) {
+                continue;
+            }
+            if (silence.getEndTime() != null && now.isAfter(silence.getEndTime())) {
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private List<Recipient> buildRecipients(String groupName, TerminalGroupRule rule, List<AlertSubscription> subscriptions) {
+        List<Recipient> recipients = new ArrayList<>();
+        if (rule != null && StringUtils.hasText(rule.getNotifyChannel())) {
+            recipients.add(new Recipient(rule.getNotifyChannel(), rule.getNotifyTarget()));
+        }
+        if (subscriptions == null) {
+            return recipients;
+        }
+        for (AlertSubscription sub : subscriptions) {
+            if (!Boolean.TRUE.equals(sub.getEnabled())) {
+                continue;
+            }
+            if (StringUtils.hasText(sub.getGroupName()) && !sub.getGroupName().equals(groupName)) {
+                continue;
+            }
+            recipients.add(new Recipient(sub.getChannel(), sub.getTarget()));
+        }
+        return recipients;
+    }
+
+    private void recordAlertHistory(String groupName, int total, int offline, Integer threshold, Recipient recipient, boolean silenced) {
+        TerminalAlertHistory history = new TerminalAlertHistory();
+        history.setGroupName(groupName);
+        history.setTotal(total);
+        history.setOffline(offline);
+        history.setRuleThreshold(threshold);
+        history.setChannel(recipient.channel);
+        history.setTarget(recipient.target);
+        history.setSilenced(silenced);
+        history.setCreatedAt(LocalDateTime.now());
+        terminalAlertHistoryMapper.insert(history);
+    }
+
+    private void sendNotification(String groupName, long offline, Integer threshold, Recipient recipient) {
+        NotificationLog log = new NotificationLog();
+        log.setChannel(recipient.channel);
+        log.setTarget(recipient.target);
+        log.setTitle("分组离线告警");
+        log.setContent(String.format("%s 离线 %d 台，超过阈值 %s", groupName, offline, threshold == null ? "-" : threshold));
+        log.setStatus("sent");
+        log.setCreatedAt(LocalDateTime.now());
+        notificationLogMapper.insert(log);
+    }
+
+    private static class Recipient {
+        private final String channel;
+        private final String target;
+
+        private Recipient(String channel, String target) {
+            this.channel = StringUtils.hasText(channel) ? channel : "web";
+            this.target = target;
+        }
     }
 }

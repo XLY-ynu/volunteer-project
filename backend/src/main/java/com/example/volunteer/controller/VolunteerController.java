@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.entity.User;
 import com.example.volunteer.entity.Volunteer;
+import com.example.volunteer.entity.VolunteerStatusLog;
 import com.example.volunteer.mapper.UserMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
+import com.example.volunteer.mapper.VolunteerStatusLogMapper;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,10 +20,12 @@ public class VolunteerController {
 
     private final VolunteerMapper volunteerMapper;
     private final UserMapper userMapper;
+    private final VolunteerStatusLogMapper volunteerStatusLogMapper;
 
-    public VolunteerController(VolunteerMapper volunteerMapper, UserMapper userMapper) {
+    public VolunteerController(VolunteerMapper volunteerMapper, UserMapper userMapper, VolunteerStatusLogMapper volunteerStatusLogMapper) {
         this.volunteerMapper = volunteerMapper;
         this.userMapper = userMapper;
+        this.volunteerStatusLogMapper = volunteerStatusLogMapper;
     }
 
     @GetMapping
@@ -52,6 +56,7 @@ public class VolunteerController {
         volunteer.setUpdatedAt(LocalDateTime.now());
         volunteerMapper.insert(volunteer);
         syncUserStatus(volunteer);
+        logStatus(volunteer.getId(), volunteer.getStatus(), "创建志愿者");
         return ApiResponse.ok(volunteer);
     }
 
@@ -68,6 +73,7 @@ public class VolunteerController {
         }
         // 获取原有记录以保留userId
         Volunteer existingVol = volunteerMapper.selectById(id);
+        String previousStatus = existingVol != null ? existingVol.getStatus() : null;
         if (existingVol != null && volunteer.getUserId() == null) {
             volunteer.setUserId(existingVol.getUserId());
         }
@@ -75,6 +81,9 @@ public class VolunteerController {
         volunteer.setUpdatedAt(LocalDateTime.now());
         volunteerMapper.updateById(volunteer);
         syncUserStatus(volunteer);
+        if (previousStatus != null && volunteer.getStatus() != null && !previousStatus.equals(volunteer.getStatus())) {
+            logStatus(id, volunteer.getStatus(), "管理员更新状态");
+        }
         return ApiResponse.ok(volunteer);
     }
 
@@ -99,5 +108,14 @@ public class VolunteerController {
         }
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
+    }
+
+    private void logStatus(Long volunteerId, String status, String remark) {
+        VolunteerStatusLog log = new VolunteerStatusLog();
+        log.setVolunteerId(volunteerId);
+        log.setStatus(status);
+        log.setRemark(remark);
+        log.setCreatedAt(LocalDateTime.now());
+        volunteerStatusLogMapper.insert(log);
     }
 }

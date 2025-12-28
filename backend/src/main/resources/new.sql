@@ -135,3 +135,56 @@ CREATE TABLE IF NOT EXISTS terminal_group_rule (
 -- 17) 终端告警通知通道字段（若字段已存在会报错可忽略）
 -- ALTER TABLE terminal_group_rule ADD COLUMN notify_channel VARCHAR(32) NULL AFTER enabled;
 -- ALTER TABLE terminal_group_rule ADD COLUMN notify_target VARCHAR(128) NULL AFTER notify_channel;
+
+-- 18) 告警历史与通知日志
+CREATE TABLE IF NOT EXISTS terminal_alert_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    group_name VARCHAR(64),
+    total INT DEFAULT 0,
+    offline INT DEFAULT 0,
+    rule_threshold INT DEFAULT 0,
+    channel VARCHAR(32),
+    target VARCHAR(128),
+    silenced TINYINT(1) DEFAULT 0,
+    created_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS notification_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    channel VARCHAR(32),
+    target VARCHAR(128),
+    title VARCHAR(128),
+    content TEXT,
+    status VARCHAR(32),
+    created_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS alert_subscription (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    group_name VARCHAR(64),
+    channel VARCHAR(32),
+    target VARCHAR(128),
+    enabled TINYINT(1) DEFAULT 1,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+CREATE TABLE IF NOT EXISTS alert_silence (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    group_name VARCHAR(64),
+    channel VARCHAR(32),
+    start_time DATETIME,
+    end_time DATETIME,
+    enabled TINYINT(1) DEFAULT 1,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 19) 志愿者审核状态日志
+CREATE TABLE IF NOT EXISTS volunteer_status_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    status VARCHAR(32),
+    remark VARCHAR(255),
+    created_at DATETIME
+);

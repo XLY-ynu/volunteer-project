@@ -19,11 +19,13 @@ import VolunteerPublic from '../views/VolunteerPublic.vue';
 import PublicActivities from '../views/PublicActivities.vue';
 import Checkin from '../views/Checkin.vue';
 import UserPortal from '../views/UserPortal.vue';
+import ScreenPlayer from '../views/ScreenPlayer.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: Login },
   { path: '/checkin', component: Checkin, meta: { public: true } },
   { path: '/portal', component: UserPortal, meta: { public: true } },
+  { path: '/screen', component: ScreenPlayer, meta: { public: true } },
   {
     path: '/',
     component: Layout,

@@ -1,0 +1,291 @@
+<template>
+  <div class="screen-player">
+    <div class="screen-toolbar">
+      <div class="toolbar-left">
+        <span class="screen-title">终端播放</span>
+        <span class="screen-code">{{ terminalCode }}</span>
+        <el-tag size="small" :type="playbackReady ? 'success' : 'info'">{{ playbackReady ? '播放中' : '加载中' }}</el-tag>
+      </div>
+      <div class="toolbar-right">
+        <el-button size="small" @click="loadPlayback">刷新</el-button>
+      </div>
+    </div>
+
+    <div class="screen-canvas" v-if="areas.length">
+      <div
+        v-for="(area, idx) in areas"
+        :key="idx"
+        class="screen-area"
+        :style="areaStyle(area)"
+      >
+        <div class="area-content" v-if="currentItem(idx)">
+          <video
+            v-if="currentItem(idx)?.type === 'video'"
+            :key="itemKey(idx)"
+            :src="currentItem(idx)?.url"
+            autoplay
+            muted
+            playsinline
+            loop
+          ></video>
+          <img
+            v-else-if="currentItem(idx)?.type === 'image'"
+            :key="itemKey(idx)"
+            :src="currentItem(idx)?.url"
+          />
+          <div v-else class="content-slide">
+            <div class="content-title">{{ currentItem(idx)?.title }}</div>
+            <div class="content-summary">{{ currentItem(idx)?.summary || '内容展示' }}</div>
+          </div>
+        </div>
+        <div v-else class="area-empty">暂无内容</div>
+      </div>
+    </div>
+    <div v-else class="screen-empty">未配置布局或播放列表</div>
+
+    <div class="broadcast-overlay" v-if="broadcastItem">
+      <div class="broadcast-badge">插播中</div>
+      <video
+        v-if="broadcastItem.type === 'video'"
+        :key="broadcastItemKey"
+        :src="broadcastItem.url"
+        autoplay
+        muted
+        playsinline
+        loop
+      ></video>
+      <img v-else-if="broadcastItem.type === 'image'" :src="broadcastItem.url" />
+      <div v-else class="content-slide">
+        <div class="content-title">{{ broadcastItem.title }}</div>
+        <div class="content-summary">{{ broadcastItem.summary || '插播内容' }}</div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import { fetchPlaybackPublic, fetchPublicBroadcasts, sendPublicHeartbeat, fetchPublicContentById } from '../api';
+
+const route = useRoute();
+const terminalCode = computed(() => String(route.query.code || 'public-screen'));
+const areas = ref<{ x: number; y: number; w: number; h: number }[]>([]);
+const queue = ref<any[]>([]);
+const areaStates = ref<{ index: number; startedAt: number }[]>([]);
+const playbackReady = ref(false);
+const timer = ref<number | null>(null);
+const broadcastTimer = ref<number | null>(null);
+const heartbeatTimer = ref<number | null>(null);
+const reloadTimer = ref<number | null>(null);
+const broadcastList = ref<any[]>([]);
+const broadcastIndex = ref(0);
+const broadcastStartedAt = ref(Date.now());
+
+const broadcastItem = computed(() => broadcastList.value[broadcastIndex.value] || null);
+const broadcastItemKey = computed(() => `broadcast-${broadcastIndex.value}-${broadcastItem.value?.id || ''}`);
+
+const areaStyle = (area: { x: number; y: number; w: number; h: number }) => ({
+  left: area.x + '%',
+  top: area.y + '%',
+  width: area.w + '%',
+  height: area.h + '%'
+});
+
+const itemKey = (idx: number) => {
+  const item = currentItem(idx);
+  return `${idx}-${areaStates.value[idx]?.index || 0}-${item?.id || ''}`;
+};
+
+const currentItem = (idx: number) => {
+  const state = areaStates.value[idx];
+  if (!state || !queue.value.length) return null;
+  return queue.value[state.index] || null;
+};
+
+const buildQueue = async (playback: any) => {
+  const assets = new Map<number, any>();
+  (playback.mediaAssets || []).forEach((m: any) => assets.set(m.id, m));
+  const items = playback.items || [];
+  const list: any[] = [];
+  for (const item of items) {
+    if (item.mediaId) {
+      const media = assets.get(item.mediaId);
+      if (!media) continue;
+      const type = media.type === 'video' ? 'video' : 'image';
+      list.push({
+        id: media.id,
+        type,
+        url: media.url,
+        duration: item.displayDuration || media.durationSeconds || 10
+      });
+    } else if (item.contentId) {
+      try {
+        const resp = await fetchPublicContentById(item.contentId);
+        const content = resp.data?.data;
+        list.push({
+          id: `content-${item.contentId}`,
+          type: 'content',
+          title: content?.title,
+          summary: content?.summary,
+          duration: item.displayDuration || 12
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+  queue.value = list;
+};
+
+const initAreas = (layoutJson?: string) => {
+  if (layoutJson) {
+    try {
+      const parsed = JSON.parse(layoutJson);
+      areas.value = parsed.areas || [{ x: 0, y: 0, w: 100, h: 100 }];
+    } catch {
+      areas.value = [{ x: 0, y: 0, w: 100, h: 100 }];
+    }
+  } else {
+    areas.value = [{ x: 0, y: 0, w: 100, h: 100 }];
+  }
+  areaStates.value = areas.value.map((_, idx) => ({
+    index: queue.value.length ? idx % queue.value.length : 0,
+    startedAt: Date.now()
+  }));
+};
+
+const tick = () => {
+  if (!queue.value.length) return;
+  const now = Date.now();
+  areaStates.value.forEach((state) => {
+    const item = queue.value[state.index];
+    const duration = (item?.duration || 10) * 1000;
+    if (now - state.startedAt >= duration) {
+      state.index = (state.index + 1) % queue.value.length;
+      state.startedAt = now;
+    }
+  });
+};
+
+const tickBroadcast = () => {
+  if (!broadcastList.value.length) return;
+  const current = broadcastList.value[broadcastIndex.value];
+  const duration = (current?.duration || 10) * 1000;
+  if (Date.now() - broadcastStartedAt.value >= duration) {
+    broadcastIndex.value = (broadcastIndex.value + 1) % broadcastList.value.length;
+    broadcastStartedAt.value = Date.now();
+  }
+};
+
+const loadPlayback = async () => {
+  playbackReady.value = false;
+  try {
+    const resp = await fetchPlaybackPublic(terminalCode.value);
+    const list = resp.data?.data || [];
+    const active = list[0];
+    if (!active) {
+      queue.value = [];
+      areas.value = [];
+      return;
+    }
+    await buildQueue(active);
+    initAreas(active.layout?.layoutJson);
+    localStorage.setItem(`screen_cache_${terminalCode.value}`, JSON.stringify(active));
+    playbackReady.value = true;
+  } catch (e) {
+    const cached = localStorage.getItem(`screen_cache_${terminalCode.value}`);
+    if (cached) {
+      const active = JSON.parse(cached);
+      await buildQueue(active);
+      initAreas(active.layout?.layoutJson);
+      playbackReady.value = true;
+    }
+  }
+};
+
+const loadBroadcasts = async () => {
+  try {
+    const resp = await fetchPublicBroadcasts(terminalCode.value);
+    const list = resp.data?.data || [];
+    broadcastList.value = list
+      .map((item: any) => {
+        if (item.media) {
+          return {
+            id: item.media.id,
+            type: item.media.type === 'video' ? 'video' : 'image',
+            url: item.media.url,
+            duration: item.media.durationSeconds || 10
+          };
+        }
+        if (item.content) {
+          return {
+            id: `content-${item.content.id}`,
+            type: 'content',
+            title: item.content.title,
+            summary: item.content.summary,
+            duration: 12
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+    if (broadcastList.value.length) {
+      broadcastIndex.value = 0;
+      broadcastStartedAt.value = Date.now();
+    }
+  } catch (e) {
+    // ignore
+  }
+};
+
+const startTimers = () => {
+  if (timer.value) clearInterval(timer.value);
+  timer.value = window.setInterval(tick, 1000);
+  if (broadcastTimer.value) clearInterval(broadcastTimer.value);
+  broadcastTimer.value = window.setInterval(tickBroadcast, 1000);
+  if (heartbeatTimer.value) clearInterval(heartbeatTimer.value);
+  heartbeatTimer.value = window.setInterval(() => {
+    sendPublicHeartbeat({ code: terminalCode.value, status: 'online' });
+  }, 60000);
+  if (reloadTimer.value) clearInterval(reloadTimer.value);
+  reloadTimer.value = window.setInterval(() => {
+    loadPlayback();
+    loadBroadcasts();
+  }, 60000);
+};
+
+onMounted(async () => {
+  await loadPlayback();
+  await loadBroadcasts();
+  sendPublicHeartbeat({ code: terminalCode.value, status: 'online' });
+  startTimers();
+});
+
+onBeforeUnmount(() => {
+  if (timer.value) clearInterval(timer.value);
+  if (broadcastTimer.value) clearInterval(broadcastTimer.value);
+  if (heartbeatTimer.value) clearInterval(heartbeatTimer.value);
+  if (reloadTimer.value) clearInterval(reloadTimer.value);
+});
+</script>
+
+<style scoped>
+.screen-player { position: relative; width: 100%; height: 100vh; background: #0f172a; color: #fff; overflow: hidden; }
+.screen-toolbar { position: absolute; top: 16px; left: 16px; right: 16px; z-index: 5; display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.6); padding: 10px 16px; border-radius: 8px; }
+.toolbar-left { display: flex; align-items: center; gap: 8px; }
+.screen-title { font-weight: 600; }
+.screen-code { font-size: 12px; color: #cbd5f5; }
+.screen-canvas { position: absolute; inset: 0; }
+.screen-area { position: absolute; padding: 6px; box-sizing: border-box; }
+.area-content { width: 100%; height: 100%; background: #111827; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.area-content video, .area-content img { width: 100%; height: 100%; object-fit: cover; }
+.area-empty { width: 100%; height: 100%; border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #94a3b8; }
+.screen-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #94a3b8; }
+.content-slide { padding: 16px; text-align: center; }
+.content-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.content-summary { font-size: 12px; color: #cbd5f5; }
+.broadcast-overlay { position: absolute; inset: 0; background: rgba(17, 24, 39, 0.88); display: flex; align-items: center; justify-content: center; z-index: 6; }
+.broadcast-overlay video, .broadcast-overlay img { width: 90%; height: 90%; object-fit: contain; border-radius: 12px; }
+.broadcast-badge { position: absolute; top: 20px; right: 20px; background: #ef4444; padding: 6px 12px; border-radius: 999px; font-size: 12px; }
+</style>

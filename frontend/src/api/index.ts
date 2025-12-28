@@ -125,6 +125,8 @@ export const updatePortalMe = (payload: { name?: string; email?: string; organiz
   http.put('/portal/me', payload);
 export const fetchPortalSignups = () => http.get('/portal/my-signups');
 export const signupActivityPortal = (payload: { activityId: number }) => http.post('/portal/activities/signup', payload);
+export const fetchPortalAuditLogs = () => http.get('/portal/audit-logs');
+export const fetchPortalStats = () => http.get('/portal/stats');
 
 export const fetchGroupRules = () => http.get('/monitor/group-rules');
 export const createGroupRule = (payload: { groupName: string; offlineThreshold?: number; enabled?: boolean; notifyChannel?: string; notifyTarget?: string }) =>
@@ -134,6 +136,27 @@ export const updateGroupRule = (id: number, payload: { groupName?: string; offli
 export const deleteGroupRule = (id: number) => http.delete(`/monitor/group-rules/${id}`);
 export const fetchGroupAlerts = () => http.get('/monitor/group-alerts');
 export const fetchOfflineTrend = (days = 7, groupName?: string) => http.get('/monitor/offline-trend', { params: { days, groupName } });
+export const fetchAlertHistory = (page = 1, size = 20, groupName?: string) =>
+  http.get('/monitor/alert-history', { params: { page, size, groupName } });
+export const fetchNotificationLogs = (page = 1, size = 20, channel?: string) =>
+  http.get('/monitor/notification-logs', { params: { page, size, channel } });
+export const fetchAlertSubscriptions = () => http.get('/monitor/alert-subscriptions');
+export const createAlertSubscription = (payload: { groupName?: string; channel?: string; target?: string; enabled?: boolean }) =>
+  http.post('/monitor/alert-subscriptions', payload);
+export const updateAlertSubscription = (id: number, payload: { groupName?: string; channel?: string; target?: string; enabled?: boolean }) =>
+  http.put(`/monitor/alert-subscriptions/${id}`, payload);
+export const deleteAlertSubscription = (id: number) => http.delete(`/monitor/alert-subscriptions/${id}`);
+export const fetchAlertSilences = () => http.get('/monitor/alert-silences');
+export const createAlertSilence = (payload: { groupName?: string; channel?: string; startTime?: string; endTime?: string; enabled?: boolean }) =>
+  http.post('/monitor/alert-silences', payload);
+export const updateAlertSilence = (id: number, payload: { groupName?: string; channel?: string; startTime?: string; endTime?: string; enabled?: boolean }) =>
+  http.put(`/monitor/alert-silences/${id}`, payload);
+export const deleteAlertSilence = (id: number) => http.delete(`/monitor/alert-silences/${id}`);
 
 export const fetchSummary = () => http.get('/monitor/summary');
 export const fetchTerminalStatus = () => http.get('/monitor/terminal-status');
+
+export const fetchPublicBroadcasts = (terminalCode: string) =>
+  http.get('/public/broadcasts/active', { params: { terminalCode } });
+export const sendPublicHeartbeat = (payload: { code: string; status: string }) =>
+  http.post('/public/heartbeat', payload);

@@ -127,6 +127,82 @@
 
     <el-card class="group-alert-card" shadow="never">
       <div class="group-head">
+        <div class="group-title">告警订阅</div>
+        <el-button size="small" type="primary" @click="openSubscriptionDialog">新增订阅</el-button>
+      </div>
+      <el-table :data="alertSubscriptions" size="small">
+        <el-table-column prop="groupName" label="分组" width="160">
+          <template #default="scope">
+            <span>{{ scope.row.groupName || '全部分组' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="channel" label="通道" width="120">
+          <template #default="scope">
+            <el-tag size="small" :type="channelTagType(scope.row.channel)">
+              {{ channelLabel(scope.row.channel) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="target" label="目标" min-width="180">
+          <template #default="scope">{{ scope.row.target || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="enabled" label="启用" width="80">
+          <template #default="scope">
+            <el-tag :type="scope.row.enabled ? 'success' : 'info'" size="small">{{ scope.row.enabled ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="140">
+          <template #default="scope">
+            <el-button-group>
+              <el-button size="small" @click="editSubscription(scope.row)">编辑</el-button>
+              <el-button size="small" type="danger" @click="removeSubscription(scope.row.id)">删除</el-button>
+            </el-button-group>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
+        <div class="group-title">静默时间段</div>
+        <el-button size="small" type="primary" @click="openSilenceDialog">新增静默</el-button>
+      </div>
+      <el-table :data="alertSilences" size="small">
+        <el-table-column prop="groupName" label="分组" width="160">
+          <template #default="scope">
+            <span>{{ scope.row.groupName || '全部分组' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="channel" label="通道" width="120">
+          <template #default="scope">
+            <el-tag size="small" :type="channelTagType(scope.row.channel)">
+              {{ channelLabel(scope.row.channel) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="时间段" min-width="220">
+          <template #default="scope">
+            {{ formatTime(scope.row.startTime) }} ~ {{ formatTime(scope.row.endTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="enabled" label="启用" width="80">
+          <template #default="scope">
+            <el-tag :type="scope.row.enabled ? 'success' : 'info'" size="small">{{ scope.row.enabled ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="140">
+          <template #default="scope">
+            <el-button-group>
+              <el-button size="small" @click="editSilence(scope.row)">编辑</el-button>
+              <el-button size="small" type="danger" @click="removeSilence(scope.row.id)">删除</el-button>
+            </el-button-group>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
         <div class="group-title">离线趋势</div>
         <div class="group-actions">
           <el-select v-model="trendGroup" placeholder="全部分组" clearable size="small" style="width: 160px">
@@ -147,6 +223,70 @@
         <el-table-column prop="day" label="日期" width="140" />
         <el-table-column prop="offlineCount" label="离线次数" width="120" />
       </el-table>
+    </el-card>
+
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
+        <div class="group-title">告警历史</div>
+        <el-button size="small" @click="loadAlertHistory">刷新</el-button>
+      </div>
+      <el-table :data="alertHistory" size="small">
+        <el-table-column prop="createdAt" label="时间" width="170">
+          <template #default="scope">{{ formatTime(scope.row.createdAt) }}</template>
+        </el-table-column>
+        <el-table-column prop="groupName" label="分组" width="140" />
+        <el-table-column prop="offline" label="离线" width="80" />
+        <el-table-column prop="ruleThreshold" label="阈值" width="80" />
+        <el-table-column prop="channel" label="通道" width="120">
+          <template #default="scope">
+            <el-tag size="small" :type="channelTagType(scope.row.channel)">
+              {{ channelLabel(scope.row.channel) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="target" label="目标" min-width="160" />
+        <el-table-column prop="silenced" label="静默" width="80">
+          <template #default="scope">
+            <el-tag :type="scope.row.silenced ? 'warning' : 'success'" size="small">
+              {{ scope.row.silenced ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="pagination">
+        <el-pagination layout="prev, pager, next" :total="historyTotal" :page-size="historySize" :current-page="historyPage" @current-change="onHistoryPage" />
+      </div>
+    </el-card>
+
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
+        <div class="group-title">通知日志</div>
+        <el-button size="small" @click="loadNotificationLogs">刷新</el-button>
+      </div>
+      <el-table :data="notificationLogs" size="small">
+        <el-table-column prop="createdAt" label="时间" width="170">
+          <template #default="scope">{{ formatTime(scope.row.createdAt) }}</template>
+        </el-table-column>
+        <el-table-column prop="channel" label="通道" width="120">
+          <template #default="scope">
+            <el-tag size="small" :type="channelTagType(scope.row.channel)">
+              {{ channelLabel(scope.row.channel) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="target" label="目标" width="160" />
+        <el-table-column prop="title" label="标题" min-width="140" />
+        <el-table-column prop="status" label="状态" width="90">
+          <template #default="scope">
+            <el-tag size="small" :type="scope.row.status === 'sent' ? 'success' : 'info'">
+              {{ scope.row.status || '未知' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="pagination">
+        <el-pagination layout="prev, pager, next" :total="logTotal" :page-size="logSize" :current-page="logPage" @current-change="onLogPage" />
+      </div>
     </el-card>
 
     <el-card class="filter-card" shadow="never">
@@ -281,6 +421,64 @@
       <template #footer>
         <el-button @click="ruleDialog = false">取消</el-button>
         <el-button type="primary" @click="saveRule">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="subscriptionDialog" :title="subscriptionEditingId ? '编辑订阅' : '新增订阅'" width="420px">
+      <el-form :model="subscriptionForm" label-width="90px">
+        <el-form-item label="分组">
+          <el-select v-model="subscriptionForm.groupName" placeholder="全部分组" clearable>
+            <el-option v-for="g in groupOptions" :key="g" :label="g" :value="g" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="通知通道">
+          <el-select v-model="subscriptionForm.channel" placeholder="选择通道">
+            <el-option v-for="c in channelOptions" :key="c.value" :label="c.label" :value="c.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="通知目标">
+          <el-input v-model="subscriptionForm.target" placeholder="手机号/邮箱/机器人Webhook" />
+        </el-form-item>
+        <el-form-item label="启用">
+          <el-switch v-model="subscriptionForm.enabled" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="subscriptionDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveSubscription">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="silenceDialog" :title="silenceEditingId ? '编辑静默' : '新增静默'" width="460px">
+      <el-form :model="silenceForm" label-width="90px">
+        <el-form-item label="分组">
+          <el-select v-model="silenceForm.groupName" placeholder="全部分组" clearable>
+            <el-option v-for="g in groupOptions" :key="g" :label="g" :value="g" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="通知通道">
+          <el-select v-model="silenceForm.channel" placeholder="选择通道">
+            <el-option v-for="c in channelOptions" :key="c.value" :label="c.label" :value="c.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="时间段">
+          <el-date-picker
+            v-model="silenceFormRange"
+            type="datetimerange"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            style="width: 100%"
+            @change="onSilenceRangeChange"
+          />
+        </el-form-item>
+        <el-form-item label="启用">
+          <el-switch v-model="silenceForm.enabled" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="silenceDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveSilence">保存</el-button>
       </template>
     </el-dialog>
 
@@ -467,7 +665,17 @@ import {
   updateGroupRule,
   deleteGroupRule,
   fetchGroupAlerts,
-  fetchOfflineTrend
+  fetchOfflineTrend,
+  fetchAlertHistory,
+  fetchNotificationLogs,
+  fetchAlertSubscriptions,
+  createAlertSubscription,
+  updateAlertSubscription,
+  deleteAlertSubscription,
+  fetchAlertSilences,
+  createAlertSilence,
+  updateAlertSilence,
+  deleteAlertSilence
 } from '../api';
 import { Plus, Monitor, WarningFilled, InfoFilled, Link, Connection, Timer, List, Setting, Bell } from '@element-plus/icons-vue';
 
@@ -486,6 +694,23 @@ const trendDays = ref(7);
 const ruleDialog = ref(false);
 const ruleEditingId = ref<number | null>(null);
 const ruleForm = ref({ groupName: '', offlineThreshold: 1, enabled: true, notifyChannel: 'web', notifyTarget: '' });
+const subscriptionDialog = ref(false);
+const subscriptionEditingId = ref<number | null>(null);
+const subscriptionForm = ref({ groupName: '', channel: 'web', target: '', enabled: true });
+const silenceDialog = ref(false);
+const silenceEditingId = ref<number | null>(null);
+const silenceForm = ref({ groupName: '', channel: 'web', startTime: '', endTime: '', enabled: true });
+const silenceFormRange = ref<[string, string] | null>(null);
+const alertSubscriptions = ref<any[]>([]);
+const alertSilences = ref<any[]>([]);
+const alertHistory = ref<any[]>([]);
+const notificationLogs = ref<any[]>([]);
+const historyPage = ref(1);
+const historySize = ref(10);
+const historyTotal = ref(0);
+const logPage = ref(1);
+const logSize = ref(10);
+const logTotal = ref(0);
 const showRegisterDialog = ref(false);
 const form = ref({ code: '', name: '', groupName: '' });
 const heartbeatDialog = ref(false);
@@ -571,6 +796,26 @@ const loadOfflineTrend = async () => {
   const resp = await fetchOfflineTrend(trendDays.value, trendGroup.value || undefined);
   offlineTrend.value = resp.data?.data || [];
 };
+const loadAlertHistory = async () => {
+  const resp = await fetchAlertHistory(historyPage.value, historySize.value);
+  const data = resp.data?.data || {};
+  alertHistory.value = data.records || [];
+  historyTotal.value = data.total || 0;
+};
+const loadNotificationLogs = async () => {
+  const resp = await fetchNotificationLogs(logPage.value, logSize.value);
+  const data = resp.data?.data || {};
+  notificationLogs.value = data.records || [];
+  logTotal.value = data.total || 0;
+};
+const loadAlertSubscriptions = async () => {
+  const resp = await fetchAlertSubscriptions();
+  alertSubscriptions.value = resp.data?.data || [];
+};
+const loadAlertSilences = async () => {
+  const resp = await fetchAlertSilences();
+  alertSilences.value = resp.data?.data || [];
+};
 const register = async () => {
   if (!form.value.code || !form.value.name) { ElMessage.warning('请输入代码和名称'); return; }
   await registerTerminal(form.value);
@@ -584,6 +829,16 @@ const onSelect = (rows: any[]) => { selectedTerminalIds.value = rows.map(r => r.
 const formatTime = (t: string) => {
   if (!t) return '-';
   return t.replace('T', ' ').substring(0, 19);
+};
+
+const onHistoryPage = (p: number) => {
+  historyPage.value = p;
+  loadAlertHistory();
+};
+
+const onLogPage = (p: number) => {
+  logPage.value = p;
+  loadNotificationLogs();
 };
 
 const channelLabel = (channel?: string) => {
@@ -713,6 +968,99 @@ const removeRule = async (id: number) => {
   loadGroupAlerts();
 };
 
+const openSubscriptionDialog = () => {
+  subscriptionEditingId.value = null;
+  subscriptionForm.value = { groupName: '', channel: 'web', target: '', enabled: true };
+  subscriptionDialog.value = true;
+};
+
+const editSubscription = (row: any) => {
+  subscriptionEditingId.value = row.id;
+  subscriptionForm.value = {
+    groupName: row.groupName || '',
+    channel: row.channel || 'web',
+    target: row.target || '',
+    enabled: row.enabled
+  };
+  subscriptionDialog.value = true;
+};
+
+const saveSubscription = async () => {
+  if (subscriptionForm.value.channel !== 'web' && !subscriptionForm.value.target) {
+    ElMessage.warning('请填写通知目标');
+    return;
+  }
+  if (subscriptionEditingId.value) {
+    await updateAlertSubscription(subscriptionEditingId.value, subscriptionForm.value);
+  } else {
+    await createAlertSubscription(subscriptionForm.value);
+  }
+  ElMessage.success('订阅已保存');
+  subscriptionDialog.value = false;
+  loadAlertSubscriptions();
+};
+
+const removeSubscription = async (id: number) => {
+  await deleteAlertSubscription(id);
+  ElMessage.success('订阅已删除');
+  loadAlertSubscriptions();
+};
+
+const openSilenceDialog = () => {
+  silenceEditingId.value = null;
+  silenceForm.value = { groupName: '', channel: 'web', startTime: '', endTime: '', enabled: true };
+  silenceFormRange.value = null;
+  silenceDialog.value = true;
+};
+
+const editSilence = (row: any) => {
+  silenceEditingId.value = row.id;
+  silenceForm.value = {
+    groupName: row.groupName || '',
+    channel: row.channel || 'web',
+    startTime: row.startTime || '',
+    endTime: row.endTime || '',
+    enabled: row.enabled
+  };
+  if (row.startTime && row.endTime) {
+    silenceFormRange.value = [row.startTime, row.endTime];
+  } else {
+    silenceFormRange.value = null;
+  }
+  silenceDialog.value = true;
+};
+
+const onSilenceRangeChange = (val: [string, string] | null) => {
+  if (!val) {
+    silenceForm.value.startTime = '';
+    silenceForm.value.endTime = '';
+    return;
+  }
+  silenceForm.value.startTime = val[0];
+  silenceForm.value.endTime = val[1];
+};
+
+const saveSilence = async () => {
+  if (!silenceForm.value.startTime || !silenceForm.value.endTime) {
+    ElMessage.warning('请填写静默时间段');
+    return;
+  }
+  if (silenceEditingId.value) {
+    await updateAlertSilence(silenceEditingId.value, silenceForm.value);
+  } else {
+    await createAlertSilence(silenceForm.value);
+  }
+  ElMessage.success('静默已保存');
+  silenceDialog.value = false;
+  loadAlertSilences();
+};
+
+const removeSilence = async (id: number) => {
+  await deleteAlertSilence(id);
+  ElMessage.success('静默已删除');
+  loadAlertSilences();
+};
+
 // 根据时间动态计算插播状态，与插播管理页面保持一致
 const calculateBroadcastStatus = (row: any): string => {
   const now = new Date();
@@ -823,6 +1171,10 @@ onMounted(() => {
   loadGroupRules();
   loadGroupAlerts();
   loadOfflineTrend();
+  loadAlertSubscriptions();
+  loadAlertSilences();
+  loadAlertHistory();
+  loadNotificationLogs();
 });
 </script>
 
@@ -847,6 +1199,7 @@ onMounted(() => {
 .group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .group-title { font-weight: 600; }
 .group-actions { display: flex; align-items: center; gap: 8px; }
+.pagination { margin-top: 8px; text-align: right; }
 .trend-chart { display: flex; align-items: flex-end; gap: 12px; height: 140px; padding: 8px 4px; margin-bottom: 12px; }
 .trend-bar { flex: 1; min-width: 24px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
 .trend-bar .bar { width: 100%; background: linear-gradient(180deg, #409eff, #67c23a); border-radius: 6px 6px 0 0; min-height: 6px; }

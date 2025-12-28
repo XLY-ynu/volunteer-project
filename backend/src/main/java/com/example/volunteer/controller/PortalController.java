@@ -15,10 +15,12 @@ import com.example.volunteer.entity.Activity;
 import com.example.volunteer.entity.ActivitySignup;
 import com.example.volunteer.entity.User;
 import com.example.volunteer.entity.Volunteer;
+import com.example.volunteer.entity.VolunteerStatusLog;
 import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.UserMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
+import com.example.volunteer.mapper.VolunteerStatusLogMapper;
 import com.example.volunteer.security.JwtUtil;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
@@ -46,6 +48,7 @@ public class PortalController {
     private final VolunteerMapper volunteerMapper;
     private final ActivityMapper activityMapper;
     private final ActivitySignupMapper activitySignupMapper;
+    private final VolunteerStatusLogMapper volunteerStatusLogMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -53,12 +56,14 @@ public class PortalController {
                             VolunteerMapper volunteerMapper,
                             ActivityMapper activityMapper,
                             ActivitySignupMapper activitySignupMapper,
+                            VolunteerStatusLogMapper volunteerStatusLogMapper,
                             PasswordEncoder passwordEncoder,
                             JwtUtil jwtUtil) {
         this.userMapper = userMapper;
         this.volunteerMapper = volunteerMapper;
         this.activityMapper = activityMapper;
         this.activitySignupMapper = activitySignupMapper;
+        this.volunteerStatusLogMapper = volunteerStatusLogMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -101,6 +106,7 @@ public class PortalController {
             volunteer.setCreatedAt(LocalDateTime.now());
             volunteer.setUpdatedAt(LocalDateTime.now());
             volunteerMapper.insert(volunteer);
+            logStatus(volunteer.getId(), volunteer.getStatus(), "门户注册");
         } else {
             volunteer.setUserId(user.getId());
             if (volunteer.getStatus() == null) {
@@ -117,6 +123,7 @@ public class PortalController {
             }
             volunteer.setUpdatedAt(LocalDateTime.now());
             volunteerMapper.updateById(volunteer);
+            logStatus(volunteer.getId(), volunteer.getStatus(), "门户绑定账号");
         }
 
         String token = approved ? jwtUtil.generateToken(user.getUsername(), user.getRoleCode()) : "";
@@ -243,6 +250,40 @@ public class PortalController {
         return ApiResponse.ok(list);
     }
 
+    @GetMapping("/audit-logs")
+    public ApiResponse<List<VolunteerStatusLog>> auditLogs() {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        List<VolunteerStatusLog> logs = volunteerStatusLogMapper.selectList(
+                new LambdaQueryWrapper<VolunteerStatusLog>()
+                        .eq(VolunteerStatusLog::getVolunteerId, volunteer.getId())
+                        .orderByDesc(VolunteerStatusLog::getCreatedAt)
+        );
+        return ApiResponse.ok(logs);
+    }
+
+    @GetMapping("/stats")
+    public ApiResponse<java.util.Map<String, Object>> stats() {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        List<ActivitySignup> signups = activitySignupMapper.selectList(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
+        long total = signups.size();
+        long checkedIn = signups.stream().filter(s -> "checked_in".equals(s.getStatus())).count();
+        long applied = signups.stream().filter(s -> "applied".equals(s.getStatus())).count();
+        long upcoming = signups.stream()
+                .map(s -> activityMapper.selectById(s.getActivityId()))
+                .filter(a -> a != null && a.getStartTime() != null && a.getStartTime().isAfter(LocalDateTime.now()))
+                .filter(a -> a.getStartTime().isBefore(LocalDateTime.now().plusDays(7)))
+                .count();
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("total", total);
+        map.put("checkedIn", checkedIn);
+        map.put("applied", applied);
+        map.put("upcoming", upcoming);
+        return ApiResponse.ok(map);
+    }
+
     @PostMapping("/activities/signup")
     public ApiResponse<ActivitySignup> signup(@Valid @RequestBody PortalActivitySignupRequest request) {
         User user = requirePortalUser();
@@ -294,6 +335,7 @@ public class PortalController {
             volunteer.setCreatedAt(LocalDateTime.now());
             volunteer.setUpdatedAt(LocalDateTime.now());
             volunteerMapper.insert(volunteer);
+            logStatus(volunteer.getId(), volunteer.getStatus(), "账号自动补全");
         } else {
             volunteer.setUserId(user.getId());
             volunteer.setUpdatedAt(LocalDateTime.now());
@@ -314,5 +356,14 @@ public class PortalController {
         dto.setCreatedAt(volunteer.getCreatedAt());
         dto.setUpdatedAt(volunteer.getUpdatedAt());
         return dto;
+    }
+
+    private void logStatus(Long volunteerId, String status, String remark) {
+        VolunteerStatusLog log = new VolunteerStatusLog();
+        log.setVolunteerId(volunteerId);
+        log.setStatus(status);
+        log.setRemark(remark);
+        log.setCreatedAt(LocalDateTime.now());
+        volunteerStatusLogMapper.insert(log);
     }
 }
