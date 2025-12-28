@@ -32,6 +32,8 @@ public class BroadcastServiceImpl implements BroadcastService {
         job.setTargetTerminalCode(request.getTargetTerminalCode());
         job.setStartTime(request.getStartTime());
         job.setEndTime(request.getEndTime());
+        job.setPriority(request.getPriority() == null ? 0 : request.getPriority());
+        job.setQueueMode(request.getQueueMode() == null ? "queue" : request.getQueueMode());
         job.setStatus("scheduled");
         broadcastJobMapper.insert(job);
         return job;
@@ -46,7 +48,7 @@ public class BroadcastServiceImpl implements BroadcastService {
         if (targetTerminalCode != null && !targetTerminalCode.isEmpty()) {
             wrapper.eq(BroadcastJob::getTargetTerminalCode, targetTerminalCode);
         }
-        wrapper.orderByDesc(BroadcastJob::getStartTime);
+        wrapper.orderByDesc(BroadcastJob::getPriority).orderByDesc(BroadcastJob::getStartTime);
         Page<BroadcastJob> p = new Page<>(page, size);
         broadcastJobMapper.selectPage(p, wrapper);
         return p;
@@ -66,7 +68,7 @@ public class BroadcastServiceImpl implements BroadcastService {
         
         // 未结束：结束时间为空（永久）或结束时间在当前时间之后
         wrapper.and(w -> w.isNull(BroadcastJob::getEndTime).or().ge(BroadcastJob::getEndTime, now));
-        wrapper.orderByDesc(BroadcastJob::getStartTime);
+        wrapper.orderByDesc(BroadcastJob::getPriority).orderByAsc(BroadcastJob::getStartTime);
         
         Page<BroadcastJob> p = new Page<>(page, size);
         broadcastJobMapper.selectPage(p, wrapper);
@@ -94,6 +96,16 @@ public class BroadcastServiceImpl implements BroadcastService {
             }
             
             return false;
+        }).sorted((a, b) -> {
+            int pa = a.getPriority() == null ? 0 : a.getPriority();
+            int pb = b.getPriority() == null ? 0 : b.getPriority();
+            if (pa != pb) {
+                return Integer.compare(pb, pa);
+            }
+            if (a.getStartTime() == null || b.getStartTime() == null) {
+                return 0;
+            }
+            return a.getStartTime().compareTo(b.getStartTime());
         }).collect(java.util.stream.Collectors.toList());
         
         p.setRecords(filtered);

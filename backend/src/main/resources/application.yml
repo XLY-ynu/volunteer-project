@@ -35,3 +35,11 @@ app:
     root: uploads
   terminal:
     offline-seconds: 300
+  notification:
+    retry-max: 3
+    retry-delay-seconds: 120
+    retry-scan-ms: 60000
+    retry-batch-size: 50
+  reminder:
+    default-minutes: 30
+    scan-ms: 60000

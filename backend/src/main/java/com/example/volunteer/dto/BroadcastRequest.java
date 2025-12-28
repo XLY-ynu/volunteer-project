@@ -18,4 +18,6 @@ public class BroadcastRequest {
     private LocalDateTime startTime;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime endTime;
+    private Integer priority;
+    private String queueMode;
 }

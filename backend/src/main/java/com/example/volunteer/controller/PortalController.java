@@ -8,6 +8,8 @@ import com.example.volunteer.dto.PortalChangePasswordRequest;
 import com.example.volunteer.dto.PortalLoginRequest;
 import com.example.volunteer.dto.PortalProfileDto;
 import com.example.volunteer.dto.PortalProfileRequest;
+import com.example.volunteer.dto.PortalReminderDto;
+import com.example.volunteer.dto.PortalReminderSettingRequest;
 import com.example.volunteer.dto.PortalRegisterRequest;
 import com.example.volunteer.dto.PortalResetPasswordRequest;
 import com.example.volunteer.dto.VolunteerSignupDto;
@@ -15,11 +17,13 @@ import com.example.volunteer.entity.Activity;
 import com.example.volunteer.entity.ActivitySignup;
 import com.example.volunteer.entity.User;
 import com.example.volunteer.entity.Volunteer;
+import com.example.volunteer.entity.VolunteerReminderSetting;
 import com.example.volunteer.entity.VolunteerStatusLog;
 import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.UserMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
+import com.example.volunteer.mapper.VolunteerReminderSettingMapper;
 import com.example.volunteer.mapper.VolunteerStatusLogMapper;
 import com.example.volunteer.security.JwtUtil;
 import jakarta.validation.Valid;
@@ -36,6 +40,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -49,6 +54,7 @@ public class PortalController {
     private final ActivityMapper activityMapper;
     private final ActivitySignupMapper activitySignupMapper;
     private final VolunteerStatusLogMapper volunteerStatusLogMapper;
+    private final VolunteerReminderSettingMapper reminderSettingMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -57,6 +63,7 @@ public class PortalController {
                             ActivityMapper activityMapper,
                             ActivitySignupMapper activitySignupMapper,
                             VolunteerStatusLogMapper volunteerStatusLogMapper,
+                            VolunteerReminderSettingMapper reminderSettingMapper,
                             PasswordEncoder passwordEncoder,
                             JwtUtil jwtUtil) {
         this.userMapper = userMapper;
@@ -64,6 +71,7 @@ public class PortalController {
         this.activityMapper = activityMapper;
         this.activitySignupMapper = activitySignupMapper;
         this.volunteerStatusLogMapper = volunteerStatusLogMapper;
+        this.reminderSettingMapper = reminderSettingMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -284,6 +292,64 @@ public class PortalController {
         return ApiResponse.ok(map);
     }
 
+    @GetMapping("/reminder-settings")
+    public ApiResponse<VolunteerReminderSetting> reminderSettings() {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        return ApiResponse.ok(getOrCreateReminderSetting(volunteer));
+    }
+
+    @PutMapping("/reminder-settings")
+    public ApiResponse<VolunteerReminderSetting> updateReminderSettings(@RequestBody PortalReminderSettingRequest request) {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        VolunteerReminderSetting setting = getOrCreateReminderSetting(volunteer);
+        if (request.getSignupReminder() != null) {
+            setting.setSignupReminder(request.getSignupReminder());
+        }
+        if (request.getCheckinReminder() != null) {
+            setting.setCheckinReminder(request.getCheckinReminder());
+        }
+        if (request.getChannel() != null) {
+            setting.setChannel(request.getChannel());
+        }
+        if (request.getReminderMinutes() != null) {
+            setting.setReminderMinutes(request.getReminderMinutes());
+        }
+        setting.setUpdatedAt(LocalDateTime.now());
+        reminderSettingMapper.updateById(setting);
+        return ApiResponse.ok(setting);
+    }
+
+    @GetMapping("/reminders")
+    public ApiResponse<List<PortalReminderDto>> reminders() {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        VolunteerReminderSetting setting = getOrCreateReminderSetting(volunteer);
+        if (!Boolean.TRUE.equals(setting.getSignupReminder())) {
+            return ApiResponse.ok(List.of());
+        }
+        LocalDateTime now = LocalDateTime.now();
+        List<ActivitySignup> signups = activitySignupMapper.selectList(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
+        List<PortalReminderDto> list = signups.stream()
+                .map(s -> activityMapper.selectById(s.getActivityId()))
+                .filter(a -> a != null && a.getStartTime() != null && a.getStartTime().isAfter(now))
+                .filter(a -> a.getStartTime().isBefore(now.plusDays(7)))
+                .sorted((a, b) -> a.getStartTime().compareTo(b.getStartTime()))
+                .map(a -> {
+                    PortalReminderDto dto = new PortalReminderDto();
+                    dto.setActivityId(a.getId());
+                    dto.setTitle(a.getTitle());
+                    dto.setLocation(a.getLocation());
+                    dto.setStartTime(a.getStartTime());
+                    dto.setCountdownSeconds(Duration.between(now, a.getStartTime()).getSeconds());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+        return ApiResponse.ok(list);
+    }
+
     @PostMapping("/activities/signup")
     public ApiResponse<ActivitySignup> signup(@Valid @RequestBody PortalActivitySignupRequest request) {
         User user = requirePortalUser();
@@ -342,6 +408,30 @@ public class PortalController {
             volunteerMapper.updateById(volunteer);
         }
         return volunteer;
+    }
+
+    private VolunteerReminderSetting getOrCreateReminderSetting(Volunteer volunteer) {
+        VolunteerReminderSetting setting = reminderSettingMapper.selectOne(
+                new LambdaQueryWrapper<VolunteerReminderSetting>().eq(VolunteerReminderSetting::getVolunteerId, volunteer.getId()));
+        if (setting != null) {
+            return setting;
+        }
+        setting = new VolunteerReminderSetting();
+        setting.setVolunteerId(volunteer.getId());
+        setting.setSignupReminder(true);
+        setting.setCheckinReminder(true);
+        if (volunteer.getPhone() != null && !volunteer.getPhone().isEmpty()) {
+            setting.setChannel("sms");
+        } else if (volunteer.getEmail() != null && !volunteer.getEmail().isEmpty()) {
+            setting.setChannel("email");
+        } else {
+            setting.setChannel("web");
+        }
+        setting.setReminderMinutes(30);
+        setting.setCreatedAt(LocalDateTime.now());
+        setting.setUpdatedAt(LocalDateTime.now());
+        reminderSettingMapper.insert(setting);
+        return setting;
     }
 
     private PortalProfileDto toProfile(Volunteer volunteer) {

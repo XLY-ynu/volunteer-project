@@ -127,6 +127,10 @@ export const fetchPortalSignups = () => http.get('/portal/my-signups');
 export const signupActivityPortal = (payload: { activityId: number }) => http.post('/portal/activities/signup', payload);
 export const fetchPortalAuditLogs = () => http.get('/portal/audit-logs');
 export const fetchPortalStats = () => http.get('/portal/stats');
+export const fetchPortalReminderSettings = () => http.get('/portal/reminder-settings');
+export const updatePortalReminderSettings = (payload: { signupReminder?: boolean; checkinReminder?: boolean; channel?: string; reminderMinutes?: number }) =>
+  http.put('/portal/reminder-settings', payload);
+export const fetchPortalReminders = () => http.get('/portal/reminders');
 
 export const fetchGroupRules = () => http.get('/monitor/group-rules');
 export const createGroupRule = (payload: { groupName: string; offlineThreshold?: number; enabled?: boolean; notifyChannel?: string; notifyTarget?: string }) =>
@@ -140,6 +144,12 @@ export const fetchAlertHistory = (page = 1, size = 20, groupName?: string) =>
   http.get('/monitor/alert-history', { params: { page, size, groupName } });
 export const fetchNotificationLogs = (page = 1, size = 20, channel?: string) =>
   http.get('/monitor/notification-logs', { params: { page, size, channel } });
+export const fetchNotificationConfigs = () => http.get('/monitor/notification-configs');
+export const fetchNotificationConfig = (channel: string) => http.get(`/monitor/notification-configs/${channel}`);
+export const saveNotificationConfig = (channel: string, payload: { enabled?: boolean; config?: Record<string, any> }) =>
+  http.put(`/monitor/notification-configs/${channel}`, payload);
+export const sendNotificationTest = (payload: { channel: string; target?: string; title?: string; content?: string }) =>
+  http.post('/monitor/notification-test', payload);
 export const fetchAlertSubscriptions = () => http.get('/monitor/alert-subscriptions');
 export const createAlertSubscription = (payload: { groupName?: string; channel?: string; target?: string; enabled?: boolean }) =>
   http.post('/monitor/alert-subscriptions', payload);

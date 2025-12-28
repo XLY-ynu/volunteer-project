@@ -42,6 +42,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/api/portal/**").hasAuthority("VOLUNTEER")
                 .requestMatchers("/api/monitor/**").hasAuthority("ADMIN")
+                .requestMatchers("/api/broadcasts/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/users/**", "/api/ops/**", "/api/activities/**", "/api/volunteers/**").hasAuthority("ADMIN")
                 .anyRequest().authenticated()
             )

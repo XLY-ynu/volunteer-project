@@ -422,6 +422,15 @@
             <div class="reminder-title">提醒设置</div>
             <el-switch v-model="reminderSettings.signupReminder" active-text="活动提醒" @change="saveReminderSettings" />
             <el-switch v-model="reminderSettings.checkinReminder" active-text="签到提醒" @change="saveReminderSettings" />
+            <div class="reminder-row">
+              <el-select v-model="reminderSettings.channel" size="small" style="width: 140px" @change="saveReminderSettings">
+                <el-option label="短信" value="sms" />
+                <el-option label="邮件" value="email" />
+                <el-option label="站内" value="web" />
+              </el-select>
+              <el-input-number v-model="reminderSettings.reminderMinutes" :min="5" :max="120" size="small" @change="saveReminderSettings" />
+              <span class="reminder-unit">分钟前提醒</span>
+            </div>
           </div>
         </el-card>
       </div>
@@ -594,6 +603,9 @@ import {
   fetchPortalSignups,
   fetchPortalAuditLogs,
   fetchPortalStats,
+  fetchPortalReminderSettings,
+  updatePortalReminderSettings,
+  fetchPortalReminders,
   signupActivityPortal,
   updateContentConfig,
   fetchVolunteerSignups,
@@ -617,6 +629,7 @@ const headline = ref<any | null>(null);
 const headlinePool = ref<any[]>([]);
 const headlineIndex = ref(0);
 const headlineTimer = ref<number | null>(null);
+const reminderTimer = ref<number | null>(null);
 const recommendedList = ref<any[]>([]);
 const recommendIntervalSec = ref(6);
 const recommendCount = ref(6);
@@ -640,12 +653,13 @@ const phoneStatus = ref('');
 const pendingRegisterPhone = ref('');
 const auditLogs = ref<any[]>([]);
 const portalStats = ref({ total: 0, applied: 0, checkedIn: 0, upcoming: 0 });
-const reminderSettings = ref<{ signupReminder: boolean; checkinReminder: boolean }>(
+const reminderSettings = ref<{ signupReminder: boolean; checkinReminder: boolean; channel: string; reminderMinutes: number }>(
   (() => {
     const saved = localStorage.getItem('portal_reminders');
-    return saved ? JSON.parse(saved) : { signupReminder: true, checkinReminder: true };
+    return saved ? JSON.parse(saved) : { signupReminder: true, checkinReminder: true, channel: 'sms', reminderMinutes: 30 };
   })()
 );
+const portalReminders = ref<any[]>([]);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -781,16 +795,17 @@ const portalAuditNotice = computed(() => {
 
 const upcomingReminder = computed(() => {
   if (!reminderSettings.value.signupReminder) return '';
-  if (portalStats.value.upcoming > 0) {
-    return `未来7天有 ${portalStats.value.upcoming} 个已报名活动即将开始`;
-  }
-  return '';
+  if (!portalReminders.value.length) return '';
+  const next = portalReminders.value[0];
+  return `距离「${next.title}」开始还有 ${formatCountdown(next.countdownSeconds)}`;
 });
 
 const checkinReminder = computed(() => {
   if (!reminderSettings.value.checkinReminder) return '';
-  if (portalStats.value.applied > 0) {
-    return `还有 ${portalStats.value.applied} 个活动待签到`;
+  const minutes = reminderSettings.value.reminderMinutes || 30;
+  const soon = portalReminders.value.find((r: any) => r.countdownSeconds <= minutes * 60);
+  if (soon) {
+    return `活动「${soon.title}」即将开始，请准备签到`;
   }
   return '';
 });
@@ -808,6 +823,16 @@ const detailTags = computed(() => {
   }
   return tags.filter(Boolean);
 });
+
+const formatCountdown = (seconds: number) => {
+  if (!seconds || seconds <= 0) return '即将开始';
+  const mins = Math.floor(seconds / 60);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+  if (days > 0) return `${days}天${hrs % 24}小时`;
+  if (hrs > 0) return `${hrs}小时${mins % 60}分钟`;
+  return `${mins}分钟`;
+};
 
 const scrollTo = (id: string) => {
   const el = document.getElementById(id);
@@ -1060,6 +1085,8 @@ const registerVolunteer = async () => {
       await loadPortalProfile();
       await loadAuditLogs();
       await loadPortalStats();
+      await loadReminderSettings();
+      await loadPortalReminders();
       ElMessage.success('注册成功');
       pendingRegisterPhone.value = '';
     } else {
@@ -1101,6 +1128,7 @@ const loadSignups = async () => {
     const resp = await fetchPortalSignups();
     signups.value = resp.data?.data || [];
     await loadPortalStats();
+    await loadPortalReminders();
     return;
   }
   if (!queryPhone.value) {
@@ -1118,6 +1146,60 @@ const loadPortalStats = async () => {
     portalStats.value = resp.data?.data || portalStats.value;
   } catch (e) {
     // ignore
+  }
+};
+
+const loadReminderSettings = async () => {
+  if (!portalLoggedIn.value) return;
+  try {
+    const resp = await fetchPortalReminderSettings();
+    const data = resp.data?.data;
+    if (data) {
+      reminderSettings.value = {
+        signupReminder: data.signupReminder ?? true,
+        checkinReminder: data.checkinReminder ?? true,
+        channel: data.channel || 'sms',
+        reminderMinutes: data.reminderMinutes || 30
+      };
+      localStorage.setItem('portal_reminders', JSON.stringify(reminderSettings.value));
+    }
+  } catch (e) {
+    // ignore
+  }
+};
+
+const loadPortalReminders = async () => {
+  if (!portalLoggedIn.value) {
+    portalReminders.value = [];
+    stopReminderTimer();
+    return;
+  }
+  try {
+    const resp = await fetchPortalReminders();
+    portalReminders.value = resp.data?.data || [];
+    startReminderTimer();
+  } catch (e) {
+    portalReminders.value = [];
+    stopReminderTimer();
+  }
+};
+
+const startReminderTimer = () => {
+  if (reminderTimer.value) {
+    clearInterval(reminderTimer.value);
+  }
+  reminderTimer.value = window.setInterval(() => {
+    portalReminders.value = portalReminders.value.map((item: any) => ({
+      ...item,
+      countdownSeconds: Math.max(0, (item.countdownSeconds || 0) - 60)
+    }));
+  }, 60000);
+};
+
+const stopReminderTimer = () => {
+  if (reminderTimer.value) {
+    clearInterval(reminderTimer.value);
+    reminderTimer.value = null;
   }
 };
 
@@ -1154,6 +1236,8 @@ const portalLoginSubmit = async () => {
     await loadPortalProfile();
     await loadSignups();
     await loadAuditLogs();
+    await loadReminderSettings();
+    await loadPortalReminders();
     ElMessage.success('登录成功');
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '登录失败');
@@ -1254,6 +1338,7 @@ const portalLogout = () => {
   portalProfile.value = null;
   localStorage.removeItem('portal_token');
   localStorage.removeItem('portal_profile');
+  localStorage.removeItem('portal_reminders');
   profileEditing.value = false;
   portalLoginForm.value = { phone: '', password: '' };
   signups.value = [];
@@ -1263,6 +1348,9 @@ const portalLogout = () => {
   phoneValid.value = true;
   portalStats.value = { total: 0, applied: 0, checkedIn: 0, upcoming: 0 };
   auditLogs.value = [];
+  portalReminders.value = [];
+  reminderSettings.value = { signupReminder: true, checkinReminder: true, channel: 'sms', reminderMinutes: 30 };
+  stopReminderTimer();
 };
 
 const loadStats = async () => {
@@ -1311,8 +1399,14 @@ const auditTagType = (status: string) => {
   return 'info';
 };
 
-const saveReminderSettings = () => {
+const saveReminderSettings = async () => {
   localStorage.setItem('portal_reminders', JSON.stringify(reminderSettings.value));
+  if (!portalLoggedIn.value) return;
+  try {
+    await updatePortalReminderSettings(reminderSettings.value);
+  } catch (e) {
+    // ignore
+  }
 };
 
 const goAdmin = () => {
@@ -1711,6 +1805,8 @@ onMounted(async () => {
     await loadSignups();
     await loadAuditLogs();
     await loadPortalStats();
+    await loadReminderSettings();
+    await loadPortalReminders();
   }
   const saved = localStorage.getItem('portal_terminal_code');
   if (saved) terminalCode.value = saved;
@@ -1726,6 +1822,7 @@ onBeforeUnmount(() => {
   if (playerTimer.value) clearTimeout(playerTimer.value);
   stopMultiPolling();
   stopHeadlineRotate();
+  stopReminderTimer();
 });
 </script>
 
@@ -1853,4 +1950,6 @@ onBeforeUnmount(() => {
 .group-name { font-weight: 600; margin-bottom: 6px; }
 .group-meta { display: flex; justify-content: space-between; align-items: center; color: #909399; font-size: 12px; }
 .group-code { color: #606266; }
+.reminder-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.reminder-unit { font-size: 12px; color: #909399; }
 </style>

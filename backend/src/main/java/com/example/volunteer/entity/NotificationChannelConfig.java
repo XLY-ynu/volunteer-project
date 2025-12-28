@@ -7,20 +7,13 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 @Data
-@TableName("notification_log")
-public class NotificationLog {
+@TableName("notification_channel_config")
+public class NotificationChannelConfig {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String channel;
-    private String target;
-    private String title;
-    private String content;
-    private String status;
+    private String configJson;
+    private Boolean enabled;
     private LocalDateTime createdAt;
-    private Integer retryCount;
-    private Integer maxRetries;
-    private LocalDateTime nextRetryAt;
-    private String errorMessage;
-    private String providerMessageId;
     private LocalDateTime updatedAt;
 }

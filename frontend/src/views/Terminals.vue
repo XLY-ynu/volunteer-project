@@ -278,15 +278,59 @@
         <el-table-column prop="title" label="标题" min-width="140" />
         <el-table-column prop="status" label="状态" width="90">
           <template #default="scope">
-            <el-tag size="small" :type="scope.row.status === 'sent' ? 'success' : 'info'">
+            <el-tag size="small" :type="notificationStatusType(scope.row.status)">
               {{ scope.row.status || '未知' }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="重试" width="100">
+          <template #default="scope">
+            <span>{{ (scope.row.retryCount ?? 0) + '/' + (scope.row.maxRetries ?? '-') }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="errorMessage" label="错误信息" min-width="180">
+          <template #default="scope">
+            <span>{{ scope.row.errorMessage || '-' }}</span>
           </template>
         </el-table-column>
       </el-table>
       <div class="pagination">
         <el-pagination layout="prev, pager, next" :total="logTotal" :page-size="logSize" :current-page="logPage" @current-change="onLogPage" />
       </div>
+    </el-card>
+
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
+        <div class="group-title">通知通道配置</div>
+        <el-button size="small" @click="loadNotificationConfigs">刷新</el-button>
+      </div>
+      <el-table :data="notificationConfigs" size="small">
+        <el-table-column prop="channel" label="通道" width="120">
+          <template #default="scope">
+            <el-tag size="small" :type="channelTagType(scope.row.channel)">
+              {{ channelLabel(scope.row.channel) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="enabled" label="启用" width="80">
+          <template #default="scope">
+            <el-tag :type="scope.row.enabled ? 'success' : 'info'" size="small">{{ scope.row.enabled ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="配置摘要" min-width="220">
+          <template #default="scope">
+            <span>{{ configSummary(scope.row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="160">
+          <template #default="scope">
+            <el-button-group>
+              <el-button size="small" @click="openConfig(scope.row)">编辑</el-button>
+              <el-button size="small" @click="openTest(scope.row)">测试</el-button>
+            </el-button-group>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-card>
 
     <el-card class="filter-card" shadow="never">
@@ -482,6 +526,75 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="configDialog" :title="`配置${channelLabel(configForm.channel)}`" width="520px">
+      <el-form :model="configForm" label-width="110px">
+        <el-form-item label="启用">
+          <el-switch v-model="configForm.enabled" />
+        </el-form-item>
+        <template v-if="configForm.channel === 'email'">
+          <el-form-item label="SMTP Host">
+            <el-input v-model="configForm.host" placeholder="smtp.example.com" />
+          </el-form-item>
+          <el-form-item label="SMTP Port">
+            <el-input-number v-model="configForm.port" :min="1" :max="65535" />
+          </el-form-item>
+          <el-form-item label="账号">
+            <el-input v-model="configForm.username" />
+          </el-form-item>
+          <el-form-item label="密码">
+            <el-input v-model="configForm.password" show-password />
+          </el-form-item>
+          <el-form-item label="发件人">
+            <el-input v-model="configForm.from" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="TLS">
+            <el-switch v-model="configForm.tls" />
+          </el-form-item>
+        </template>
+        <template v-else-if="configForm.channel === 'sms'">
+          <el-form-item label="接口地址">
+            <el-input v-model="configForm.endpoint" placeholder="https://api.example.com/sms/send" />
+          </el-form-item>
+          <el-form-item label="Headers(JSON)">
+            <el-input v-model="configForm.headers" type="textarea" :rows="3" placeholder='{"Authorization":"Bearer xxx"}' />
+          </el-form-item>
+          <el-form-item label="Payload模板">
+            <el-input v-model="configForm.payloadTemplate" type="textarea" :rows="3" placeholder='{"phone":"{target}","content":"{content}"}' />
+          </el-form-item>
+        </template>
+        <template v-else>
+          <el-form-item label="Webhook">
+            <el-input v-model="configForm.webhookUrl" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." />
+          </el-form-item>
+        </template>
+      </el-form>
+      <template #footer>
+        <el-button @click="configDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveConfig">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="testDialog" title="发送测试通知" width="420px">
+      <el-form :model="testForm" label-width="90px">
+        <el-form-item label="通道">
+          <el-input v-model="testForm.channel" disabled />
+        </el-form-item>
+        <el-form-item label="目标">
+          <el-input v-model="testForm.target" placeholder="手机号/邮箱/留空(站内)" />
+        </el-form-item>
+        <el-form-item label="标题">
+          <el-input v-model="testForm.title" />
+        </el-form-item>
+        <el-form-item label="内容">
+          <el-input v-model="testForm.content" type="textarea" :rows="3" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="testDialog = false">取消</el-button>
+        <el-button type="primary" @click="sendTest">发送</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="heartbeatDialog" title="心跳记录" width="500px">
       <el-table :data="heartbeats">
         <el-table-column prop="status" label="状态" width="100">
@@ -668,6 +781,9 @@ import {
   fetchOfflineTrend,
   fetchAlertHistory,
   fetchNotificationLogs,
+  fetchNotificationConfigs,
+  saveNotificationConfig,
+  sendNotificationTest,
   fetchAlertSubscriptions,
   createAlertSubscription,
   updateAlertSubscription,
@@ -705,12 +821,30 @@ const alertSubscriptions = ref<any[]>([]);
 const alertSilences = ref<any[]>([]);
 const alertHistory = ref<any[]>([]);
 const notificationLogs = ref<any[]>([]);
+const notificationConfigs = ref<any[]>([]);
 const historyPage = ref(1);
 const historySize = ref(10);
 const historyTotal = ref(0);
 const logPage = ref(1);
 const logSize = ref(10);
 const logTotal = ref(0);
+const configDialog = ref(false);
+const testDialog = ref(false);
+const configForm = ref<any>({
+  channel: 'sms',
+  enabled: true,
+  host: '',
+  port: 25,
+  username: '',
+  password: '',
+  from: '',
+  tls: false,
+  webhookUrl: '',
+  endpoint: '',
+  headers: '',
+  payloadTemplate: ''
+});
+const testForm = ref({ channel: 'sms', target: '', title: '通知测试', content: '这是一条测试消息' });
 const showRegisterDialog = ref(false);
 const form = ref({ code: '', name: '', groupName: '' });
 const heartbeatDialog = ref(false);
@@ -808,6 +942,28 @@ const loadNotificationLogs = async () => {
   notificationLogs.value = data.records || [];
   logTotal.value = data.total || 0;
 };
+const loadNotificationConfigs = async () => {
+  const resp = await fetchNotificationConfigs();
+  const list = resp.data?.data || [];
+  const mapped = list.map((item: any) => {
+    let config = {};
+    if (item.configJson) {
+      try {
+        config = JSON.parse(item.configJson);
+      } catch (e) {
+        config = {};
+      }
+    }
+    return { ...item, config };
+  });
+  const existing = new Set(mapped.map((c: any) => c.channel));
+  channelOptions.filter((c) => c.value !== 'web').forEach((c) => {
+    if (!existing.has(c.value)) {
+      mapped.push({ channel: c.value, enabled: false, config: {} });
+    }
+  });
+  notificationConfigs.value = mapped;
+};
 const loadAlertSubscriptions = async () => {
   const resp = await fetchAlertSubscriptions();
   alertSubscriptions.value = resp.data?.data || [];
@@ -854,6 +1010,95 @@ const channelTagType = (channel?: string) => {
   if (target === 'wechat') return 'info';
   if (target === 'dingtalk') return 'danger';
   return 'info';
+};
+
+const notificationStatusType = (status?: string) => {
+  if (status === 'sent') return 'success';
+  if (status === 'failed') return 'danger';
+  if (status === 'abandoned') return 'warning';
+  return 'info';
+};
+
+const configSummary = (row: any) => {
+  const cfg = row.config || {};
+  if (row.channel === 'email') {
+    const host = cfg.host || '-';
+    const port = cfg.port ? `:${cfg.port}` : '';
+    return `${host}${port}`;
+  }
+  if (row.channel === 'sms') {
+    return cfg.endpoint || '-';
+  }
+  if (row.channel === 'wechat' || row.channel === 'dingtalk') {
+    return cfg.webhookUrl || cfg.webhook || '-';
+  }
+  return '-';
+};
+
+const openConfig = (row: any) => {
+  configForm.value = {
+    channel: row.channel,
+    enabled: row.enabled !== false,
+    host: row.config?.host || '',
+    port: row.config?.port || 25,
+    username: row.config?.username || '',
+    password: row.config?.password || '',
+    from: row.config?.from || '',
+    tls: !!row.config?.tls,
+    webhookUrl: row.config?.webhookUrl || row.config?.webhook || '',
+    endpoint: row.config?.endpoint || '',
+    headers: row.config?.headers ? JSON.stringify(row.config.headers, null, 2) : '',
+    payloadTemplate: row.config?.payloadTemplate || ''
+  };
+  configDialog.value = true;
+};
+
+const saveConfig = async () => {
+  const channel = configForm.value.channel;
+  const config: any = {};
+  if (channel === 'email') {
+    config.host = configForm.value.host;
+    config.port = configForm.value.port;
+    config.username = configForm.value.username;
+    config.password = configForm.value.password;
+    config.from = configForm.value.from;
+    config.tls = configForm.value.tls;
+  } else if (channel === 'sms') {
+    config.endpoint = configForm.value.endpoint;
+    if (configForm.value.headers) {
+      try {
+        config.headers = JSON.parse(configForm.value.headers);
+      } catch (e) {
+        ElMessage.error('短信Headers不是合法JSON');
+        return;
+      }
+    }
+    if (configForm.value.payloadTemplate) {
+      config.payloadTemplate = configForm.value.payloadTemplate;
+    }
+  } else if (channel === 'wechat' || channel === 'dingtalk') {
+    config.webhookUrl = configForm.value.webhookUrl;
+  }
+  await saveNotificationConfig(channel, { enabled: configForm.value.enabled, config });
+  ElMessage.success('配置已保存');
+  configDialog.value = false;
+  loadNotificationConfigs();
+};
+
+const openTest = (row: any) => {
+  testForm.value = { channel: row.channel, target: '', title: '通知测试', content: '这是一条测试消息' };
+  testDialog.value = true;
+};
+
+const sendTest = async () => {
+  if (testForm.value.channel !== 'web' && !testForm.value.target) {
+    ElMessage.warning('请填写测试目标');
+    return;
+  }
+  await sendNotificationTest(testForm.value);
+  ElMessage.success('测试消息已发送');
+  testDialog.value = false;
+  loadNotificationLogs();
 };
 
 const formatDay = (day: string) => {
@@ -1175,6 +1420,7 @@ onMounted(() => {
   loadAlertSilences();
   loadAlertHistory();
   loadNotificationLogs();
+  loadNotificationConfigs();
 });
 </script>
 

@@ -7,20 +7,15 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 @Data
-@TableName("notification_log")
-public class NotificationLog {
+@TableName("activity_reminder_log")
+public class ActivityReminderLog {
     @TableId(type = IdType.AUTO)
     private Long id;
+    private Long volunteerId;
+    private Long activityId;
+    private String reminderType;
     private String channel;
-    private String target;
-    private String title;
-    private String content;
     private String status;
+    private String message;
     private LocalDateTime createdAt;
-    private Integer retryCount;
-    private Integer maxRetries;
-    private LocalDateTime nextRetryAt;
-    private String errorMessage;
-    private String providerMessageId;
-    private LocalDateTime updatedAt;
 }

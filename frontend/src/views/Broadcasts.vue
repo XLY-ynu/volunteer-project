@@ -85,6 +85,18 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column prop="priority" label="优先级" width="90">
+          <template #default="scope">
+            <el-tag size="small" type="warning">{{ scope.row.priority ?? 0 }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="queueMode" label="排队策略" width="120">
+          <template #default="scope">
+            <el-tag size="small" :type="scope.row.queueMode === 'interrupt' ? 'danger' : 'info'">
+              {{ scope.row.queueMode === 'interrupt' ? '抢占' : '排队' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="scope">
             <el-tag :type="getStatusType(scope.row)" size="small">
@@ -168,6 +180,18 @@
         <el-form-item label="时间范围">
           <el-date-picker v-model="startEnd" type="datetimerange" start-placeholder="开始时间" end-placeholder="结束时间" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
         </el-form-item>
+
+        <el-divider content-position="left">播放策略</el-divider>
+
+        <el-form-item label="优先级">
+          <el-input-number v-model="form.priority" :min="0" :max="9" />
+        </el-form-item>
+        <el-form-item label="排队策略">
+          <el-radio-group v-model="form.queueMode">
+            <el-radio label="queue">排队</el-radio>
+            <el-radio label="interrupt">抢占</el-radio>
+          </el-radio-group>
+        </el-form-item>
       </el-form>
 
       <template #footer>
@@ -205,7 +229,9 @@ const form = ref({
   mediaId: undefined as number | undefined,
   contentId: undefined as number | undefined,
   targetGroup: '',
-  targetTerminalCode: ''
+  targetTerminalCode: '',
+  priority: 0,
+  queueMode: 'queue'
 });
 const startEnd = ref<[string, string] | null>(null);
 
@@ -297,7 +323,7 @@ const getStatusText = (row: any) => {
 };
 
 const openCreate = () => {
-  form.value = { title: '', mediaId: undefined, contentId: undefined, targetGroup: '', targetTerminalCode: '' };
+  form.value = { title: '', mediaId: undefined, contentId: undefined, targetGroup: '', targetTerminalCode: '', priority: 0, queueMode: 'queue' };
   startEnd.value = null;
   contentType.value = 'media';
   targetType.value = 'all';
@@ -323,7 +349,7 @@ const submit = async () => {
     return;
   }
 
-  const payload: any = { title: form.value.title };
+  const payload: any = { title: form.value.title, priority: form.value.priority, queueMode: form.value.queueMode };
   
   if (contentType.value === 'media') {
     payload.mediaId = form.value.mediaId;

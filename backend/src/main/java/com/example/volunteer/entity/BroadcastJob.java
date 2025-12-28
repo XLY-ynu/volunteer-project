@@ -20,4 +20,6 @@ public class BroadcastJob {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private String status;
+    private Integer priority;
+    private String queueMode;
 }

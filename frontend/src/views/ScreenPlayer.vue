@@ -4,7 +4,9 @@
       <div class="toolbar-left">
         <span class="screen-title">终端播放</span>
         <span class="screen-code">{{ terminalCode }}</span>
-        <el-tag size="small" :type="playbackReady ? 'success' : 'info'">{{ playbackReady ? '播放中' : '加载中' }}</el-tag>
+        <el-tag size="small" :type="playbackReady ? (offlineMode ? 'warning' : 'success') : 'info'">
+          {{ playbackReady ? (offlineMode ? '离线回放' : '播放中') : '加载中' }}
+        </el-tag>
       </div>
       <div class="toolbar-right">
         <el-button size="small" @click="loadPlayback">刷新</el-button>
@@ -70,9 +72,11 @@ import { fetchPlaybackPublic, fetchPublicBroadcasts, sendPublicHeartbeat, fetchP
 
 const route = useRoute();
 const terminalCode = computed(() => String(route.query.code || 'public-screen'));
-const areas = ref<{ x: number; y: number; w: number; h: number }[]>([]);
-const queue = ref<any[]>([]);
+const areas = ref<any[]>([]);
+const baseQueue = ref<any[]>([]);
+const areaQueues = ref<any[][]>([]);
 const areaStates = ref<{ index: number; startedAt: number }[]>([]);
+const offlineMode = ref(false);
 const playbackReady = ref(false);
 const timer = ref<number | null>(null);
 const broadcastTimer = ref<number | null>(null);
@@ -99,8 +103,9 @@ const itemKey = (idx: number) => {
 
 const currentItem = (idx: number) => {
   const state = areaStates.value[idx];
-  if (!state || !queue.value.length) return null;
-  return queue.value[state.index] || null;
+  const list = areaQueues.value[idx] || [];
+  if (!state || !list.length) return null;
+  return list[state.index] || null;
 };
 
 const buildQueue = async (playback: any) => {
@@ -135,7 +140,29 @@ const buildQueue = async (playback: any) => {
       }
     }
   }
-  queue.value = list;
+  baseQueue.value = list;
+  buildAreaQueues();
+};
+
+const buildAreaQueues = () => {
+  const list = baseQueue.value || [];
+  const count = areas.value.length || 1;
+  areaQueues.value = areas.value.map((area, idx) => {
+    const mode = area?.playMode || area?.mode || 'split';
+    let subset = list;
+    if (count > 1 && mode !== 'shared') {
+      subset = list.filter((_, i) => i % count === idx);
+      if (!subset.length) subset = list;
+    }
+    if (area?.shuffle) {
+      subset = [...subset].sort(() => Math.random() - 0.5);
+    }
+    return subset;
+  });
+  areaStates.value = areas.value.map((_, idx) => ({
+    index: list.length ? idx % list.length : 0,
+    startedAt: Date.now()
+  }));
 };
 
 const initAreas = (layoutJson?: string) => {
@@ -149,20 +176,20 @@ const initAreas = (layoutJson?: string) => {
   } else {
     areas.value = [{ x: 0, y: 0, w: 100, h: 100 }];
   }
-  areaStates.value = areas.value.map((_, idx) => ({
-    index: queue.value.length ? idx % queue.value.length : 0,
-    startedAt: Date.now()
-  }));
+  buildAreaQueues();
 };
 
 const tick = () => {
-  if (!queue.value.length) return;
+  if (!areaQueues.value.length) return;
   const now = Date.now();
-  areaStates.value.forEach((state) => {
-    const item = queue.value[state.index];
-    const duration = (item?.duration || 10) * 1000;
+  areaStates.value.forEach((state, idx) => {
+    const list = areaQueues.value[idx] || [];
+    if (!list.length) return;
+    const item = list[state.index];
+    const fallback = areas.value[idx]?.defaultDuration || 10;
+    const duration = (item?.duration || fallback) * 1000;
     if (now - state.startedAt >= duration) {
-      state.index = (state.index + 1) % queue.value.length;
+      state.index = (state.index + 1) % list.length;
       state.startedAt = now;
     }
   });
@@ -185,13 +212,15 @@ const loadPlayback = async () => {
     const list = resp.data?.data || [];
     const active = list[0];
     if (!active) {
-      queue.value = [];
+      baseQueue.value = [];
+      areaQueues.value = [];
       areas.value = [];
       return;
     }
     await buildQueue(active);
     initAreas(active.layout?.layoutJson);
     localStorage.setItem(`screen_cache_${terminalCode.value}`, JSON.stringify(active));
+    offlineMode.value = false;
     playbackReady.value = true;
   } catch (e) {
     const cached = localStorage.getItem(`screen_cache_${terminalCode.value}`);
@@ -199,6 +228,7 @@ const loadPlayback = async () => {
       const active = JSON.parse(cached);
       await buildQueue(active);
       initAreas(active.layout?.layoutJson);
+      offlineMode.value = true;
       playbackReady.value = true;
     }
   }
@@ -208,14 +238,18 @@ const loadBroadcasts = async () => {
   try {
     const resp = await fetchPublicBroadcasts(terminalCode.value);
     const list = resp.data?.data || [];
-    broadcastList.value = list
+    const mapped = list
       .map((item: any) => {
+        const job = item.job || {};
         if (item.media) {
           return {
             id: item.media.id,
             type: item.media.type === 'video' ? 'video' : 'image',
             url: item.media.url,
-            duration: item.media.durationSeconds || 10
+            duration: item.media.durationSeconds || 10,
+            priority: job.priority || 0,
+            queueMode: job.queueMode || 'queue',
+            startTime: job.startTime
           };
         }
         if (item.content) {
@@ -224,18 +258,39 @@ const loadBroadcasts = async () => {
             type: 'content',
             title: item.content.title,
             summary: item.content.summary,
-            duration: 12
+            duration: 12,
+            priority: job.priority || 0,
+            queueMode: job.queueMode || 'queue',
+            startTime: job.startTime
           };
         }
         return null;
       })
       .filter(Boolean);
+    broadcastList.value = mapped.sort((a: any, b: any) => {
+      const wa = a.queueMode === 'interrupt' ? 0 : 1;
+      const wb = b.queueMode === 'interrupt' ? 0 : 1;
+      if (wa !== wb) return wa - wb;
+      if (a.priority !== b.priority) return b.priority - a.priority;
+      if (a.startTime && b.startTime) {
+        return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+      }
+      return 0;
+    });
     if (broadcastList.value.length) {
       broadcastIndex.value = 0;
       broadcastStartedAt.value = Date.now();
     }
+    localStorage.setItem(`screen_broadcast_cache_${terminalCode.value}`, JSON.stringify(broadcastList.value));
   } catch (e) {
-    // ignore
+    const cached = localStorage.getItem(`screen_broadcast_cache_${terminalCode.value}`);
+    if (cached) {
+      broadcastList.value = JSON.parse(cached);
+      if (broadcastList.value.length) {
+        broadcastIndex.value = 0;
+        broadcastStartedAt.value = Date.now();
+      }
+    }
   }
 };
 

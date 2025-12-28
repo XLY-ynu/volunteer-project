@@ -188,3 +188,49 @@ CREATE TABLE IF NOT EXISTS volunteer_status_log (
     remark VARCHAR(255),
     created_at DATETIME
 );
+
+-- 20) 通知通道配置
+CREATE TABLE IF NOT EXISTS notification_channel_config (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    channel VARCHAR(32) NOT NULL,
+    config_json TEXT,
+    enabled TINYINT(1) DEFAULT 1,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 21) 通知日志增强（若字段已存在会报错可忽略）
+-- ALTER TABLE notification_log ADD COLUMN retry_count INT DEFAULT 0;
+-- ALTER TABLE notification_log ADD COLUMN max_retries INT DEFAULT 3;
+-- ALTER TABLE notification_log ADD COLUMN next_retry_at DATETIME NULL;
+-- ALTER TABLE notification_log ADD COLUMN error_message VARCHAR(255) NULL;
+-- ALTER TABLE notification_log ADD COLUMN provider_message_id VARCHAR(128) NULL;
+-- ALTER TABLE notification_log ADD COLUMN updated_at DATETIME NULL;
+
+-- 22) 志愿者提醒设置
+CREATE TABLE IF NOT EXISTS volunteer_reminder_setting (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    signup_reminder TINYINT(1) DEFAULT 1,
+    checkin_reminder TINYINT(1) DEFAULT 1,
+    channel VARCHAR(32) DEFAULT 'sms',
+    reminder_minutes INT DEFAULT 30,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 23) 活动提醒日志
+CREATE TABLE IF NOT EXISTS activity_reminder_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    activity_id BIGINT NOT NULL,
+    reminder_type VARCHAR(32),
+    channel VARCHAR(32),
+    status VARCHAR(32),
+    message VARCHAR(255),
+    created_at DATETIME
+);
+
+-- 24) 插播优先级与排队策略
+-- ALTER TABLE broadcast_job ADD COLUMN priority INT DEFAULT 0;
+-- ALTER TABLE broadcast_job ADD COLUMN queue_mode VARCHAR(32) DEFAULT 'queue';

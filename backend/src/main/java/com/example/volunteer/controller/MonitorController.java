@@ -20,6 +20,7 @@ import com.example.volunteer.mapper.TerminalGroupRuleMapper;
 import com.example.volunteer.mapper.TerminalHeartbeatMapper;
 import com.example.volunteer.mapper.TerminalAlertHistoryMapper;
 import com.example.volunteer.mapper.TerminalMapper;
+import com.example.volunteer.service.NotificationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,6 +52,7 @@ public class MonitorController {
     private final TerminalGroupRuleMapper terminalGroupRuleMapper;
     private final TerminalAlertHistoryMapper terminalAlertHistoryMapper;
     private final NotificationLogMapper notificationLogMapper;
+    private final NotificationService notificationService;
     private final AlertSubscriptionMapper alertSubscriptionMapper;
     private final AlertSilenceMapper alertSilenceMapper;
     private final MediaAssetMapper mediaAssetMapper;
@@ -65,6 +67,7 @@ public class MonitorController {
                              TerminalGroupRuleMapper terminalGroupRuleMapper,
                              TerminalAlertHistoryMapper terminalAlertHistoryMapper,
                              NotificationLogMapper notificationLogMapper,
+                             NotificationService notificationService,
                              AlertSubscriptionMapper alertSubscriptionMapper,
                              AlertSilenceMapper alertSilenceMapper,
                              @Value("${app.terminal.offline-seconds:300}") long offlineSeconds,
@@ -74,6 +77,7 @@ public class MonitorController {
         this.terminalGroupRuleMapper = terminalGroupRuleMapper;
         this.terminalAlertHistoryMapper = terminalAlertHistoryMapper;
         this.notificationLogMapper = notificationLogMapper;
+        this.notificationService = notificationService;
         this.alertSubscriptionMapper = alertSubscriptionMapper;
         this.alertSilenceMapper = alertSilenceMapper;
         this.mediaAssetMapper = mediaAssetMapper;
@@ -455,14 +459,9 @@ public class MonitorController {
     }
 
     private void sendNotification(String groupName, long offline, Integer threshold, Recipient recipient) {
-        NotificationLog log = new NotificationLog();
-        log.setChannel(recipient.channel);
-        log.setTarget(recipient.target);
-        log.setTitle("分组离线告警");
-        log.setContent(String.format("%s 离线 %d 台，超过阈值 %s", groupName, offline, threshold == null ? "-" : threshold));
-        log.setStatus("sent");
-        log.setCreatedAt(LocalDateTime.now());
-        notificationLogMapper.insert(log);
+        String title = "分组离线告警";
+        String content = String.format("%s 离线 %d 台，超过阈值 %s", groupName, offline, threshold == null ? "-" : threshold);
+        notificationService.send(recipient.channel, recipient.target, title, content);
     }
 
     private static class Recipient {
