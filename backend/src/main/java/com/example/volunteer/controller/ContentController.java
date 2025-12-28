@@ -3,6 +3,7 @@ package com.example.volunteer.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.dto.ContentItemRequest;
+import com.example.volunteer.dto.ContentFlagsRequest;
 import com.example.volunteer.entity.ContentItem;
 import com.example.volunteer.service.ContentService;
 import jakarta.validation.Valid;
@@ -26,6 +27,11 @@ public class ContentController {
     @PutMapping("/{id}")
     public ApiResponse<ContentItem> update(@PathVariable Long id, @Valid @RequestBody ContentItemRequest request) {
         return ApiResponse.ok(contentService.update(id, request));
+    }
+
+    @PutMapping("/{id}/flags")
+    public ApiResponse<ContentItem> updateFlags(@PathVariable Long id, @RequestBody ContentFlagsRequest request) {
+        return ApiResponse.ok(contentService.updateFlags(id, request.getHeadline(), request.getRecommended()));
     }
 
     @GetMapping

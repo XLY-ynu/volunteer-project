@@ -58,6 +58,23 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
+    public ContentItem updateFlags(Long id, Boolean headline, Boolean recommended) {
+        ContentItem item = contentItemMapper.selectById(id);
+        if (item == null) {
+            return null;
+        }
+        if (headline != null) {
+            item.setHeadline(headline);
+        }
+        if (recommended != null) {
+            item.setRecommended(recommended);
+        }
+        item.setUpdatedAt(LocalDateTime.now());
+        contentItemMapper.updateById(item);
+        return item;
+    }
+
+    @Override
     public Page<ContentItem> page(int page, int size, Long categoryId, Boolean published, String keyword) {
         LambdaQueryWrapper<ContentItem> wrapper = new LambdaQueryWrapper<>();
         if (categoryId != null) {

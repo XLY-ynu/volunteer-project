@@ -170,6 +170,8 @@
           <el-select v-model="multiSelected" multiple placeholder="选择终端" size="small" style="min-width: 280px" @change="onMultiSelectedChange">
             <el-option v-for="t in favoriteTerminals" :key="t" :label="t" :value="t" />
           </el-select>
+          <el-input-number v-model="previewInterval" :min="5" :max="60" size="small" @change="startMultiPolling" />
+          <span class="interval-text">刷新间隔(秒)</span>
         </div>
         <el-row :gutter="10">
           <el-col :span="8" v-for="p in multiPreviews" :key="p.terminal">
@@ -179,6 +181,7 @@
                 <div class="mini-now" v-if="p.currentMedia">
                   <div class="mini-name">播放中：{{ p.currentMedia.name }}</div>
                   <div class="mini-count">时长：{{ p.currentMedia.durationSeconds || '-' }}s</div>
+                  <el-progress :percentage="previewProgress(p)" :stroke-width="8" />
                 </div>
                 <div v-if="p.playlists.length === 0" class="mini-empty">无可播列表</div>
                 <div v-else>
@@ -334,6 +337,8 @@ const contentDialog = ref(false);
 const contentDetail = ref<any | null>(null);
 const headline = ref<any | null>(null);
 const headlinePool = ref<any[]>([]);
+const headlineIndex = ref(0);
+const headlineTimer = ref<number | null>(null);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -366,6 +371,9 @@ const previewTime = ref(0);
 const favDialog = ref(false);
 const favSelection = ref<number[]>([]);
 const multiTimer = ref<number | null>(null);
+const previewInterval = ref(10);
+const previewClock = ref(Date.now());
+const previewClockTimer = ref<number | null>(null);
 
 const activities = ref<any[]>([]);
 const activityPage = ref(1);
@@ -426,12 +434,17 @@ const loadContent = async () => {
       const list = [...contentList.value];
       const pick = list.find((i: any) => i.headline) || list.find((i: any) => i.recommended);
       if (pick) {
+        headlinePool.value = list
+          .filter((i: any) => i.headline || i.recommended)
+          .sort((a: any, b: any) => new Date(b.publishTime || b.createdAt || 0).getTime() - new Date(a.publishTime || a.createdAt || 0).getTime());
         headline.value = pick;
+        startHeadlineRotate();
       } else {
         headlinePool.value = list.sort((a: any, b: any) => {
           return (new Date(b.publishTime || b.createdAt || 0).getTime()) - (new Date(a.publishTime || a.createdAt || 0).getTime());
         });
         headline.value = headlinePool.value[0];
+        stopHeadlineRotate();
       }
     }
   } finally {
@@ -562,6 +575,26 @@ const goAdmin = () => {
   window.location.href = '/dashboard';
 };
 
+const startHeadlineRotate = () => {
+  stopHeadlineRotate();
+  if (!headlinePool.value || headlinePool.value.length <= 1) return;
+  headlineIndex.value = Math.max(
+    0,
+    headlinePool.value.findIndex((i: any) => i.id === headline.value?.id)
+  );
+  headlineTimer.value = window.setInterval(() => {
+    headlineIndex.value = (headlineIndex.value + 1) % headlinePool.value.length;
+    headline.value = headlinePool.value[headlineIndex.value];
+  }, 6000);
+};
+
+const stopHeadlineRotate = () => {
+  if (headlineTimer.value) {
+    clearInterval(headlineTimer.value);
+    headlineTimer.value = null;
+  }
+};
+
 const togglePlay = () => {
   autoPlay.value = !autoPlay.value;
   if (autoPlay.value) {
@@ -625,7 +658,8 @@ const onFavSelect = (rows: any[]) => {
 };
 
 const saveFavorites = () => {
-  favoriteTerminals.value = favoriteTerminals.value.filter((t) => t && t.trim());
+  const cleaned = favoriteTerminals.value.filter((t) => t && t.trim());
+  favoriteTerminals.value = Array.from(new Set(cleaned));
   localStorage.setItem('portal_fav_terminals', JSON.stringify(favoriteTerminals.value));
   ElMessage.success('已保存');
   favDialog.value = false;
@@ -704,11 +738,17 @@ const loadMultiPreviews = async () => {
     const resp = await fetchPlaybackPublic(t);
     const playlists = resp.data?.data || [];
     const currentPlaying = playlists.flatMap((p: any) => p.mediaAssets || []).find(() => true) || null;
+    const existing = multiPreviews.value.find((p: any) => p.terminal === t);
+    const startedAt =
+      existing && existing.currentMedia?.id === currentPlaying?.id && existing.startedAt
+        ? existing.startedAt
+        : Date.now();
     results.push({
       terminal: t,
       playlists,
       currentMedia: currentPlaying,
-      totalCount: playlists.reduce((acc: number, p: any) => acc + (p.mediaAssets?.length || 0), 0)
+      totalCount: playlists.reduce((acc: number, p: any) => acc + (p.mediaAssets?.length || 0), 0),
+      startedAt
     });
   }
   multiPreviews.value = results;
@@ -724,9 +764,10 @@ const startMultiPolling = () => {
     clearInterval(multiTimer.value);
   }
   if (!multiSelected.value.length) return;
+  startPreviewClock();
   multiTimer.value = window.setInterval(() => {
     loadMultiPreviews();
-  }, 10000);
+  }, previewInterval.value * 1000);
 };
 
 const stopMultiPolling = () => {
@@ -734,6 +775,27 @@ const stopMultiPolling = () => {
     clearInterval(multiTimer.value);
     multiTimer.value = null;
   }
+  stopPreviewClock();
+};
+
+const startPreviewClock = () => {
+  if (previewClockTimer.value) clearInterval(previewClockTimer.value);
+  previewClockTimer.value = window.setInterval(() => {
+    previewClock.value = Date.now();
+  }, 1000);
+};
+
+const stopPreviewClock = () => {
+  if (previewClockTimer.value) {
+    clearInterval(previewClockTimer.value);
+    previewClockTimer.value = null;
+  }
+};
+
+const previewProgress = (p: any) => {
+  if (!p?.currentMedia?.durationSeconds) return 0;
+  const elapsed = (previewClock.value - p.startedAt) / 1000;
+  return Math.round(((elapsed % p.currentMedia.durationSeconds) / p.currentMedia.durationSeconds) * 100);
 };
 
 const tagColor = (name?: string) => {
@@ -769,6 +831,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (playerTimer.value) clearTimeout(playerTimer.value);
   stopMultiPolling();
+  stopHeadlineRotate();
 });
 </script>
 
@@ -822,7 +885,8 @@ onBeforeUnmount(() => {
 .detail-body li { margin: 6px 0; }
 .detail-body blockquote { border-left: 4px solid #409eff; padding: 6px 12px; color: #606266; background: #f5f7fa; margin: 10px 0; }
 .preview-card { margin-top: 12px; }
-.preview-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.preview-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin-bottom: 8px; }
+.interval-text { color: #909399; font-size: 12px; }
 .mini-title { font-weight: 600; margin-bottom: 6px; }
 .mini-body { min-height: 60px; color: #606266; }
 .mini-now { padding: 6px 8px; background: #f0f9eb; border-radius: 6px; margin-bottom: 6px; }

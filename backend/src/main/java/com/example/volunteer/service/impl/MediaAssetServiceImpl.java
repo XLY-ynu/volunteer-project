@@ -10,11 +10,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class MediaAssetServiceImpl implements MediaAssetService {
@@ -82,12 +86,14 @@ public class MediaAssetServiceImpl implements MediaAssetService {
             Path dest = root.resolve(filename);
             file.transferTo(dest.toFile());
 
+            String resolvedType = type != null ? type : guessType(file.getContentType());
             MediaAsset asset = new MediaAsset();
             asset.setName(original != null ? original : filename);
-            asset.setType(type != null ? type : guessType(file.getContentType()));
+            asset.setType(resolvedType);
             asset.setUrl("/uploads/" + filename);
-            asset.setThumbUrl(type != null && type.startsWith("image") ? asset.getUrl() : null);
+            asset.setThumbUrl("image".equals(resolvedType) ? asset.getUrl() : null);
             asset.setSizeBytes(file.getSize());
+            fillMetadata(asset, dest, resolvedType);
             asset.setCreatedAt(LocalDateTime.now());
             mediaAssetMapper.insert(asset);
             return asset;
@@ -131,6 +137,74 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         if (contentType.startsWith("image")) return "image";
         if (contentType.contains("pdf")) return "document";
         return "other";
+    }
+
+    private void fillMetadata(MediaAsset asset, Path path, String type) {
+        try {
+            if ("image".equals(type)) {
+                BufferedImage img = ImageIO.read(path.toFile());
+                if (img != null) {
+                    asset.setWidth(img.getWidth());
+                    asset.setHeight(img.getHeight());
+                }
+            }
+            if ("video".equals(type)) {
+                VideoMeta meta = probeVideo(path);
+                if (meta != null) {
+                    asset.setWidth(meta.width);
+                    asset.setHeight(meta.height);
+                    asset.setDurationSeconds((int) Math.round(meta.duration));
+                }
+            }
+        } catch (Exception ignored) {
+            // 元数据读取失败不影响主流程
+        }
+    }
+
+    private VideoMeta probeVideo(Path path) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder(
+                    "ffprobe",
+                    "-v", "error",
+                    "-select_streams", "v:0",
+                    "-show_entries", "stream=width,height,duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    path.toString()
+            );
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            byte[] bytes = p.getInputStream().readAllBytes();
+            p.waitFor(2, TimeUnit.SECONDS);
+            if (p.isAlive()) {
+                p.destroy();
+            }
+            String out = new String(bytes, StandardCharsets.UTF_8).trim();
+            if (out.isEmpty()) {
+                return null;
+            }
+            String[] parts = out.split("\\R");
+            if (parts.length < 2) {
+                return null;
+            }
+            int width = Integer.parseInt(parts[0].trim());
+            int height = Integer.parseInt(parts[1].trim());
+            double duration = parts.length >= 3 ? Double.parseDouble(parts[2].trim()) : 0;
+            return new VideoMeta(width, height, duration);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static class VideoMeta {
+        final int width;
+        final int height;
+        final double duration;
+
+        VideoMeta(int width, int height, double duration) {
+            this.width = width;
+            this.height = height;
+            this.duration = duration;
+        }
     }
 
     @Override

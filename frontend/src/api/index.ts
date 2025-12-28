@@ -65,6 +65,8 @@ export const createContent = (payload: any) => http.post('/content', payload);
 export const updateContent = (id: number, payload: any) => http.put(`/content/${id}`, payload);
 export const deleteContent = (id: number) => http.delete(`/content/${id}`);
 export const fetchContentById = (id: number) => http.get(`/content/${id}`);
+export const updateContentFlags = (id: number, payload: { headline?: boolean; recommended?: boolean }) =>
+  http.put(`/content/${id}/flags`, payload);
 export const fetchPublicContent = (page = 1, size = 10, categoryId?: number, keyword?: string) =>
   http.get('/public/content', { params: { page, size, categoryId, keyword } });
 export const fetchPublicContentById = (id: number) => http.get(`/public/content/${id}`);

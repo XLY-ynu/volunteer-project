@@ -67,6 +67,26 @@
         <el-table-column prop="publishTime" label="发布时间" width="160">
           <template #default="scope">{{ formatDate(scope.row.publishTime) }}</template>
         </el-table-column>
+        <el-table-column label="快捷" width="160">
+          <template #default="scope">
+            <div class="quick-flags">
+              <el-switch
+                v-model="scope.row.headline"
+                active-text="头条"
+                inactive-text="头条"
+                size="small"
+                @change="toggleFlags(scope.row)"
+              />
+              <el-switch
+                v-model="scope.row.recommended"
+                active-text="推荐"
+                inactive-text="推荐"
+                size="small"
+                @change="toggleFlags(scope.row)"
+              />
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="scope">
             <el-button-group>
@@ -134,7 +154,7 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { createContent, deleteContent, fetchCategories, fetchContent, updateContent } from '../api';
+import { createContent, deleteContent, fetchCategories, fetchContent, updateContent, updateContentFlags } from '../api';
 import { useUserStore } from '../stores/user';
 import { Plus, Search, Edit, Delete, Picture } from '@element-plus/icons-vue';
 
@@ -239,6 +259,11 @@ const onDelete = async (id: number) => {
   load();
 };
 
+const toggleFlags = async (row: any) => {
+  await updateContentFlags(row.id, { headline: row.headline, recommended: row.recommended });
+  ElMessage.success('标记已更新');
+};
+
 const onPage = (p: number) => {
   page.value = p;
   load();
@@ -275,4 +300,5 @@ onMounted(() => {
 .upload-icon { font-size: 32px; color: #c0c4cc; margin-bottom: 8px; }
 .upload-trigger span { font-size: 14px; color: #909399; }
 .cover-tip { font-size: 12px; color: #909399; margin-top: 8px; }
+.quick-flags { display: flex; gap: 8px; }
 </style>
