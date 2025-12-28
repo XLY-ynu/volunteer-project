@@ -6,7 +6,13 @@
           <h3>内容管理</h3>
           <span class="subtitle">发布和管理图文内容</span>
         </div>
-        <el-button type="primary" @click="onCreate"><el-icon><Plus /></el-icon>发布内容</el-button>
+        <div class="header-actions">
+          <el-button @click="openHeadlineDialog">头条排序</el-button>
+          <el-button @click="openRecommendDialog">推荐排序</el-button>
+          <el-button @click="openConfigDialog">轮播配置</el-button>
+          <el-button @click="previewPortal">推荐预览</el-button>
+          <el-button type="primary" @click="onCreate"><el-icon><Plus /></el-icon>发布内容</el-button>
+        </div>
       </div>
     </el-card>
 
@@ -153,16 +159,64 @@
         <el-button type="primary" @click="submit">{{ editingId ? '保存' : '发布' }}</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="headlineDialog" title="头条排序" width="520px">
+      <draggable v-model="headlineList" item-key="id" handle=".drag-handle">
+        <template #item="{ element }">
+          <div class="recommend-item">
+            <el-icon class="drag-handle"><Rank /></el-icon>
+            <span class="recommend-title">{{ element.title }}</span>
+            <el-tag size="small" type="danger">头条</el-tag>
+          </div>
+        </template>
+      </draggable>
+      <template #footer>
+        <el-button @click="headlineDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveHeadlineOrder">保存排序</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="recommendDialog" title="推荐集合排序" width="520px">
+      <draggable v-model="recommendList" item-key="id" handle=".drag-handle">
+        <template #item="{ element }">
+          <div class="recommend-item">
+            <el-icon class="drag-handle"><Rank /></el-icon>
+            <span class="recommend-title">{{ element.title }}</span>
+            <el-tag size="small" type="warning">推荐</el-tag>
+          </div>
+        </template>
+      </draggable>
+      <template #footer>
+        <el-button @click="recommendDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveRecommendOrder">保存排序</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="configDialog" title="轮播配置" width="420px">
+      <el-form label-width="120px">
+        <el-form-item label="推荐轮播(秒)">
+          <el-input-number v-model="configForm.recommendIntervalSec" :min="3" :max="30" />
+        </el-form-item>
+        <el-form-item label="预览轮询(秒)">
+          <el-input-number v-model="configForm.previewIntervalSec" :min="5" :max="60" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="configDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveConfig">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, computed, nextTick, onBeforeUnmount } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { createContent, deleteContent, fetchCategories, fetchContent, updateContent, updateContentFlags, updateContentOrder } from '../api';
+import { createContent, deleteContent, fetchCategories, fetchContent, updateContent, updateContentFlags, updateContentOrder, fetchContentConfig, updateContentConfig, fetchRecommendedContent, fetchHeadlineContent } from '../api';
 import { useUserStore } from '../stores/user';
 import { Plus, Search, Edit, Delete, Picture, Rank } from '@element-plus/icons-vue';
 import Sortable from 'sortablejs';
+import draggable from 'vuedraggable';
 
 const list = ref<any[]>([]);
 const page = ref(1);
@@ -175,6 +229,12 @@ const user = useUserStore();
 const uploadHeaders = computed(() => ({ Authorization: `Bearer ${user.token}` }));
 const tableRef = ref();
 const sortableRef = ref<Sortable | null>(null);
+const recommendDialog = ref(false);
+const recommendList = ref<any[]>([]);
+const headlineDialog = ref(false);
+const headlineList = ref<any[]>([]);
+const configDialog = ref(false);
+const configForm = ref({ recommendIntervalSec: 6, previewIntervalSec: 10 });
 
 const form = ref({
   title: '',
@@ -281,6 +341,7 @@ const onPage = (p: number) => {
 onMounted(() => {
   loadCategories();
   load();
+  loadConfig();
 });
 
 onBeforeUnmount(() => {
@@ -305,6 +366,65 @@ const initSortable = () => {
       }
     });
   });
+};
+
+const openRecommendDialog = () => {
+  recommendDialog.value = true;
+  loadRecommendList();
+};
+
+const openHeadlineDialog = () => {
+  headlineDialog.value = true;
+  loadHeadlineList();
+};
+
+const saveRecommendOrder = async () => {
+  const items = recommendList.value.map((item, idx) => ({ id: item.id, sortOrder: idx + 1 }));
+  await updateContentOrder(items);
+  ElMessage.success('推荐排序已保存');
+  recommendDialog.value = false;
+  load();
+};
+
+const saveHeadlineOrder = async () => {
+  const items = headlineList.value.map((item, idx) => ({ id: item.id, sortOrder: idx + 1 }));
+  await updateContentOrder(items);
+  ElMessage.success('头条排序已保存');
+  headlineDialog.value = false;
+  load();
+};
+
+const loadRecommendList = async () => {
+  const resp = await fetchRecommendedContent();
+  recommendList.value = resp.data?.data || [];
+};
+
+const loadHeadlineList = async () => {
+  const resp = await fetchHeadlineContent();
+  headlineList.value = resp.data?.data || [];
+};
+
+const openConfigDialog = () => {
+  configDialog.value = true;
+};
+
+const loadConfig = async () => {
+  const resp = await fetchContentConfig();
+  const data = resp.data?.data;
+  if (data) {
+    configForm.value.recommendIntervalSec = data.recommendIntervalSec || 6;
+    configForm.value.previewIntervalSec = data.previewIntervalSec || 10;
+  }
+};
+
+const saveConfig = async () => {
+  await updateContentConfig(configForm.value);
+  ElMessage.success('配置已保存');
+  configDialog.value = false;
+};
+
+const previewPortal = () => {
+  window.open('/portal', '_blank');
 };
 </script>
 
@@ -335,4 +455,7 @@ const initSortable = () => {
 .cover-tip { font-size: 12px; color: #909399; margin-top: 8px; }
 .quick-flags { display: flex; gap: 8px; }
 .drag-handle { cursor: move; color: #909399; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.recommend-item { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px dashed #e4e7ed; border-radius: 6px; margin-bottom: 8px; }
+.recommend-title { flex: 1; }
 </style>

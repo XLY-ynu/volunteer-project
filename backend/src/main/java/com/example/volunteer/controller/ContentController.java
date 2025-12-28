@@ -5,6 +5,9 @@ import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.dto.ContentItemRequest;
 import com.example.volunteer.dto.ContentFlagsRequest;
 import com.example.volunteer.dto.ContentOrderRequest;
+import com.example.volunteer.dto.ContentConfigRequest;
+import com.example.volunteer.entity.ContentConfig;
+import com.example.volunteer.mapper.ContentConfigMapper;
 import com.example.volunteer.entity.ContentItem;
 import com.example.volunteer.service.ContentService;
 import jakarta.validation.Valid;
@@ -15,9 +18,11 @@ import org.springframework.web.bind.annotation.*;
 public class ContentController {
 
     private final ContentService contentService;
+    private final ContentConfigMapper contentConfigMapper;
 
-    public ContentController(ContentService contentService) {
+    public ContentController(ContentService contentService, ContentConfigMapper contentConfigMapper) {
         this.contentService = contentService;
+        this.contentConfigMapper = contentConfigMapper;
     }
 
     @PostMapping
@@ -39,6 +44,50 @@ public class ContentController {
     public ApiResponse<Void> reorder(@RequestBody ContentOrderRequest request) {
         contentService.reorder(request.getItems());
         return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/recommended")
+    public ApiResponse<java.util.List<ContentItem>> recommended() {
+        return ApiResponse.ok(contentService.listRecommended());
+    }
+
+    @GetMapping("/headlines")
+    public ApiResponse<java.util.List<ContentItem>> headlines() {
+        return ApiResponse.ok(contentService.listHeadlines());
+    }
+
+    @GetMapping("/config")
+    public ApiResponse<ContentConfig> getConfig() {
+        ContentConfig config = contentConfigMapper.selectOne(null);
+        if (config == null) {
+            config = new ContentConfig();
+            config.setRecommendIntervalSec(6);
+            config.setPreviewIntervalSec(10);
+            config.setUpdatedAt(java.time.LocalDateTime.now());
+            contentConfigMapper.insert(config);
+        }
+        return ApiResponse.ok(config);
+    }
+
+    @PutMapping("/config")
+    public ApiResponse<ContentConfig> updateConfig(@RequestBody ContentConfigRequest request) {
+        ContentConfig config = contentConfigMapper.selectOne(null);
+        if (config == null) {
+            config = new ContentConfig();
+        }
+        if (request.getRecommendIntervalSec() != null) {
+            config.setRecommendIntervalSec(request.getRecommendIntervalSec());
+        }
+        if (request.getPreviewIntervalSec() != null) {
+            config.setPreviewIntervalSec(request.getPreviewIntervalSec());
+        }
+        config.setUpdatedAt(java.time.LocalDateTime.now());
+        if (config.getId() == null) {
+            contentConfigMapper.insert(config);
+        } else {
+            contentConfigMapper.updateById(config);
+        }
+        return ApiResponse.ok(config);
     }
 
     @GetMapping

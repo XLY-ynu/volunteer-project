@@ -102,3 +102,11 @@ CREATE TABLE IF NOT EXISTS activity_checkin_log (
 -- 12) 媒体元数据增强
 -- ALTER TABLE media_asset ADD COLUMN bitrate_kbps INT NULL;
 -- ALTER TABLE media_asset ADD COLUMN frame_rate DECIMAL(6,2) NULL;
+
+-- 13) 内容配置表（推荐轮播/预览轮询间隔）
+CREATE TABLE IF NOT EXISTS content_config (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    recommend_interval_sec INT DEFAULT 6,
+    preview_interval_sec INT DEFAULT 10,
+    updated_at DATETIME
+);

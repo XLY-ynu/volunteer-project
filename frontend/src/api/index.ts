@@ -69,6 +69,12 @@ export const updateContentFlags = (id: number, payload: { headline?: boolean; re
   http.put(`/content/${id}/flags`, payload);
 export const updateContentOrder = (items: { id: number; sortOrder: number }[]) =>
   http.put('/content/reorder', { items });
+export const fetchContentConfig = () => http.get('/content/config');
+export const updateContentConfig = (payload: { recommendIntervalSec?: number; previewIntervalSec?: number }) =>
+  http.put('/content/config', payload);
+export const fetchPublicContentConfig = () => http.get('/public/content-config');
+export const fetchRecommendedContent = () => http.get('/content/recommended');
+export const fetchHeadlineContent = () => http.get('/content/headlines');
 export const fetchPublicContent = (page = 1, size = 10, categoryId?: number, keyword?: string) =>
   http.get('/public/content', { params: { page, size, categoryId, keyword } });
 export const fetchPublicContentById = (id: number) => http.get(`/public/content/${id}`);

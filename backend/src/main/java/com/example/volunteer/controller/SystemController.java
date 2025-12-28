@@ -39,6 +39,7 @@ public class SystemController {
     private final RoleMapper roleMapper;
     private final MenuCategoryMapper menuCategoryMapper;
     private final ContentItemMapper contentItemMapper;
+    private final ContentConfigMapper contentConfigMapper;
     private final MediaAssetMapper mediaAssetMapper;
     private final PlaylistMapper playlistMapper;
     private final PlaylistItemMapper playlistItemMapper;
@@ -55,6 +56,7 @@ public class SystemController {
             RoleMapper roleMapper,
             MenuCategoryMapper menuCategoryMapper,
             ContentItemMapper contentItemMapper,
+            ContentConfigMapper contentConfigMapper,
             MediaAssetMapper mediaAssetMapper,
             PlaylistMapper playlistMapper,
             PlaylistItemMapper playlistItemMapper,
@@ -69,6 +71,7 @@ public class SystemController {
         this.roleMapper = roleMapper;
         this.menuCategoryMapper = menuCategoryMapper;
         this.contentItemMapper = contentItemMapper;
+        this.contentConfigMapper = contentConfigMapper;
         this.mediaAssetMapper = mediaAssetMapper;
         this.playlistMapper = playlistMapper;
         this.playlistItemMapper = playlistItemMapper;
@@ -114,6 +117,7 @@ public class SystemController {
             // 内容管理
             dbData.put("categories", menuCategoryMapper.selectList(null));
             dbData.put("contents", contentItemMapper.selectList(null));
+            dbData.put("contentConfig", contentConfigMapper.selectList(null));
             dbData.put("mediaAssets", mediaAssetMapper.selectList(null));
             
             // 播放管理

@@ -16,6 +16,8 @@ import com.example.volunteer.entity.Volunteer;
 import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
+import com.example.volunteer.mapper.ContentConfigMapper;
+import com.example.volunteer.entity.ContentConfig;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,15 +43,18 @@ public class PublicController {
     private final ActivityMapper activityMapper;
     private final ActivitySignupMapper activitySignupMapper;
     private final VolunteerMapper volunteerMapper;
+    private final ContentConfigMapper contentConfigMapper;
 
     public PublicController(MenuCategoryMapper menuCategoryMapper, ContentService contentService, TerminalService terminalService,
-                            ActivityMapper activityMapper, ActivitySignupMapper activitySignupMapper, VolunteerMapper volunteerMapper) {
+                            ActivityMapper activityMapper, ActivitySignupMapper activitySignupMapper,
+                            VolunteerMapper volunteerMapper, ContentConfigMapper contentConfigMapper) {
         this.menuCategoryMapper = menuCategoryMapper;
         this.contentService = contentService;
         this.terminalService = terminalService;
         this.activityMapper = activityMapper;
         this.activitySignupMapper = activitySignupMapper;
         this.volunteerMapper = volunteerMapper;
+        this.contentConfigMapper = contentConfigMapper;
     }
 
     @GetMapping("/categories")
@@ -71,6 +76,19 @@ public class PublicController {
     @GetMapping("/playback")
     public ApiResponse<List<TerminalPlaybackDto>> playback(@RequestParam String terminalCode) {
         return ApiResponse.ok(terminalService.playbackForTerminal(terminalCode));
+    }
+
+    @GetMapping("/content-config")
+    public ApiResponse<ContentConfig> contentConfig() {
+        ContentConfig config = contentConfigMapper.selectOne(null);
+        if (config == null) {
+            config = new ContentConfig();
+            config.setRecommendIntervalSec(6);
+            config.setPreviewIntervalSec(10);
+            config.setUpdatedAt(LocalDateTime.now());
+            contentConfigMapper.insert(config);
+        }
+        return ApiResponse.ok(config);
     }
 
     @GetMapping("/activities")

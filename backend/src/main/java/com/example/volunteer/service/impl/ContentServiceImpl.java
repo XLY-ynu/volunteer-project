@@ -96,6 +96,26 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
+    public java.util.List<ContentItem> listRecommended() {
+        return contentItemMapper.selectList(
+                new LambdaQueryWrapper<ContentItem>()
+                        .eq(ContentItem::getRecommended, true)
+                        .orderByAsc(ContentItem::getSortOrder)
+                        .orderByDesc(ContentItem::getPublishTime)
+        );
+    }
+
+    @Override
+    public java.util.List<ContentItem> listHeadlines() {
+        return contentItemMapper.selectList(
+                new LambdaQueryWrapper<ContentItem>()
+                        .eq(ContentItem::getHeadline, true)
+                        .orderByAsc(ContentItem::getSortOrder)
+                        .orderByDesc(ContentItem::getPublishTime)
+        );
+    }
+
+    @Override
     public Page<ContentItem> page(int page, int size, Long categoryId, Boolean published, String keyword) {
         LambdaQueryWrapper<ContentItem> wrapper = new LambdaQueryWrapper<>();
         if (categoryId != null) {

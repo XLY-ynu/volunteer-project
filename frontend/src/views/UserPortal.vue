@@ -43,7 +43,13 @@
           </div>
         </div>
       </el-card>
-      <el-carousel v-if="recommendedList.length > 1" height="200px" indicator-position="outside" class="recommend-carousel">
+      <el-carousel
+        v-if="recommendedList.length > 1"
+        height="200px"
+        :interval="recommendIntervalSec * 1000"
+        indicator-position="outside"
+        class="recommend-carousel"
+      >
         <el-carousel-item v-for="item in recommendedList" :key="item.id">
           <div class="recommend-card" @click="openContent(item.id)">
             <img v-if="item.coverUrl" :src="item.coverUrl" />
@@ -115,6 +121,19 @@
           <el-button text type="primary" @click="topFavorite">置顶</el-button>
         </div>
       </div>
+      <div class="video-filters">
+        <el-select v-model="qualityFilter" placeholder="画质" size="small" style="width: 120px">
+          <el-option label="全部" value="all" />
+          <el-option label="HD" value="HD" />
+          <el-option label="SD" value="SD" />
+        </el-select>
+        <el-select v-model="durationFilter" placeholder="时长" size="small" style="width: 140px">
+          <el-option label="全部" value="all" />
+          <el-option label="<=30s" value="short" />
+          <el-option label="31-60s" value="medium" />
+          <el-option label=">60s" value="long" />
+        </el-select>
+      </div>
       <el-row :gutter="12">
         <el-col :span="12">
           <video
@@ -146,6 +165,7 @@
                 <div v-if="previewVisible" class="preview" :style="{ left: previewPercent + '%' }">
                   <img v-if="previewMedia?.thumbUrl || previewMedia?.coverUrl" :src="previewMedia.thumbUrl || previewMedia.coverUrl" />
                   <div v-else class="preview-fallback">{{ formatTime(previewTime) }}</div>
+                  <div class="preview-title">{{ previewMedia?.name || '预览' }}</div>
                   <div class="preview-time">{{ formatTime(previewTime) }}</div>
                 </div>
               </div>
@@ -160,7 +180,7 @@
         </el-col>
         <el-col :span="12">
           <el-row :gutter="10">
-            <el-col :span="12" v-for="m in mediaAssets" :key="m.id">
+            <el-col :span="12" v-for="m in visibleMediaAssets" :key="m.id">
               <el-card class="media-card" shadow="hover" @click="playMedia(m)">
                 <div class="media-thumb">
                   <img v-if="m.thumbUrl" :src="m.thumbUrl" />
@@ -168,6 +188,7 @@
                   <span class="badge">{{ m.durationSeconds ? m.durationSeconds + 's' : '—' }}</span>
                   <span class="badge type">{{ m.type?.toUpperCase() || 'MEDIA' }}</span>
                   <span v-if="m.type === 'video'" class="badge quality" :class="qualityClass(m)">{{ qualityLabel(m) }}</span>
+                  <span v-if="m.height" class="badge res">{{ resolutionLabel(m) }}</span>
                 </div>
                 <p class="media-title">{{ m.name }}</p>
               </el-card>
@@ -323,7 +344,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { onMounted, onBeforeUnmount, ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
   fetchActivitiesPublic,
@@ -331,6 +352,7 @@ import {
   fetchPublicCategories,
   fetchPublicContent,
   fetchPublicContentById,
+  fetchPublicContentConfig,
   fetchVolunteerSignups,
   registerVolunteerPublic,
   signupActivityPublic
@@ -353,6 +375,7 @@ const headlinePool = ref<any[]>([]);
 const headlineIndex = ref(0);
 const headlineTimer = ref<number | null>(null);
 const recommendedList = ref<any[]>([]);
+const recommendIntervalSec = ref(6);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -393,6 +416,25 @@ const previewInterval = ref(10);
 const previewClock = ref(Date.now());
 const previewClockTimer = ref<number | null>(null);
 const previewPollingEnabled = ref(true);
+const qualityFilter = ref('all');
+const durationFilter = ref('all');
+
+const visibleMediaAssets = computed(() => {
+  let list = mediaAssets.value;
+  if (qualityFilter.value !== 'all') {
+    list = list.filter((m: any) => qualityLabel(m) === qualityFilter.value);
+  }
+  if (durationFilter.value !== 'all') {
+    list = list.filter((m: any) => {
+      const d = m.durationSeconds || 0;
+      if (durationFilter.value === 'short') return d > 0 && d <= 30;
+      if (durationFilter.value === 'medium') return d > 30 && d <= 60;
+      if (durationFilter.value === 'long') return d > 60;
+      return true;
+    });
+  }
+  return list;
+});
 
 const activities = ref<any[]>([]);
 const activityPage = ref(1);
@@ -422,6 +464,24 @@ const loadCategories = async () => {
   const resp = await fetchPublicCategories();
   parents.value = resp.data?.data || [];
   if (parents.value.length) selectParent(parents.value[0]);
+};
+
+const loadContentConfig = async () => {
+  try {
+    const resp = await fetchPublicContentConfig();
+    const data = resp.data?.data;
+    if (data?.recommendIntervalSec) {
+      recommendIntervalSec.value = data.recommendIntervalSec;
+    }
+    if (data?.previewIntervalSec) {
+      const local = localStorage.getItem('portal_preview_interval');
+      if (!local) {
+        previewInterval.value = data.previewIntervalSec;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
 };
 
 const selectParent = async (p: any) => {
@@ -831,6 +891,7 @@ const startMultiPolling = () => {
   if (multiTimer.value) {
     clearInterval(multiTimer.value);
   }
+  localStorage.setItem('portal_preview_interval', String(previewInterval.value));
   if (!multiSelected.value.length || !previewPollingEnabled.value) {
     stopPreviewClock();
     return;
@@ -894,11 +955,22 @@ const qualityClass = (m: any) => {
   return qualityLabel(m) === 'HD' ? 'hd' : 'sd';
 };
 
+const resolutionLabel = (m: any) => {
+  if (!m.height) return '';
+  if (m.height >= 1080) return '1080p';
+  if (m.height >= 720) return '720p';
+  if (m.height >= 480) return '480p';
+  return m.height + 'p';
+};
+
 onMounted(async () => {
+  await loadContentConfig();
   await loadCategories();
   await loadContent();
   const saved = localStorage.getItem('portal_terminal_code');
   if (saved) terminalCode.value = saved;
+  const intervalSaved = localStorage.getItem('portal_preview_interval');
+  if (intervalSaved) previewInterval.value = Number(intervalSaved);
   await loadPlayback();
   await loadActivities();
   loadStats();
@@ -984,8 +1056,11 @@ onBeforeUnmount(() => {
 .preview { position: absolute; top: -90px; transform: translateX(-50%); width: 120px; background: #fff; border: 1px solid #e4e7ed; border-radius: 6px; padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
 .preview img { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; }
 .preview-fallback { height: 60px; display: flex; align-items: center; justify-content: center; color: #909399; }
+.preview-title { font-size: 12px; color: #303133; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preview-time { text-align: center; font-size: 12px; color: #606266; margin-top: 4px; }
 .badge.quality { left: auto; right: 6px; top: 6px; bottom: auto; background: #67c23a; }
 .badge.quality.hd { background: #67c23a; }
 .badge.quality.sd { background: #909399; }
+.badge.res { left: 6px; right: auto; bottom: 6px; top: auto; background: #111827; }
+.video-filters { display: flex; gap: 8px; margin: 8px 0; }
 </style>
