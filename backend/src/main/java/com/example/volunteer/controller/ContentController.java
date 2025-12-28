@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.dto.ContentItemRequest;
 import com.example.volunteer.dto.ContentFlagsRequest;
+import com.example.volunteer.dto.ContentOrderRequest;
 import com.example.volunteer.entity.ContentItem;
 import com.example.volunteer.service.ContentService;
 import jakarta.validation.Valid;
@@ -32,6 +33,12 @@ public class ContentController {
     @PutMapping("/{id}/flags")
     public ApiResponse<ContentItem> updateFlags(@PathVariable Long id, @RequestBody ContentFlagsRequest request) {
         return ApiResponse.ok(contentService.updateFlags(id, request.getHeadline(), request.getRecommended()));
+    }
+
+    @PutMapping("/reorder")
+    public ApiResponse<Void> reorder(@RequestBody ContentOrderRequest request) {
+        contentService.reorder(request.getItems());
+        return ApiResponse.ok(null);
     }
 
     @GetMapping

@@ -30,6 +30,8 @@ public class ContentServiceImpl implements ContentService {
         item.setPublished(Boolean.TRUE.equals(request.getPublished()));
         item.setHeadline(Boolean.TRUE.equals(request.getHeadline()));
         item.setRecommended(Boolean.TRUE.equals(request.getRecommended()));
+        Integer order = request.getSortOrder();
+        item.setSortOrder(order != null ? order : (int) (System.currentTimeMillis() / 1000));
         item.setPublishTime(Boolean.TRUE.equals(request.getPublished()) ? LocalDateTime.now() : null);
         item.setCreatedAt(LocalDateTime.now());
         item.setUpdatedAt(LocalDateTime.now());
@@ -51,6 +53,9 @@ public class ContentServiceImpl implements ContentService {
         item.setPublished(Boolean.TRUE.equals(request.getPublished()));
         item.setHeadline(Boolean.TRUE.equals(request.getHeadline()));
         item.setRecommended(Boolean.TRUE.equals(request.getRecommended()));
+        if (request.getSortOrder() != null) {
+            item.setSortOrder(request.getSortOrder());
+        }
         item.setPublishTime(Boolean.TRUE.equals(request.getPublished()) ? LocalDateTime.now() : null);
         item.setUpdatedAt(LocalDateTime.now());
         contentItemMapper.updateById(item);
@@ -75,6 +80,22 @@ public class ContentServiceImpl implements ContentService {
     }
 
     @Override
+    public void reorder(java.util.List<com.example.volunteer.dto.ContentOrderItem> items) {
+        if (items == null) {
+            return;
+        }
+        for (com.example.volunteer.dto.ContentOrderItem item : items) {
+            ContentItem entity = contentItemMapper.selectById(item.getId());
+            if (entity == null) {
+                continue;
+            }
+            entity.setSortOrder(item.getSortOrder());
+            entity.setUpdatedAt(LocalDateTime.now());
+            contentItemMapper.updateById(entity);
+        }
+    }
+
+    @Override
     public Page<ContentItem> page(int page, int size, Long categoryId, Boolean published, String keyword) {
         LambdaQueryWrapper<ContentItem> wrapper = new LambdaQueryWrapper<>();
         if (categoryId != null) {
@@ -86,7 +107,10 @@ public class ContentServiceImpl implements ContentService {
         if (keyword != null && !keyword.isEmpty()) {
             wrapper.and(w -> w.like(ContentItem::getTitle, keyword).or().like(ContentItem::getSummary, keyword));
         }
-        wrapper.orderByDesc(ContentItem::getPublishTime);
+        wrapper.orderByDesc(ContentItem::getHeadline)
+                .orderByDesc(ContentItem::getRecommended)
+                .orderByAsc(ContentItem::getSortOrder)
+                .orderByDesc(ContentItem::getPublishTime);
         Page<ContentItem> p = new Page<>(page, size);
         contentItemMapper.selectPage(p, wrapper);
         return p;

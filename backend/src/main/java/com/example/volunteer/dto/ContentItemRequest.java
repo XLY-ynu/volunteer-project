@@ -16,4 +16,5 @@ public class ContentItemRequest {
     private Boolean published;
     private Boolean headline;
     private Boolean recommended;
+    private Integer sortOrder;
 }

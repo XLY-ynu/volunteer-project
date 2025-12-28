@@ -97,3 +97,8 @@ CREATE TABLE IF NOT EXISTS activity_checkin_log (
 -- 11) 内容头条/推荐标记
 -- ALTER TABLE content_item ADD COLUMN headline TINYINT(1) DEFAULT 0;
 -- ALTER TABLE content_item ADD COLUMN recommended TINYINT(1) DEFAULT 0;
+-- ALTER TABLE content_item ADD COLUMN sort_order INT DEFAULT 0;
+
+-- 12) 媒体元数据增强
+-- ALTER TABLE media_asset ADD COLUMN bitrate_kbps INT NULL;
+-- ALTER TABLE media_asset ADD COLUMN frame_rate DECIMAL(6,2) NULL;

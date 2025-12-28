@@ -43,6 +43,18 @@
           </div>
         </div>
       </el-card>
+      <el-carousel v-if="recommendedList.length > 1" height="200px" indicator-position="outside" class="recommend-carousel">
+        <el-carousel-item v-for="item in recommendedList" :key="item.id">
+          <div class="recommend-card" @click="openContent(item.id)">
+            <img v-if="item.coverUrl" :src="item.coverUrl" />
+            <div class="recommend-info">
+              <span class="recommend-tag">推荐</span>
+              <h4>{{ item.title }}</h4>
+              <p>{{ item.summary || '查看详情' }}</p>
+            </div>
+          </div>
+        </el-carousel-item>
+      </el-carousel>
       <el-row :gutter="12">
         <el-col :span="6">
           <el-menu :default-active="activeParent?.id?.toString()" class="menu">
@@ -132,7 +144,7 @@
                 <div class="buffered" :style="{ width: bufferedProgress + '%' }"></div>
                 <el-slider v-model="progress" :min="0" :max="100" @change="seek" />
                 <div v-if="previewVisible" class="preview" :style="{ left: previewPercent + '%' }">
-                  <img v-if="currentMedia?.thumbUrl || currentMedia?.coverUrl" :src="currentMedia.thumbUrl || currentMedia.coverUrl" />
+                  <img v-if="previewMedia?.thumbUrl || previewMedia?.coverUrl" :src="previewMedia.thumbUrl || previewMedia.coverUrl" />
                   <div v-else class="preview-fallback">{{ formatTime(previewTime) }}</div>
                   <div class="preview-time">{{ formatTime(previewTime) }}</div>
                 </div>
@@ -172,6 +184,7 @@
           </el-select>
           <el-input-number v-model="previewInterval" :min="5" :max="60" size="small" @change="startMultiPolling" />
           <span class="interval-text">刷新间隔(秒)</span>
+          <el-switch v-model="previewPollingEnabled" active-text="实时轮询" @change="startMultiPolling" />
         </div>
         <el-row :gutter="10">
           <el-col :span="8" v-for="p in multiPreviews" :key="p.terminal">
@@ -339,11 +352,16 @@ const headline = ref<any | null>(null);
 const headlinePool = ref<any[]>([]);
 const headlineIndex = ref(0);
 const headlineTimer = ref<number | null>(null);
+const recommendedList = ref<any[]>([]);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
 const mediaAssets = ref<any[]>([]);
 const currentMedia = ref<any | null>(null);
+const activePlayback = ref<any | null>(null);
+const timelineItems = ref<any[]>([]);
+const timelineTotal = ref(0);
+const previewMedia = ref<any | null>(null);
 const playerTimer = ref<number | null>(null);
 const autoPlay = ref(true);
 const activePlaylistId = ref<number | null>(null);
@@ -374,6 +392,7 @@ const multiTimer = ref<number | null>(null);
 const previewInterval = ref(10);
 const previewClock = ref(Date.now());
 const previewClockTimer = ref<number | null>(null);
+const previewPollingEnabled = ref(true);
 
 const activities = ref<any[]>([]);
 const activityPage = ref(1);
@@ -430,13 +449,26 @@ const loadContent = async () => {
     const data = resp.data?.data || {};
     contentList.value = data.records || [];
     contentTotal.value = data.total || 0;
+    recommendedList.value = contentList.value
+      .filter((i: any) => i.recommended)
+      .sort((a: any, b: any) => {
+        const sa = a.sortOrder ?? 0;
+        const sb = b.sortOrder ?? 0;
+        if (sa !== sb) return sa - sb;
+        return new Date(b.publishTime || b.createdAt || 0).getTime() - new Date(a.publishTime || a.createdAt || 0).getTime();
+      });
     if (contentPage.value === 1 && contentList.value.length) {
       const list = [...contentList.value];
       const pick = list.find((i: any) => i.headline) || list.find((i: any) => i.recommended);
       if (pick) {
         headlinePool.value = list
           .filter((i: any) => i.headline || i.recommended)
-          .sort((a: any, b: any) => new Date(b.publishTime || b.createdAt || 0).getTime() - new Date(a.publishTime || a.createdAt || 0).getTime());
+          .sort((a: any, b: any) => {
+            const sa = a.sortOrder ?? 0;
+            const sb = b.sortOrder ?? 0;
+            if (sa !== sb) return sa - sb;
+            return new Date(b.publishTime || b.createdAt || 0).getTime() - new Date(a.publishTime || a.createdAt || 0).getTime();
+          });
         headline.value = pick;
         startHeadlineRotate();
       } else {
@@ -472,12 +504,17 @@ const loadPlayback = async () => {
     if (!playback.value.length) {
       mediaAssets.value = [];
       currentMedia.value = null;
+      activePlayback.value = null;
+      timelineItems.value = [];
+      timelineTotal.value = 0;
       return;
     }
     const first = playback.value[0];
     activePlaylistId.value = first?.playlist?.id || null;
+    activePlayback.value = first;
     mediaAssets.value = first?.mediaAssets || [];
     currentMedia.value = mediaAssets.value[0] || null;
+    buildTimeline(first);
     scheduleNext();
     applyVolume();
     changeRate(playbackRate.value);
@@ -621,8 +658,10 @@ const prevMedia = () => {
 
 const onPlaylistChange = (id: number) => {
   const target = playback.value.find((p: any) => p.playlist?.id === id);
+  activePlayback.value = target || null;
   mediaAssets.value = target?.mediaAssets || [];
   currentMedia.value = mediaAssets.value[0] || null;
+  buildTimeline(target);
   scheduleNext();
 };
 
@@ -707,12 +746,41 @@ const onProgressHover = (evt: MouseEvent) => {
   const rect = target.getBoundingClientRect();
   const percent = Math.max(0, Math.min(100, ((evt.clientX - rect.left) / rect.width) * 100));
   previewPercent.value = percent;
-  previewTime.value = duration.value ? (duration.value * percent) / 100 : 0;
+  const total = timelineTotal.value || duration.value;
+  previewTime.value = total ? (total * percent) / 100 : 0;
+  previewMedia.value = pickTimelineMedia(previewTime.value);
   previewVisible.value = true;
 };
 
 const hidePreview = () => {
   previewVisible.value = false;
+};
+
+const buildTimeline = (playbackObj: any) => {
+  if (!playbackObj?.items || !playbackObj?.mediaAssets) {
+    timelineItems.value = [];
+    timelineTotal.value = 0;
+    return;
+  }
+  const assets = new Map<number, any>();
+  playbackObj.mediaAssets.forEach((m: any) => assets.set(m.id, m));
+  const items = [...playbackObj.items].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  let cursor = 0;
+  timelineItems.value = items.map((i: any) => {
+    const duration = i.displayDuration || 10;
+    const media = assets.get(i.mediaId);
+    const start = cursor;
+    const end = cursor + duration;
+    cursor = end;
+    return { start, end, media };
+  });
+  timelineTotal.value = cursor;
+};
+
+const pickTimelineMedia = (time: number) => {
+  if (!timelineItems.value.length) return currentMedia.value;
+  const item = timelineItems.value.find((t: any) => time >= t.start && time < t.end);
+  return item?.media || currentMedia.value;
 };
 
 const onLoadedMeta = () => {
@@ -763,7 +831,10 @@ const startMultiPolling = () => {
   if (multiTimer.value) {
     clearInterval(multiTimer.value);
   }
-  if (!multiSelected.value.length) return;
+  if (!multiSelected.value.length || !previewPollingEnabled.value) {
+    stopPreviewClock();
+    return;
+  }
   startPreviewClock();
   multiTimer.value = window.setInterval(() => {
     loadMultiPreviews();
@@ -810,7 +881,12 @@ const tagColor = (name?: string) => {
 };
 
 const qualityLabel = (m: any) => {
-  const hd = (m.width && m.width >= 1280) || (m.height && m.height >= 720) || (m.sizeBytes && m.sizeBytes > 50 * 1024 * 1024);
+  const hd =
+    (m.width && m.width >= 1280) ||
+    (m.height && m.height >= 720) ||
+    (m.bitrateKbps && m.bitrateKbps >= 2500) ||
+    (m.frameRate && m.frameRate >= 30) ||
+    (m.sizeBytes && m.sizeBytes > 50 * 1024 * 1024);
   return hd ? 'HD' : 'SD';
 };
 
@@ -852,6 +928,12 @@ onBeforeUnmount(() => {
 .headline-tag { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.55); color: #fff; padding: 4px 10px; border-radius: 999px; }
 .headline-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.65) 100%); color: #fff; }
 .headline-info h3 { margin: 0 0 4px; }
+.recommend-carousel { margin: 12px 0; }
+.recommend-card { position: relative; height: 200px; border-radius: 10px; overflow: hidden; cursor: pointer; }
+.recommend-card img { width: 100%; height: 100%; object-fit: cover; }
+.recommend-info { position: absolute; inset: 0; padding: 14px; background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.7)); color: #fff; }
+.recommend-info h4 { margin: 6px 0 4px; }
+.recommend-tag { display: inline-block; background: #f59e0b; color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
 
 .section-head { margin: 16px 0 10px; }
 .sub { color: #909399; margin: 4px 0 0; }

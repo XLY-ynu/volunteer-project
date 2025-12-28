@@ -16,5 +16,7 @@ public class MediaAssetRequest {
     private Integer durationSeconds;
     private Integer width;
     private Integer height;
+    private Integer bitrateKbps;
+    private Double frameRate;
     private String checksum;
 }

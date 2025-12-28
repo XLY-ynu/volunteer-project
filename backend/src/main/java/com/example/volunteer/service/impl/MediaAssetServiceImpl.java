@@ -42,6 +42,8 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         asset.setDurationSeconds(request.getDurationSeconds());
         asset.setWidth(request.getWidth());
         asset.setHeight(request.getHeight());
+        asset.setBitrateKbps(request.getBitrateKbps());
+        asset.setFrameRate(request.getFrameRate());
         asset.setChecksum(request.getChecksum());
         asset.setCreatedAt(LocalDateTime.now());
         mediaAssetMapper.insert(asset);
@@ -154,6 +156,8 @@ public class MediaAssetServiceImpl implements MediaAssetService {
                     asset.setWidth(meta.width);
                     asset.setHeight(meta.height);
                     asset.setDurationSeconds((int) Math.round(meta.duration));
+                    asset.setBitrateKbps(meta.bitrateKbps);
+                    asset.setFrameRate(meta.frameRate);
                 }
             }
         } catch (Exception ignored) {
@@ -167,7 +171,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
                     "ffprobe",
                     "-v", "error",
                     "-select_streams", "v:0",
-                    "-show_entries", "stream=width,height,duration",
+                    "-show_entries", "stream=width,height,duration,bit_rate,r_frame_rate",
                     "-of", "default=noprint_wrappers=1:nokey=1",
                     path.toString()
             );
@@ -189,7 +193,34 @@ public class MediaAssetServiceImpl implements MediaAssetService {
             int width = Integer.parseInt(parts[0].trim());
             int height = Integer.parseInt(parts[1].trim());
             double duration = parts.length >= 3 ? Double.parseDouble(parts[2].trim()) : 0;
-            return new VideoMeta(width, height, duration);
+            Integer bitrateKbps = null;
+            if (parts.length >= 4 && !parts[3].trim().isEmpty()) {
+                try {
+                    bitrateKbps = (int) Math.round(Double.parseDouble(parts[3].trim()) / 1000.0);
+                } catch (NumberFormatException ignored) {
+                    bitrateKbps = null;
+                }
+            }
+            Double frameRate = null;
+            if (parts.length >= 5 && !parts[4].trim().isEmpty()) {
+                frameRate = parseFrameRate(parts[4].trim());
+            }
+            return new VideoMeta(width, height, duration, bitrateKbps, frameRate);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Double parseFrameRate(String value) {
+        try {
+            if (value.contains("/")) {
+                String[] parts = value.split("/");
+                double numerator = Double.parseDouble(parts[0]);
+                double denominator = Double.parseDouble(parts[1]);
+                if (denominator == 0) return null;
+                return numerator / denominator;
+            }
+            return Double.parseDouble(value);
         } catch (Exception e) {
             return null;
         }
@@ -199,11 +230,15 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         final int width;
         final int height;
         final double duration;
+        final Integer bitrateKbps;
+        final Double frameRate;
 
-        VideoMeta(int width, int height, double duration) {
+        VideoMeta(int width, int height, double duration, Integer bitrateKbps, Double frameRate) {
             this.width = width;
             this.height = height;
             this.duration = duration;
+            this.bitrateKbps = bitrateKbps;
+            this.frameRate = frameRate;
         }
     }
 

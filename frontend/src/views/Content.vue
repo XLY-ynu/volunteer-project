@@ -31,7 +31,12 @@
         </el-form-item>
       </el-form>
 
-      <el-table :data="list" stripe>
+      <el-table ref="tableRef" :data="list" stripe>
+        <el-table-column label="排序" width="60">
+          <template #default>
+            <el-icon class="drag-handle"><Rank /></el-icon>
+          </template>
+        </el-table-column>
         <el-table-column label="封面" width="100">
           <template #default="scope">
             <div class="cover-cell">
@@ -152,11 +157,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, nextTick, onBeforeUnmount } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { createContent, deleteContent, fetchCategories, fetchContent, updateContent, updateContentFlags } from '../api';
+import { createContent, deleteContent, fetchCategories, fetchContent, updateContent, updateContentFlags, updateContentOrder } from '../api';
 import { useUserStore } from '../stores/user';
-import { Plus, Search, Edit, Delete, Picture } from '@element-plus/icons-vue';
+import { Plus, Search, Edit, Delete, Picture, Rank } from '@element-plus/icons-vue';
+import Sortable from 'sortablejs';
 
 const list = ref<any[]>([]);
 const page = ref(1);
@@ -167,6 +173,8 @@ const dialogVisible = ref(false);
 const editingId = ref<number | null>(null);
 const user = useUserStore();
 const uploadHeaders = computed(() => ({ Authorization: `Bearer ${user.token}` }));
+const tableRef = ref();
+const sortableRef = ref<Sortable | null>(null);
 
 const form = ref({
   title: '',
@@ -186,6 +194,7 @@ const load = async () => {
   const data = resp.data?.data || {};
   list.value = data.records || [];
   total.value = data.total || 0;
+  initSortable();
 };
 
 const loadCategories = async () => {
@@ -273,6 +282,30 @@ onMounted(() => {
   loadCategories();
   load();
 });
+
+onBeforeUnmount(() => {
+  if (sortableRef.value) sortableRef.value.destroy();
+});
+
+const initSortable = () => {
+  nextTick(() => {
+    const tbody = tableRef.value?.$el?.querySelector('.el-table__body-wrapper tbody');
+    if (!tbody) return;
+    if (sortableRef.value) sortableRef.value.destroy();
+    sortableRef.value = Sortable.create(tbody, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd: async (evt) => {
+        if (evt.oldIndex == null || evt.newIndex == null) return;
+        const moved = list.value.splice(evt.oldIndex, 1)[0];
+        list.value.splice(evt.newIndex, 0, moved);
+        const items = list.value.map((item, idx) => ({ id: item.id, sortOrder: idx + 1 }));
+        await updateContentOrder(items);
+        ElMessage.success('排序已更新');
+      }
+    });
+  });
+};
 </script>
 
 <style scoped>
@@ -301,4 +334,5 @@ onMounted(() => {
 .upload-trigger span { font-size: 14px; color: #909399; }
 .cover-tip { font-size: 12px; color: #909399; margin-top: 8px; }
 .quick-flags { display: flex; gap: 8px; }
+.drag-handle { cursor: move; color: #909399; }
 </style>

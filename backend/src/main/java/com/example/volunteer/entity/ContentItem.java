@@ -20,6 +20,7 @@ public class ContentItem {
     private Boolean published;
     private Boolean headline;
     private Boolean recommended;
+    private Integer sortOrder;
     private LocalDateTime publishTime;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
