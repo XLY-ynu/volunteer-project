@@ -78,6 +78,8 @@ export const fetchHeadlineContent = () => http.get('/content/headlines');
 export const fetchPublicContent = (page = 1, size = 10, categoryId?: number, keyword?: string) =>
   http.get('/public/content', { params: { page, size, categoryId, keyword } });
 export const fetchPublicContentById = (id: number) => http.get(`/public/content/${id}`);
+export const fetchPublicRecommendations = (parentId?: number, limit?: number, strategy?: string) =>
+  http.get('/public/recommendations', { params: { parentId, limit, strategy } });
 
 export const fetchLayouts = () => http.get('/layouts');
 export const createLayout = (payload: any) => http.post('/layouts', payload);
@@ -104,6 +106,17 @@ export const fetchActivityStats = (id: number) => http.get(`/activities/${id}/st
 export const fetchVolunteerSignups = (phone: string) => http.get('/public/volunteer/signups', { params: { phone } });
 export const registerVolunteerPublic = (payload: any) => http.post('/public/volunteer/register', payload);
 export const fetchPlaybackPublic = (terminalCode: string) => http.get('/public/playback', { params: { terminalCode } });
+export const fetchPublicTerminals = (groupName?: string) => http.get('/public/terminals', { params: { groupName } });
+
+export const portalRegister = (payload: { name: string; phone: string; password: string; email?: string; organization?: string }) =>
+  http.post('/portal/auth/register', payload);
+export const portalLogin = (payload: { phone: string; password: string }) =>
+  http.post('/portal/auth/login', payload);
+export const fetchPortalMe = () => http.get('/portal/me');
+export const updatePortalMe = (payload: { name?: string; email?: string; organization?: string }) =>
+  http.put('/portal/me', payload);
+export const fetchPortalSignups = () => http.get('/portal/my-signups');
+export const signupActivityPortal = (payload: { activityId: number }) => http.post('/portal/activities/signup', payload);
 
 export const fetchSummary = () => http.get('/monitor/summary');
 export const fetchTerminalStatus = () => http.get('/monitor/terminal-status');

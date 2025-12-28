@@ -5,7 +5,9 @@ const http = axios.create({
 });
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const url = config.url || '';
+  const tokenKey = url.startsWith('/portal') ? 'portal_token' : 'token';
+  const token = localStorage.getItem(tokenKey);
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -17,9 +19,15 @@ http.interceptors.response.use(
   (resp) => resp,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('username');
-      window.location.href = '/login';
+      const url = error.config?.url || '';
+      if (url.startsWith('/portal')) {
+        localStorage.removeItem('portal_token');
+        localStorage.removeItem('portal_profile');
+      } else {
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

@@ -1,16 +1,11 @@
-package com.example.volunteer.entity;
+package com.example.volunteer.dto;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
 @Data
-@TableName("volunteer")
-public class Volunteer {
-    @TableId(type = IdType.AUTO)
+public class PortalProfileDto {
     private Long id;
     private Long userId;
     private String name;

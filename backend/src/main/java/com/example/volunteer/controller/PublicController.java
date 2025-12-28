@@ -17,13 +17,20 @@ import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
 import com.example.volunteer.mapper.ContentConfigMapper;
+import com.example.volunteer.mapper.TerminalMapper;
+import com.example.volunteer.entity.Terminal;
 import com.example.volunteer.entity.ContentConfig;
+import com.example.volunteer.dto.TerminalPublicDto;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 import com.example.volunteer.dto.ActivitySignupPublicRequest;
 import com.example.volunteer.dto.ActivityCheckinPublicRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,10 +51,15 @@ public class PublicController {
     private final ActivitySignupMapper activitySignupMapper;
     private final VolunteerMapper volunteerMapper;
     private final ContentConfigMapper contentConfigMapper;
+    private final TerminalMapper terminalMapper;
+
+    @Value("${app.terminal.offline-seconds:300}")
+    private long offlineSeconds;
 
     public PublicController(MenuCategoryMapper menuCategoryMapper, ContentService contentService, TerminalService terminalService,
                             ActivityMapper activityMapper, ActivitySignupMapper activitySignupMapper,
-                            VolunteerMapper volunteerMapper, ContentConfigMapper contentConfigMapper) {
+                            VolunteerMapper volunteerMapper, ContentConfigMapper contentConfigMapper,
+                            TerminalMapper terminalMapper) {
         this.menuCategoryMapper = menuCategoryMapper;
         this.contentService = contentService;
         this.terminalService = terminalService;
@@ -55,6 +67,7 @@ public class PublicController {
         this.activitySignupMapper = activitySignupMapper;
         this.volunteerMapper = volunteerMapper;
         this.contentConfigMapper = contentConfigMapper;
+        this.terminalMapper = terminalMapper;
     }
 
     @GetMapping("/categories")
@@ -90,6 +103,67 @@ public class PublicController {
             contentConfigMapper.insert(config);
         }
         return ApiResponse.ok(config);
+    }
+
+    @GetMapping("/recommendations")
+    public ApiResponse<List<ContentItem>> recommendations(@RequestParam(required = false) Long parentId,
+                                                          @RequestParam(required = false) Integer limit,
+                                                          @RequestParam(defaultValue = "prefer") String strategy) {
+        List<ContentItem> all = contentService.listRecommended().stream()
+                .filter(item -> Boolean.TRUE.equals(item.getPublished()))
+                .collect(Collectors.toList());
+        if (all.isEmpty()) {
+            return ApiResponse.ok(List.of());
+        }
+        int take = resolveRecommendLimit(limit);
+        if (parentId == null) {
+            return ApiResponse.ok(limitList(all, take));
+        }
+        List<MenuCategory> children = menuCategoryMapper.selectList(
+                new LambdaQueryWrapper<MenuCategory>().eq(MenuCategory::getParentId, parentId));
+        Set<Long> categoryIds = new HashSet<>();
+        categoryIds.add(parentId);
+        for (MenuCategory c : children) {
+            categoryIds.add(c.getId());
+        }
+        List<ContentItem> preferred = all.stream()
+                .filter(item -> item.getCategoryId() != null && categoryIds.contains(item.getCategoryId()))
+                .collect(Collectors.toList());
+        if ("filter".equalsIgnoreCase(strategy)) {
+            return ApiResponse.ok(limitList(preferred, take));
+        }
+        List<ContentItem> merged = new ArrayList<>(preferred);
+        for (ContentItem item : all) {
+            if (item.getCategoryId() != null && categoryIds.contains(item.getCategoryId())) {
+                continue;
+            }
+            merged.add(item);
+        }
+        return ApiResponse.ok(limitList(merged, take));
+    }
+
+    @GetMapping("/terminals")
+    public ApiResponse<List<TerminalPublicDto>> terminals(@RequestParam(required = false) String groupName) {
+        LambdaQueryWrapper<Terminal> w = new LambdaQueryWrapper<>();
+        if (groupName != null && !groupName.isEmpty()) {
+            w.eq(Terminal::getGroupName, groupName);
+        }
+        List<Terminal> terminals = terminalMapper.selectList(w);
+        LocalDateTime threshold = LocalDateTime.now().minusSeconds(offlineSeconds);
+        List<TerminalPublicDto> list = terminals.stream().map(t -> {
+            TerminalPublicDto dto = new TerminalPublicDto();
+            dto.setCode(t.getCode());
+            dto.setName(t.getName());
+            dto.setGroupName(t.getGroupName());
+            dto.setLastHeartbeat(t.getLastHeartbeat());
+            String status = t.getStatus();
+            if (t.getLastHeartbeat() != null && t.getLastHeartbeat().isBefore(threshold)) {
+                status = "offline";
+            }
+            dto.setStatus(status);
+            return dto;
+        }).collect(Collectors.toList());
+        return ApiResponse.ok(list);
     }
 
     @GetMapping("/activities")
@@ -250,5 +324,23 @@ public class PublicController {
             return dto;
         }).collect(java.util.stream.Collectors.toList());
         return ApiResponse.ok(list);
+    }
+
+    private int resolveRecommendLimit(Integer limit) {
+        if (limit != null && limit > 0) {
+            return limit;
+        }
+        ContentConfig config = contentConfigMapper.selectOne(null);
+        if (config != null && config.getRecommendCount() != null && config.getRecommendCount() > 0) {
+            return config.getRecommendCount();
+        }
+        return 6;
+    }
+
+    private List<ContentItem> limitList(List<ContentItem> list, int limit) {
+        if (limit <= 0 || list.size() <= limit) {
+            return list;
+        }
+        return list.subList(0, limit);
     }
 }

@@ -43,6 +43,13 @@
           </div>
         </div>
       </el-card>
+      <div class="recommend-controls">
+        <el-radio-group v-model="recommendStrategy" size="small" @change="loadRecommendations">
+          <el-radio-button label="prefer">本栏目优先</el-radio-button>
+          <el-radio-button label="filter">仅本栏目</el-radio-button>
+          <el-radio-button label="global">全站推荐</el-radio-button>
+        </el-radio-group>
+      </div>
       <el-carousel
         v-if="recommendedList.length > 1"
         ref="recommendCarouselRef"
@@ -220,10 +227,20 @@
           <el-switch v-model="previewPollingEnabled" active-text="实时轮询" @change="startMultiPolling" />
           <el-button v-if="isAdmin" size="small" @click="savePreviewIntervalAsDefault">设为全局默认</el-button>
         </div>
+        <el-alert
+          v-if="offlineTerminals.length"
+          type="warning"
+          show-icon
+          :title="`发现 ${offlineTerminals.length} 个离线终端：${offlineTerminals.join('、')}`"
+          class="offline-alert"
+        />
         <el-row :gutter="10">
           <el-col :span="8" v-for="p in multiPreviews" :key="p.terminal">
             <el-card shadow="hover">
-              <div class="mini-title">{{ p.terminal }}</div>
+              <div class="mini-title">
+                <span>{{ p.terminal }}</span>
+                <el-tag size="small" :type="terminalStatusType(p.terminal)">{{ terminalStatusLabel(p.terminal) }}</el-tag>
+              </div>
               <div class="mini-body">
                 <div class="mini-now" v-if="p.currentMedia">
                   <div class="mini-name">播放中：{{ p.currentMedia.name }}</div>
@@ -242,6 +259,33 @@
             </el-card>
           </el-col>
         </el-row>
+      </el-card>
+
+      <el-card v-if="terminalGroups.length" class="group-card" shadow="never">
+        <div class="group-head">
+          <h4>终端分组视角</h4>
+          <el-button size="small" @click="loadTerminalStatus">刷新状态</el-button>
+        </div>
+        <el-tabs v-model="activeGroupTab">
+          <el-tab-pane
+            v-for="group in terminalGroups"
+            :key="group.name"
+            :label="`${group.name} (${group.onlineCount}/${group.items.length})`"
+            :name="group.name"
+          >
+            <div class="group-grid">
+              <div v-for="t in group.items" :key="t.code" class="group-item">
+                <div class="group-name">{{ t.name || t.code }}</div>
+                <div class="group-meta">
+                  <span class="group-code">{{ t.code }}</span>
+                  <el-tag size="small" :type="t.status === 'offline' ? 'danger' : 'success'">
+                    {{ t.status === 'offline' ? '离线' : '在线' }}
+                  </el-tag>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </el-card>
     </section>
 
@@ -269,20 +313,23 @@
     <section class="register" id="register">
       <div class="section-head">
         <h2>志愿者注册</h2>
-        <p class="sub">留下联系方式方便报名与签到</p>
+        <p class="sub">注册后可在个人中心查看报名/签到记录</p>
       </div>
       <el-form label-width="90px" class="register-form">
         <el-form-item label="姓名">
-          <el-input v-model="volunteerForm.name" />
+          <el-input v-model="portalRegisterForm.name" />
         </el-form-item>
         <el-form-item label="手机号">
-          <el-input v-model="volunteerForm.phone" />
+          <el-input v-model="portalRegisterForm.phone" />
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="portalRegisterForm.password" show-password />
         </el-form-item>
         <el-form-item label="邮箱">
-          <el-input v-model="volunteerForm.email" />
+          <el-input v-model="portalRegisterForm.email" />
         </el-form-item>
         <el-form-item label="所属组织">
-          <el-input v-model="volunteerForm.organization" />
+          <el-input v-model="portalRegisterForm.organization" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="registerVolunteer">提交</el-button>
@@ -293,11 +340,61 @@
     <section class="my-signups">
       <div class="section-head">
         <h3>我的报名/签到</h3>
-        <p class="sub">输入手机号查看状态</p>
+        <p class="sub">{{ portalLoggedIn ? '已登录，报名/签到自动同步' : '登录后可自动同步报名/签到记录' }}</p>
       </div>
-      <div class="query">
-        <el-input v-model="queryPhone" placeholder="输入手机号查询" style="width: 240px" />
-        <el-button @click="loadSignups">查询</el-button>
+      <div v-if="!portalLoggedIn" class="portal-auth">
+        <el-card class="auth-card" shadow="hover">
+          <div class="auth-title">个人中心登录</div>
+          <el-form label-width="70px">
+            <el-form-item label="手机号">
+              <el-input v-model="portalLoginForm.phone" />
+            </el-form-item>
+            <el-form-item label="密码">
+              <el-input v-model="portalLoginForm.password" type="password" show-password />
+            </el-form-item>
+          </el-form>
+          <div class="auth-actions">
+            <el-button type="primary" @click="portalLoginSubmit">登录</el-button>
+            <el-button @click="scrollTo('register')">去注册</el-button>
+          </div>
+        </el-card>
+        <div class="query">
+          <el-input v-model="queryPhone" placeholder="未登录时可用手机号查询" style="width: 240px" />
+          <el-button @click="loadSignups">查询</el-button>
+        </div>
+      </div>
+      <div v-else class="portal-profile">
+        <el-card class="profile-card" shadow="hover">
+          <div class="profile-head">
+            <div>
+              <div class="profile-name">{{ portalProfile?.name || '志愿者' }}</div>
+              <div class="profile-meta">{{ portalProfile?.phone }}</div>
+            </div>
+            <div class="profile-actions">
+              <el-button size="small" @click="profileEditing = !profileEditing">{{ profileEditing ? '取消' : '编辑资料' }}</el-button>
+              <el-button size="small" @click="portalLogout">退出</el-button>
+            </div>
+          </div>
+          <el-form v-if="profileEditing" label-width="80px">
+            <el-form-item label="姓名">
+              <el-input v-model="profileForm.name" />
+            </el-form-item>
+            <el-form-item label="邮箱">
+              <el-input v-model="profileForm.email" />
+            </el-form-item>
+            <el-form-item label="组织">
+              <el-input v-model="profileForm.organization" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="savePortalProfile">保存</el-button>
+            </el-form-item>
+          </el-form>
+          <div v-else class="profile-info">
+            <div>邮箱：{{ portalProfile?.email || '未填写' }}</div>
+            <div>组织：{{ portalProfile?.organization || '未填写' }}</div>
+            <div>状态：{{ portalProfile?.status || '—' }}</div>
+          </div>
+        </el-card>
       </div>
       <el-table :data="signups" size="small">
         <el-table-column prop="title" label="活动" />
@@ -367,9 +464,16 @@ import {
   fetchPublicContent,
   fetchPublicContentById,
   fetchPublicContentConfig,
+  fetchPublicRecommendations,
+  fetchPublicTerminals,
+  portalLogin,
+  portalRegister,
+  fetchPortalMe,
+  updatePortalMe,
+  fetchPortalSignups,
+  signupActivityPortal,
   updateContentConfig,
   fetchVolunteerSignups,
-  registerVolunteerPublic,
   signupActivityPublic
 } from '../api';
 
@@ -394,6 +498,14 @@ const recommendIntervalSec = ref(6);
 const recommendCount = ref(6);
 const recommendCarouselRef = ref();
 const recommendAutoplay = ref(true);
+const recommendStrategy = ref('prefer');
+const portalToken = ref(localStorage.getItem('portal_token') || '');
+const portalProfile = ref<any | null>(null);
+const portalLoginForm = ref({ phone: '', password: '' });
+const portalRegisterForm = ref({ name: '', phone: '', password: '', email: '', organization: '' });
+const profileForm = ref({ name: '', email: '', organization: '' });
+const profileEditing = ref(false);
+const portalLoggedIn = computed(() => !!portalToken.value);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -436,6 +548,8 @@ const previewClockTimer = ref<number | null>(null);
 const previewPollingEnabled = ref(true);
 const qualityFilter = ref('all');
 const durationFilter = ref('all');
+const terminalStatusList = ref<any[]>([]);
+const activeGroupTab = ref('');
 
 const visibleMediaAssets = computed(() => {
   let list = mediaAssets.value;
@@ -462,6 +576,37 @@ const visibleMediaAssets = computed(() => {
   return list;
 });
 
+const terminalStatusMap = computed(() => {
+  const map: Record<string, any> = {};
+  terminalStatusList.value.forEach((t: any) => {
+    map[t.code] = t;
+  });
+  return map;
+});
+
+const terminalGroups = computed(() => {
+  const groups: Record<string, any[]> = {};
+  terminalStatusList.value.forEach((t: any) => {
+    const key = t.groupName || '未分组';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(t);
+  });
+  return Object.keys(groups).map((name) => {
+    const items = groups[name];
+    const offlineCount = items.filter((t) => t.status === 'offline').length;
+    return {
+      name,
+      items,
+      offlineCount,
+      onlineCount: items.length - offlineCount
+    };
+  });
+});
+
+const offlineTerminals = computed(() => {
+  return multiSelected.value.filter((code) => terminalStatusMap.value[code]?.status === 'offline');
+});
+
 const activities = ref<any[]>([]);
 const activityPage = ref(1);
 const activitySize = ref(8);
@@ -470,7 +615,6 @@ const dialogVisible = ref(false);
 const signupForm = ref({ name: '', phone: '', email: '', organization: '' });
 const currentActivity = ref<number | null>(null);
 
-const volunteerForm = ref({ name: '', phone: '', email: '', organization: '' });
 const signups = ref<any[]>([]);
 const queryPhone = ref('');
 
@@ -479,7 +623,7 @@ const stats = ref<{ playlistTotal: number; activityTotal: number; mediaTotal: nu
   activityTotal: 0,
   mediaTotal: 0
 });
-const isAdmin = ref(!!localStorage.getItem('token'));
+const isAdmin = ref(localStorage.getItem('role') === 'ADMIN');
 
 const scrollTo = (id: string) => {
   const el = document.getElementById(id);
@@ -508,9 +652,7 @@ const loadContentConfig = async () => {
         previewInterval.value = data.previewIntervalSec;
       }
     }
-    if (contentList.value.length) {
-      syncRecommendedList();
-    }
+    await loadRecommendations();
   } catch (e) {
     // ignore
   }
@@ -526,6 +668,7 @@ const selectParent = async (p: any) => {
     activeChild.value = null;
     loadContent();
   }
+  await loadRecommendations();
 };
 
 const selectChild = (c: any) => {
@@ -541,7 +684,6 @@ const loadContent = async () => {
     const data = resp.data?.data || {};
     contentList.value = data.records || [];
     contentTotal.value = data.total || 0;
-    syncRecommendedList();
     if (contentPage.value === 1 && contentList.value.length) {
       const list = [...contentList.value];
       const pick = list.find((i: any) => i.headline) || list.find((i: any) => i.recommended);
@@ -566,6 +708,17 @@ const loadContent = async () => {
     }
   } finally {
     contentLoading.value = false;
+  }
+};
+
+const loadRecommendations = async () => {
+  try {
+    const parentId = recommendStrategy.value === 'global' ? undefined : activeParent.value?.id;
+    const strategy = recommendStrategy.value === 'global' ? 'prefer' : recommendStrategy.value;
+    const resp = await fetchPublicRecommendations(parentId, recommendCount.value, strategy);
+    recommendedList.value = resp.data?.data || [];
+  } catch (e) {
+    syncRecommendedList();
   }
 };
 
@@ -640,7 +793,11 @@ const onActivityPage = (p: number) => {
 
 const openSignup = (id: number) => {
   currentActivity.value = id;
-  dialogVisible.value = true;
+  if (portalLoggedIn.value) {
+    signupWithAccount();
+  } else {
+    dialogVisible.value = true;
+  }
 };
 
 const signup = async () => {
@@ -655,26 +812,101 @@ const signup = async () => {
   dialogVisible.value = false;
 };
 
+const signupWithAccount = async () => {
+  if (!currentActivity.value) return;
+  await signupActivityPortal({ activityId: currentActivity.value });
+  ElMessage.success('报名成功');
+  await loadSignups();
+};
+
 const registerVolunteer = async () => {
-  if (!volunteerForm.value.name || !volunteerForm.value.phone) {
-    ElMessage.warning('请输入姓名和手机号');
+  if (!portalRegisterForm.value.name || !portalRegisterForm.value.phone || !portalRegisterForm.value.password) {
+    ElMessage.warning('请输入姓名、手机号和密码');
     return;
   }
   try {
-    await registerVolunteerPublic(volunteerForm.value);
-    ElMessage.success('提交成功，等待审核');
+    const resp = await portalRegister(portalRegisterForm.value);
+    const data = resp.data?.data;
+    if (data?.token) {
+      portalToken.value = data.token;
+      localStorage.setItem('portal_token', data.token);
+    }
+    await loadPortalProfile();
+    ElMessage.success('注册成功');
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '提交失败');
   }
 };
 
 const loadSignups = async () => {
+  if (portalLoggedIn.value) {
+    const resp = await fetchPortalSignups();
+    signups.value = resp.data?.data || [];
+    return;
+  }
   if (!queryPhone.value) {
     ElMessage.warning('请输入手机号');
     return;
   }
   const resp = await fetchVolunteerSignups(queryPhone.value);
   signups.value = resp.data?.data || [];
+};
+
+const portalLoginSubmit = async () => {
+  if (!portalLoginForm.value.phone || !portalLoginForm.value.password) {
+    ElMessage.warning('请输入手机号和密码');
+    return;
+  }
+  try {
+    const resp = await portalLogin(portalLoginForm.value);
+    const data = resp.data?.data;
+    if (data?.token) {
+      portalToken.value = data.token;
+      localStorage.setItem('portal_token', data.token);
+    }
+    await loadPortalProfile();
+    await loadSignups();
+    ElMessage.success('登录成功');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '登录失败');
+  }
+};
+
+const loadPortalProfile = async () => {
+  if (!portalLoggedIn.value) return;
+  try {
+    const resp = await fetchPortalMe();
+    portalProfile.value = resp.data?.data || null;
+    if (portalProfile.value) {
+      localStorage.setItem('portal_profile', JSON.stringify(portalProfile.value));
+      profileForm.value = {
+        name: portalProfile.value.name || '',
+        email: portalProfile.value.email || '',
+        organization: portalProfile.value.organization || ''
+      };
+    }
+  } catch (e) {
+    portalLogout();
+  }
+};
+
+const savePortalProfile = async () => {
+  if (!portalLoggedIn.value) return;
+  const resp = await updatePortalMe(profileForm.value);
+  portalProfile.value = resp.data?.data || null;
+  localStorage.setItem('portal_profile', JSON.stringify(portalProfile.value));
+  profileEditing.value = false;
+  ElMessage.success('已保存');
+};
+
+const portalLogout = () => {
+  portalToken.value = '';
+  portalProfile.value = null;
+  localStorage.removeItem('portal_token');
+  localStorage.removeItem('portal_profile');
+  profileEditing.value = false;
+  portalLoginForm.value = { phone: '', password: '' };
+  signups.value = [];
 };
 
 const loadStats = async () => {
@@ -928,8 +1160,21 @@ const loadMultiPreviews = async () => {
   multiPreviews.value = results;
 };
 
+const loadTerminalStatus = async () => {
+  try {
+    const resp = await fetchPublicTerminals();
+    terminalStatusList.value = resp.data?.data || [];
+    if (!activeGroupTab.value && terminalGroups.value.length) {
+      activeGroupTab.value = terminalGroups.value[0].name;
+    }
+  } catch (e) {
+    // ignore
+  }
+};
+
 const onMultiSelectedChange = () => {
   loadMultiPreviews();
+  loadTerminalStatus();
   startMultiPolling();
 };
 
@@ -943,8 +1188,10 @@ const startMultiPolling = () => {
     return;
   }
   startPreviewClock();
+  loadTerminalStatus();
   multiTimer.value = window.setInterval(() => {
     loadMultiPreviews();
+    loadTerminalStatus();
   }, previewInterval.value * 1000);
 };
 
@@ -991,6 +1238,20 @@ const previewRemaining = (p: any) => {
   const durationSec = p.currentMedia.durationSeconds;
   const remaining = durationSec - (elapsed % durationSec);
   return Math.max(0, Math.round(remaining));
+};
+
+const terminalStatusLabel = (code: string) => {
+  const status = terminalStatusMap.value[code]?.status;
+  if (status === 'offline') return '离线';
+  if (status === 'online') return '在线';
+  return '未知';
+};
+
+const terminalStatusType = (code: string) => {
+  const status = terminalStatusMap.value[code]?.status;
+  if (status === 'offline') return 'danger';
+  if (status === 'online') return 'success';
+  return 'info';
 };
 
 const tagColor = (name?: string) => {
@@ -1059,12 +1320,26 @@ onMounted(async () => {
   await loadContentConfig();
   await loadCategories();
   await loadContent();
+  const cachedProfile = localStorage.getItem('portal_profile');
+  if (cachedProfile) {
+    portalProfile.value = JSON.parse(cachedProfile);
+    profileForm.value = {
+      name: portalProfile.value?.name || '',
+      email: portalProfile.value?.email || '',
+      organization: portalProfile.value?.organization || ''
+    };
+  }
+  if (portalLoggedIn.value) {
+    await loadPortalProfile();
+    await loadSignups();
+  }
   const saved = localStorage.getItem('portal_terminal_code');
   if (saved) terminalCode.value = saved;
   const intervalSaved = localStorage.getItem('portal_preview_interval');
   if (intervalSaved) previewInterval.value = Number(intervalSaved);
   await loadPlayback();
   await loadActivities();
+  await loadTerminalStatus();
   loadStats();
 });
 
@@ -1098,6 +1373,7 @@ onBeforeUnmount(() => {
 .recommend-info { position: absolute; inset: 0; padding: 14px; background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.7)); color: #fff; }
 .recommend-info h4 { margin: 6px 0 4px; }
 .recommend-tag { display: inline-block; background: #f59e0b; color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+.recommend-controls { display: flex; justify-content: flex-end; margin-bottom: 6px; }
 .carousel-controls { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 
 .section-head { margin: 16px 0 10px; }
@@ -1114,6 +1390,16 @@ onBeforeUnmount(() => {
 .video-placeholder { height: 260px; border: 1px dashed #dcdfe6; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #909399; }
 .register-form { max-width: 420px; }
 .query { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.portal-auth { display: flex; gap: 12px; align-items: flex-start; }
+.auth-card { width: 320px; }
+.auth-title { font-weight: 600; margin-bottom: 8px; }
+.auth-actions { display: flex; gap: 8px; }
+.profile-card { margin-bottom: 10px; }
+.profile-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.profile-name { font-size: 16px; font-weight: 600; }
+.profile-meta { color: #909399; font-size: 12px; }
+.profile-actions { display: flex; gap: 6px; }
+.profile-info { color: #606266; display: flex; flex-direction: column; gap: 6px; }
 .terminal-input { display: flex; gap: 8px; align-items: center; }
 .media-card { margin-bottom: 10px; }
 .media-thumb { position: relative; height: 120px; border-radius: 8px; overflow: hidden; background: #f5f7fa; display: flex; align-items: center; justify-content: center; }
@@ -1134,8 +1420,9 @@ onBeforeUnmount(() => {
 .detail-body blockquote { border-left: 4px solid #409eff; padding: 6px 12px; color: #606266; background: #f5f7fa; margin: 10px 0; }
 .preview-card { margin-top: 12px; }
 .preview-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin-bottom: 8px; }
+.offline-alert { margin-bottom: 8px; }
 .interval-text { color: #909399; font-size: 12px; }
-.mini-title { font-weight: 600; margin-bottom: 6px; }
+.mini-title { display: flex; align-items: center; justify-content: space-between; font-weight: 600; margin-bottom: 6px; }
 .mini-body { min-height: 60px; color: #606266; }
 .mini-now { padding: 6px 8px; background: #f0f9eb; border-radius: 6px; margin-bottom: 6px; }
 .mini-empty { color: #c0c4cc; }
@@ -1157,4 +1444,11 @@ onBeforeUnmount(() => {
 .badge.quality.sd { background: #909399; }
 .badge.res { left: 6px; right: auto; bottom: 6px; top: auto; background: #111827; }
 .video-filters { display: flex; gap: 8px; margin: 8px 0; }
+.group-card { margin-top: 12px; }
+.group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.group-item { border: 1px solid #ebeef5; border-radius: 8px; padding: 10px; }
+.group-name { font-weight: 600; margin-bottom: 6px; }
+.group-meta { display: flex; justify-content: space-between; align-items: center; color: #909399; font-size: 12px; }
+.group-code { color: #606266; }
 </style>
