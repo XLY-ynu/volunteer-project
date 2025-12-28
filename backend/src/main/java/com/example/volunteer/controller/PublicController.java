@@ -98,9 +98,14 @@ public class PublicController {
             config = new ContentConfig();
             config.setRecommendIntervalSec(6);
             config.setRecommendCount(6);
+            config.setRecommendStrategy("prefer");
             config.setPreviewIntervalSec(10);
             config.setUpdatedAt(LocalDateTime.now());
             contentConfigMapper.insert(config);
+        } else if (config.getRecommendStrategy() == null) {
+            config.setRecommendStrategy("prefer");
+            config.setUpdatedAt(LocalDateTime.now());
+            contentConfigMapper.updateById(config);
         }
         return ApiResponse.ok(config);
     }
@@ -108,7 +113,14 @@ public class PublicController {
     @GetMapping("/recommendations")
     public ApiResponse<List<ContentItem>> recommendations(@RequestParam(required = false) Long parentId,
                                                           @RequestParam(required = false) Integer limit,
-                                                          @RequestParam(defaultValue = "prefer") String strategy) {
+                                                          @RequestParam(required = false) String strategy) {
+        if (strategy == null || strategy.isEmpty()) {
+            ContentConfig config = contentConfigMapper.selectOne(null);
+            strategy = config != null && config.getRecommendStrategy() != null ? config.getRecommendStrategy() : "prefer";
+        }
+        if ("global".equalsIgnoreCase(strategy)) {
+            parentId = null;
+        }
         List<ContentItem> all = contentService.listRecommended().stream()
                 .filter(item -> Boolean.TRUE.equals(item.getPublished()))
                 .collect(Collectors.toList());

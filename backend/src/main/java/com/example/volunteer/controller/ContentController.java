@@ -63,9 +63,14 @@ public class ContentController {
             config = new ContentConfig();
             config.setRecommendIntervalSec(6);
             config.setRecommendCount(6);
+            config.setRecommendStrategy("prefer");
             config.setPreviewIntervalSec(10);
             config.setUpdatedAt(java.time.LocalDateTime.now());
             contentConfigMapper.insert(config);
+        } else if (config.getRecommendStrategy() == null) {
+            config.setRecommendStrategy("prefer");
+            config.setUpdatedAt(java.time.LocalDateTime.now());
+            contentConfigMapper.updateById(config);
         }
         return ApiResponse.ok(config);
     }
@@ -81,6 +86,9 @@ public class ContentController {
         }
         if (request.getRecommendCount() != null) {
             config.setRecommendCount(request.getRecommendCount());
+        }
+        if (request.getRecommendStrategy() != null && !request.getRecommendStrategy().isEmpty()) {
+            config.setRecommendStrategy(request.getRecommendStrategy());
         }
         if (request.getPreviewIntervalSec() != null) {
             config.setPreviewIntervalSec(request.getPreviewIntervalSec());

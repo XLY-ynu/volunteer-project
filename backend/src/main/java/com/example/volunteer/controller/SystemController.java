@@ -47,6 +47,7 @@ public class SystemController {
     private final TerminalMapper terminalMapper;
     private final TerminalPlaylistMapper terminalPlaylistMapper;
     private final BroadcastJobMapper broadcastJobMapper;
+    private final TerminalGroupRuleMapper terminalGroupRuleMapper;
     private final VolunteerMapper volunteerMapper;
     private final ActivityMapper activityMapper;
     private final ActivitySignupMapper activitySignupMapper;
@@ -64,6 +65,7 @@ public class SystemController {
             TerminalMapper terminalMapper,
             TerminalPlaylistMapper terminalPlaylistMapper,
             BroadcastJobMapper broadcastJobMapper,
+            TerminalGroupRuleMapper terminalGroupRuleMapper,
             VolunteerMapper volunteerMapper,
             ActivityMapper activityMapper,
             ActivitySignupMapper activitySignupMapper) {
@@ -79,6 +81,7 @@ public class SystemController {
         this.terminalMapper = terminalMapper;
         this.terminalPlaylistMapper = terminalPlaylistMapper;
         this.broadcastJobMapper = broadcastJobMapper;
+        this.terminalGroupRuleMapper = terminalGroupRuleMapper;
         this.volunteerMapper = volunteerMapper;
         this.activityMapper = activityMapper;
         this.activitySignupMapper = activitySignupMapper;
@@ -129,6 +132,7 @@ public class SystemController {
             dbData.put("terminals", terminalMapper.selectList(null));
             dbData.put("terminalPlaylists", terminalPlaylistMapper.selectList(null));
             dbData.put("broadcasts", broadcastJobMapper.selectList(null));
+            dbData.put("terminalGroupRules", terminalGroupRuleMapper.selectList(null));
             
             // 志愿者管理
             dbData.put("volunteers", volunteerMapper.selectList(null));

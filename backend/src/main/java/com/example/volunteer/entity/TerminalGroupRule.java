@@ -8,13 +8,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("content_config")
-public class ContentConfig {
+@TableName("terminal_group_rule")
+public class TerminalGroupRule {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private Integer recommendIntervalSec;
-    private Integer recommendCount;
-    private String recommendStrategy;
-    private Integer previewIntervalSec;
+    private String groupName;
+    private Integer offlineThreshold;
+    private Boolean enabled;
+    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

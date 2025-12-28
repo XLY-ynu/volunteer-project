@@ -70,7 +70,7 @@ export const updateContentFlags = (id: number, payload: { headline?: boolean; re
 export const updateContentOrder = (items: { id: number; sortOrder: number }[]) =>
   http.put('/content/reorder', { items });
 export const fetchContentConfig = () => http.get('/content/config');
-export const updateContentConfig = (payload: { recommendIntervalSec?: number; recommendCount?: number; previewIntervalSec?: number }) =>
+export const updateContentConfig = (payload: { recommendIntervalSec?: number; recommendCount?: number; recommendStrategy?: string; previewIntervalSec?: number }) =>
   http.put('/content/config', payload);
 export const fetchPublicContentConfig = () => http.get('/public/content-config');
 export const fetchRecommendedContent = () => http.get('/content/recommended');
@@ -112,11 +112,26 @@ export const portalRegister = (payload: { name: string; phone: string; password:
   http.post('/portal/auth/register', payload);
 export const portalLogin = (payload: { phone: string; password: string }) =>
   http.post('/portal/auth/login', payload);
+export const portalCheckPhone = (phone: string) =>
+  http.get('/portal/auth/check-phone', { params: { phone } });
+export const portalResetPassword = (payload: { phone: string; newPassword: string }) =>
+  http.post('/portal/auth/reset-password', payload);
+export const portalChangePassword = (payload: { oldPassword: string; newPassword: string }) =>
+  http.post('/portal/auth/change-password', payload);
 export const fetchPortalMe = () => http.get('/portal/me');
 export const updatePortalMe = (payload: { name?: string; email?: string; organization?: string }) =>
   http.put('/portal/me', payload);
 export const fetchPortalSignups = () => http.get('/portal/my-signups');
 export const signupActivityPortal = (payload: { activityId: number }) => http.post('/portal/activities/signup', payload);
+
+export const fetchGroupRules = () => http.get('/monitor/group-rules');
+export const createGroupRule = (payload: { groupName: string; offlineThreshold?: number; enabled?: boolean }) =>
+  http.post('/monitor/group-rules', payload);
+export const updateGroupRule = (id: number, payload: { groupName?: string; offlineThreshold?: number; enabled?: boolean }) =>
+  http.put(`/monitor/group-rules/${id}`, payload);
+export const deleteGroupRule = (id: number) => http.delete(`/monitor/group-rules/${id}`);
+export const fetchGroupAlerts = () => http.get('/monitor/group-alerts');
+export const fetchOfflineTrend = (days = 7, groupName?: string) => http.get('/monitor/offline-trend', { params: { days, groupName } });
 
 export const fetchSummary = () => http.get('/monitor/summary');
 export const fetchTerminalStatus = () => http.get('/monitor/terminal-status');

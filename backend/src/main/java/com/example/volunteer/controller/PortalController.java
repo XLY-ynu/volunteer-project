@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.dto.LoginResponse;
 import com.example.volunteer.dto.PortalActivitySignupRequest;
+import com.example.volunteer.dto.PortalChangePasswordRequest;
 import com.example.volunteer.dto.PortalLoginRequest;
 import com.example.volunteer.dto.PortalProfileDto;
 import com.example.volunteer.dto.PortalProfileRequest;
 import com.example.volunteer.dto.PortalRegisterRequest;
+import com.example.volunteer.dto.PortalResetPasswordRequest;
 import com.example.volunteer.dto.VolunteerSignupDto;
 import com.example.volunteer.entity.Activity;
 import com.example.volunteer.entity.ActivitySignup;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
@@ -65,31 +68,43 @@ public class PortalController {
                 .eq(User::getUsername, request.getPhone()));
         Assert.isNull(existingUser, "手机号已注册，请直接登录");
 
+        Volunteer existingVolunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                .eq(Volunteer::getPhone, request.getPhone()));
+        if (existingVolunteer != null && "rejected".equals(existingVolunteer.getStatus())) {
+            return ApiResponse.fail("该手机号已被拒绝，请联系管理员");
+        }
+        if (existingVolunteer != null && existingVolunteer.getUserId() != null) {
+            return ApiResponse.fail("该手机号已绑定账户，请直接登录");
+        }
+
         User user = new User();
         user.setUsername(request.getPhone());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setNickname(request.getName());
         user.setRoleCode("VOLUNTEER");
-        user.setEnabled(true);
+        boolean approved = existingVolunteer != null && "approved".equals(existingVolunteer.getStatus());
+        user.setEnabled(approved);
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.insert(user);
 
-        Volunteer volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
-                .eq(Volunteer::getPhone, request.getPhone()));
+        Volunteer volunteer = existingVolunteer;
         if (volunteer == null) {
             volunteer = new Volunteer();
             volunteer.setName(request.getName());
             volunteer.setPhone(request.getPhone());
             volunteer.setEmail(request.getEmail());
             volunteer.setOrganization(request.getOrganization());
-            volunteer.setStatus("pending");
+            volunteer.setStatus(approved ? "approved" : "pending");
             volunteer.setUserId(user.getId());
             volunteer.setCreatedAt(LocalDateTime.now());
             volunteer.setUpdatedAt(LocalDateTime.now());
             volunteerMapper.insert(volunteer);
         } else {
             volunteer.setUserId(user.getId());
+            if (volunteer.getStatus() == null) {
+                volunteer.setStatus(approved ? "approved" : "pending");
+            }
             if (request.getName() != null && !request.getName().isEmpty()) {
                 volunteer.setName(request.getName());
             }
@@ -103,7 +118,7 @@ public class PortalController {
             volunteerMapper.updateById(volunteer);
         }
 
-        String token = jwtUtil.generateToken(user.getUsername(), user.getRoleCode());
+        String token = approved ? jwtUtil.generateToken(user.getUsername(), user.getRoleCode()) : "";
         return ApiResponse.ok(new LoginResponse(token, user.getUsername(), user.getRoleCode()));
     }
 
@@ -112,11 +127,58 @@ public class PortalController {
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getUsername, request.getPhone()));
         Assert.notNull(user, "用户不存在");
-        Assert.isTrue(Boolean.TRUE.equals(user.getEnabled()), "账号已禁用");
         Assert.isTrue(passwordEncoder.matches(request.getPassword(), user.getPassword()), "密码错误");
         Assert.isTrue("VOLUNTEER".equals(user.getRoleCode()), "该账号无法登录志愿者端");
+        Volunteer volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                .eq(Volunteer::getUserId, user.getId()));
+        if (volunteer == null) {
+            volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                    .eq(Volunteer::getPhone, user.getUsername()));
+        }
+        if (volunteer != null && "rejected".equals(volunteer.getStatus())) {
+            return ApiResponse.fail("审核未通过，无法登录");
+        }
+        if (volunteer != null && "pending".equals(volunteer.getStatus())) {
+            return ApiResponse.fail("账号审核中，请稍后再试");
+        }
+        Assert.isTrue(Boolean.TRUE.equals(user.getEnabled()), "账号已禁用");
         String token = jwtUtil.generateToken(user.getUsername(), user.getRoleCode());
         return ApiResponse.ok(new LoginResponse(token, user.getUsername(), user.getRoleCode()));
+    }
+
+    @GetMapping("/auth/check-phone")
+    public ApiResponse<java.util.Map<String, Object>> checkPhone(@RequestParam String phone) {
+        boolean exists = userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getUsername, phone)) > 0;
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("exists", exists);
+        return ApiResponse.ok(map);
+    }
+
+    @PostMapping("/auth/reset-password")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody PortalResetPasswordRequest request) {
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, request.getPhone()));
+        Assert.notNull(user, "用户不存在");
+        Assert.isTrue("VOLUNTEER".equals(user.getRoleCode()), "账号类型不匹配");
+        Volunteer volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                .eq(Volunteer::getUserId, user.getId()));
+        if (volunteer != null && !"approved".equals(volunteer.getStatus())) {
+            return ApiResponse.fail("账号未审核通过，无法重置密码");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(user);
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/auth/change-password")
+    public ApiResponse<Void> changePassword(@Valid @RequestBody PortalChangePasswordRequest request) {
+        User user = requirePortalUser();
+        Assert.isTrue(passwordEncoder.matches(request.getOldPassword(), user.getPassword()), "原密码错误");
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(user);
+        return ApiResponse.ok(null);
     }
 
     @GetMapping("/me")
@@ -175,6 +237,9 @@ public class PortalController {
         Volunteer volunteer = ensureVolunteer(user);
         Activity activity = activityMapper.selectById(request.getActivityId());
         Assert.notNull(activity, "活动不存在");
+        if (!"approved".equals(volunteer.getStatus())) {
+            return ApiResponse.fail("账号未审核通过，无法报名");
+        }
         ActivitySignup existing = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getActivityId, request.getActivityId())
                 .eq(ActivitySignup::getVolunteerId, volunteer.getId()));

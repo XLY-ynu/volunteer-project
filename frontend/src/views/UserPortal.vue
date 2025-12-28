@@ -320,8 +320,9 @@
           <el-input v-model="portalRegisterForm.name" />
         </el-form-item>
         <el-form-item label="手机号">
-          <el-input v-model="portalRegisterForm.phone" />
+          <el-input v-model="portalRegisterForm.phone" @blur="checkPhoneUnique" />
         </el-form-item>
+        <div v-if="phoneExists" class="phone-tip">该手机号已注册，请直接登录</div>
         <el-form-item label="密码">
           <el-input v-model="portalRegisterForm.password" show-password />
         </el-form-item>
@@ -356,6 +357,7 @@
           <div class="auth-actions">
             <el-button type="primary" @click="portalLoginSubmit">登录</el-button>
             <el-button @click="scrollTo('register')">去注册</el-button>
+            <el-button type="info" text @click="openResetDialog">忘记密码</el-button>
           </div>
         </el-card>
         <div class="query">
@@ -372,6 +374,7 @@
             </div>
             <div class="profile-actions">
               <el-button size="small" @click="profileEditing = !profileEditing">{{ profileEditing ? '取消' : '编辑资料' }}</el-button>
+              <el-button size="small" @click="changePwdDialog = true">修改密码</el-button>
               <el-button size="small" @click="portalLogout">退出</el-button>
             </div>
           </div>
@@ -451,6 +454,36 @@
         <el-button type="primary" @click="saveFavorites">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="resetDialog" title="找回密码" width="420px">
+      <el-form label-width="80px">
+        <el-form-item label="手机号">
+          <el-input v-model="resetForm.phone" />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="resetForm.newPassword" show-password />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="resetDialog = false">取消</el-button>
+        <el-button type="primary" @click="resetPassword">确认</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="changePwdDialog" title="修改密码" width="420px">
+      <el-form label-width="80px">
+        <el-form-item label="原密码">
+          <el-input v-model="changePwdForm.oldPassword" show-password />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="changePwdForm.newPassword" show-password />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="changePwdDialog = false">取消</el-button>
+        <el-button type="primary" @click="changePassword">确认</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -468,6 +501,9 @@ import {
   fetchPublicTerminals,
   portalLogin,
   portalRegister,
+  portalCheckPhone,
+  portalResetPassword,
+  portalChangePassword,
   fetchPortalMe,
   updatePortalMe,
   fetchPortalSignups,
@@ -506,6 +542,11 @@ const portalRegisterForm = ref({ name: '', phone: '', password: '', email: '', o
 const profileForm = ref({ name: '', email: '', organization: '' });
 const profileEditing = ref(false);
 const portalLoggedIn = computed(() => !!portalToken.value);
+const resetDialog = ref(false);
+const resetForm = ref({ phone: '', newPassword: '' });
+const changePwdDialog = ref(false);
+const changePwdForm = ref({ oldPassword: '', newPassword: '' });
+const phoneExists = ref(false);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -645,6 +686,9 @@ const loadContentConfig = async () => {
     }
     if (data?.recommendCount) {
       recommendCount.value = data.recommendCount;
+    }
+    if (data?.recommendStrategy) {
+      recommendStrategy.value = data.recommendStrategy;
     }
     if (data?.previewIntervalSec) {
       const local = localStorage.getItem('portal_preview_interval');
@@ -814,9 +858,13 @@ const signup = async () => {
 
 const signupWithAccount = async () => {
   if (!currentActivity.value) return;
-  await signupActivityPortal({ activityId: currentActivity.value });
-  ElMessage.success('报名成功');
-  await loadSignups();
+  try {
+    await signupActivityPortal({ activityId: currentActivity.value });
+    ElMessage.success('报名成功');
+    await loadSignups();
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '报名失败');
+  }
 };
 
 const registerVolunteer = async () => {
@@ -824,17 +872,40 @@ const registerVolunteer = async () => {
     ElMessage.warning('请输入姓名、手机号和密码');
     return;
   }
+  if (phoneExists.value) {
+    ElMessage.warning('该手机号已注册，请直接登录');
+    return;
+  }
   try {
     const resp = await portalRegister(portalRegisterForm.value);
+    if (!resp.data?.success) {
+      ElMessage.error(resp.data?.message || '提交失败');
+      return;
+    }
     const data = resp.data?.data;
     if (data?.token) {
       portalToken.value = data.token;
       localStorage.setItem('portal_token', data.token);
+      await loadPortalProfile();
+      ElMessage.success('注册成功');
+    } else {
+      ElMessage.success('注册成功，等待审核');
     }
-    await loadPortalProfile();
-    ElMessage.success('注册成功');
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '提交失败');
+  }
+};
+
+const checkPhoneUnique = async () => {
+  if (!portalRegisterForm.value.phone) {
+    phoneExists.value = false;
+    return;
+  }
+  try {
+    const resp = await portalCheckPhone(portalRegisterForm.value.phone);
+    phoneExists.value = !!resp.data?.data?.exists;
+  } catch (e) {
+    phoneExists.value = false;
   }
 };
 
@@ -859,6 +930,10 @@ const portalLoginSubmit = async () => {
   }
   try {
     const resp = await portalLogin(portalLoginForm.value);
+    if (!resp.data?.success) {
+      ElMessage.error(resp.data?.message || '登录失败');
+      return;
+    }
     const data = resp.data?.data;
     if (data?.token) {
       portalToken.value = data.token;
@@ -869,6 +944,49 @@ const portalLoginSubmit = async () => {
     ElMessage.success('登录成功');
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '登录失败');
+  }
+};
+
+const openResetDialog = () => {
+  resetForm.value.phone = portalLoginForm.value.phone;
+  resetDialog.value = true;
+};
+
+const resetPassword = async () => {
+  if (!resetForm.value.phone || !resetForm.value.newPassword) {
+    ElMessage.warning('请输入手机号和新密码');
+    return;
+  }
+  try {
+    const resp = await portalResetPassword(resetForm.value);
+    if (!resp.data?.success) {
+      ElMessage.error(resp.data?.message || '重置失败');
+      return;
+    }
+    ElMessage.success('密码已重置，请重新登录');
+    resetDialog.value = false;
+    resetForm.value = { phone: '', newPassword: '' };
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '重置失败');
+  }
+};
+
+const changePassword = async () => {
+  if (!changePwdForm.value.oldPassword || !changePwdForm.value.newPassword) {
+    ElMessage.warning('请输入原密码和新密码');
+    return;
+  }
+  try {
+    const resp = await portalChangePassword(changePwdForm.value);
+    if (!resp.data?.success) {
+      ElMessage.error(resp.data?.message || '修改失败');
+      return;
+    }
+    ElMessage.success('密码已修改');
+    changePwdDialog.value = false;
+    changePwdForm.value = { oldPassword: '', newPassword: '' };
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '修改失败');
   }
 };
 
@@ -1394,6 +1512,7 @@ onBeforeUnmount(() => {
 .auth-card { width: 320px; }
 .auth-title { font-weight: 600; margin-bottom: 8px; }
 .auth-actions { display: flex; gap: 8px; }
+.phone-tip { color: #f56c6c; font-size: 12px; margin: -6px 0 8px 90px; }
 .profile-card { margin-bottom: 10px; }
 .profile-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .profile-name { font-size: 16px; font-weight: 600; }

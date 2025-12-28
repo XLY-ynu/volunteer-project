@@ -41,6 +41,67 @@
       </div>
     </el-alert>
 
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
+        <div class="group-title">分组告警规则</div>
+        <el-button size="small" type="primary" @click="openRuleDialog">新增规则</el-button>
+      </div>
+      <el-table :data="groupRules" size="small">
+        <el-table-column prop="groupName" label="分组" width="140" />
+        <el-table-column prop="offlineThreshold" label="离线阈值" width="120" />
+        <el-table-column prop="enabled" label="启用" width="80">
+          <template #default="scope">
+            <el-tag :type="scope.row.enabled ? 'success' : 'info'" size="small">{{ scope.row.enabled ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="140">
+          <template #default="scope">
+            <el-button-group>
+              <el-button size="small" @click="editRule(scope.row)">编辑</el-button>
+              <el-button size="small" type="danger" @click="removeRule(scope.row.id)">删除</el-button>
+            </el-button-group>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
+        <div class="group-title">分组告警概览</div>
+        <el-button size="small" @click="loadGroupAlerts">刷新</el-button>
+      </div>
+      <el-table :data="groupAlerts" size="small">
+        <el-table-column prop="groupName" label="分组" width="140" />
+        <el-table-column prop="total" label="总数" width="80" />
+        <el-table-column prop="offline" label="离线" width="80" />
+        <el-table-column prop="ruleThreshold" label="阈值" width="80" />
+        <el-table-column prop="alert" label="告警" width="90">
+          <template #default="scope">
+            <el-tag :type="scope.row.alert ? 'danger' : 'success'" size="small">
+              {{ scope.row.alert ? '告警' : '正常' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
+        <div class="group-title">离线趋势</div>
+        <div class="group-actions">
+          <el-select v-model="trendGroup" placeholder="全部分组" clearable size="small" style="width: 160px">
+            <el-option v-for="g in groupOptions" :key="g" :label="g" :value="g" />
+          </el-select>
+          <el-input-number v-model="trendDays" :min="3" :max="30" size="small" />
+          <el-button size="small" @click="loadOfflineTrend">刷新</el-button>
+        </div>
+      </div>
+      <el-table :data="offlineTrend" size="small">
+        <el-table-column prop="day" label="日期" width="140" />
+        <el-table-column prop="offlineCount" label="离线次数" width="120" />
+      </el-table>
+    </el-card>
+
     <el-card class="filter-card" shadow="never">
       <el-form :inline="true">
         <el-form-item label="分组">
@@ -147,6 +208,24 @@
       <template #footer>
         <el-button @click="showRegisterDialog = false">取消</el-button>
         <el-button type="primary" @click="register">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="ruleDialog" :title="ruleEditingId ? '编辑告警规则' : '新增告警规则'" width="420px">
+      <el-form :model="ruleForm" label-width="90px">
+        <el-form-item label="分组名称">
+          <el-input v-model="ruleForm.groupName" placeholder="如: 一层大屏" />
+        </el-form-item>
+        <el-form-item label="离线阈值">
+          <el-input-number v-model="ruleForm.offlineThreshold" :min="1" :max="99" />
+        </el-form-item>
+        <el-form-item label="启用">
+          <el-switch v-model="ruleForm.enabled" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="ruleDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveRule">保存</el-button>
       </template>
     </el-dialog>
 
@@ -317,9 +396,24 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { bindPlaylistToTerminals, fetchPlaylists, fetchTerminals, fetchTerminalHeartbeats, fetchTerminalPlaylists, fetchTerminalStatus, registerTerminal, fetchActiveBroadcasts } from '../api';
+import {
+  bindPlaylistToTerminals,
+  fetchPlaylists,
+  fetchTerminals,
+  fetchTerminalHeartbeats,
+  fetchTerminalPlaylists,
+  fetchTerminalStatus,
+  registerTerminal,
+  fetchActiveBroadcasts,
+  fetchGroupRules,
+  createGroupRule,
+  updateGroupRule,
+  deleteGroupRule,
+  fetchGroupAlerts,
+  fetchOfflineTrend
+} from '../api';
 import { Plus, Monitor, WarningFilled, InfoFilled, Link, Connection, Timer, List, Setting, Bell } from '@element-plus/icons-vue';
 
 const terminals = ref<any[]>([]);
@@ -329,6 +423,14 @@ const selectedPlaylist = ref<number | null>(null);
 const startEnd = ref<[string, string] | null>(null);
 const groupFilter = ref('');
 const status = ref<{ online: number; offline: number; offlineTerminals: any[] }>({ online: 0, offline: 0, offlineTerminals: [] });
+const groupRules = ref<any[]>([]);
+const groupAlerts = ref<any[]>([]);
+const offlineTrend = ref<any[]>([]);
+const trendGroup = ref('');
+const trendDays = ref(7);
+const ruleDialog = ref(false);
+const ruleEditingId = ref<number | null>(null);
+const ruleForm = ref({ groupName: '', offlineThreshold: 1, enabled: true });
 const showRegisterDialog = ref(false);
 const form = ref({ code: '', name: '', groupName: '' });
 const heartbeatDialog = ref(false);
@@ -342,6 +444,17 @@ const attrTab = ref('display');
 const attrRawJson = ref('');
 const currentTerminalId = ref<number | null>(null);
 const currentTerminal = ref<any>(null);
+
+const groupOptions = computed(() => {
+  const set = new Set<string>();
+  terminals.value.forEach((t) => {
+    if (t.groupName) set.add(t.groupName);
+  });
+  groupRules.value.forEach((r) => {
+    if (r.groupName) set.add(r.groupName);
+  });
+  return Array.from(set);
+});
 
 const attrForm = ref({
   brightness: 80,
@@ -370,6 +483,18 @@ const loadPlaylists = async () => {
 const loadStatus = async () => {
   const resp = await fetchTerminalStatus();
   status.value = resp.data?.data || { online: 0, offline: 0, offlineTerminals: [] };
+};
+const loadGroupRules = async () => {
+  const resp = await fetchGroupRules();
+  groupRules.value = resp.data?.data || [];
+};
+const loadGroupAlerts = async () => {
+  const resp = await fetchGroupAlerts();
+  groupAlerts.value = resp.data?.data || [];
+};
+const loadOfflineTrend = async () => {
+  const resp = await fetchOfflineTrend(trendDays.value, trendGroup.value || undefined);
+  offlineTrend.value = resp.data?.data || [];
 };
 const register = async () => {
   if (!form.value.code || !form.value.name) { ElMessage.warning('请输入代码和名称'); return; }
@@ -417,6 +542,41 @@ const viewBroadcasts = async (row: any) => {
   const resp = await fetchActiveBroadcasts(row.code, row.groupName);
   currentBroadcasts.value = resp.data?.data?.records || [];
   broadcastDialog.value = true;
+};
+
+const openRuleDialog = () => {
+  ruleEditingId.value = null;
+  ruleForm.value = { groupName: '', offlineThreshold: 1, enabled: true };
+  ruleDialog.value = true;
+};
+
+const editRule = (row: any) => {
+  ruleEditingId.value = row.id;
+  ruleForm.value = { groupName: row.groupName, offlineThreshold: row.offlineThreshold, enabled: row.enabled };
+  ruleDialog.value = true;
+};
+
+const saveRule = async () => {
+  if (!ruleForm.value.groupName) {
+    ElMessage.warning('请输入分组名称');
+    return;
+  }
+  if (ruleEditingId.value) {
+    await updateGroupRule(ruleEditingId.value, ruleForm.value);
+  } else {
+    await createGroupRule(ruleForm.value);
+  }
+  ElMessage.success('已保存');
+  ruleDialog.value = false;
+  loadGroupRules();
+  loadGroupAlerts();
+};
+
+const removeRule = async (id: number) => {
+  await deleteGroupRule(id);
+  ElMessage.success('已删除');
+  loadGroupRules();
+  loadGroupAlerts();
 };
 
 // 根据时间动态计算插播状态，与插播管理页面保持一致
@@ -522,7 +682,14 @@ const saveAttr = async () => {
   attrDialog.value = false;
   loadTerminals();
 };
-onMounted(() => { loadTerminals(); loadPlaylists(); loadStatus(); });
+onMounted(() => {
+  loadTerminals();
+  loadPlaylists();
+  loadStatus();
+  loadGroupRules();
+  loadGroupAlerts();
+  loadOfflineTrend();
+});
 </script>
 
 <style scoped>
@@ -542,6 +709,10 @@ onMounted(() => { loadTerminals(); loadPlaylists(); loadStatus(); });
 .offline-alert { border-radius: 12px; }
 .offline-list { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .filter-card, .content-card, .bind-card { border-radius: 12px; }
+.group-alert-card { border-radius: 12px; }
+.group-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.group-title { font-weight: 600; }
+.group-actions { display: flex; align-items: center; gap: 8px; }
 
 /* 绑定区域样式 */
 .bind-card { background: linear-gradient(135deg, #f0f9eb, #e1f3d8); border: 1px solid #c2e7b0; }

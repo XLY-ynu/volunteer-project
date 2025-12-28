@@ -30,6 +30,7 @@ public class ContentServiceImpl implements ContentService {
         item.setPublished(Boolean.TRUE.equals(request.getPublished()));
         item.setHeadline(Boolean.TRUE.equals(request.getHeadline()));
         item.setRecommended(Boolean.TRUE.equals(request.getRecommended()));
+        item.setRecommendWeight(request.getRecommendWeight() == null ? 0 : request.getRecommendWeight());
         Integer order = request.getSortOrder();
         item.setSortOrder(order != null ? order : (int) (System.currentTimeMillis() / 1000));
         item.setPublishTime(Boolean.TRUE.equals(request.getPublished()) ? LocalDateTime.now() : null);
@@ -53,6 +54,9 @@ public class ContentServiceImpl implements ContentService {
         item.setPublished(Boolean.TRUE.equals(request.getPublished()));
         item.setHeadline(Boolean.TRUE.equals(request.getHeadline()));
         item.setRecommended(Boolean.TRUE.equals(request.getRecommended()));
+        if (request.getRecommendWeight() != null) {
+            item.setRecommendWeight(request.getRecommendWeight());
+        }
         if (request.getSortOrder() != null) {
             item.setSortOrder(request.getSortOrder());
         }
@@ -100,6 +104,7 @@ public class ContentServiceImpl implements ContentService {
         return contentItemMapper.selectList(
                 new LambdaQueryWrapper<ContentItem>()
                         .eq(ContentItem::getRecommended, true)
+                        .orderByDesc(ContentItem::getRecommendWeight)
                         .orderByAsc(ContentItem::getSortOrder)
                         .orderByDesc(ContentItem::getPublishTime)
         );

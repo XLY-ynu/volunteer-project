@@ -3,7 +3,9 @@ package com.example.volunteer.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
+import com.example.volunteer.entity.User;
 import com.example.volunteer.entity.Volunteer;
+import com.example.volunteer.mapper.UserMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,11 @@ import java.time.LocalDateTime;
 public class VolunteerController {
 
     private final VolunteerMapper volunteerMapper;
+    private final UserMapper userMapper;
 
-    public VolunteerController(VolunteerMapper volunteerMapper) {
+    public VolunteerController(VolunteerMapper volunteerMapper, UserMapper userMapper) {
         this.volunteerMapper = volunteerMapper;
+        this.userMapper = userMapper;
     }
 
     @GetMapping
@@ -47,6 +51,7 @@ public class VolunteerController {
         volunteer.setCreatedAt(LocalDateTime.now());
         volunteer.setUpdatedAt(LocalDateTime.now());
         volunteerMapper.insert(volunteer);
+        syncUserStatus(volunteer);
         return ApiResponse.ok(volunteer);
     }
 
@@ -61,9 +66,15 @@ public class VolunteerController {
                 return ApiResponse.fail("该手机号已被其他志愿者使用");
             }
         }
+        // 获取原有记录以保留userId
+        Volunteer existingVol = volunteerMapper.selectById(id);
+        if (existingVol != null && volunteer.getUserId() == null) {
+            volunteer.setUserId(existingVol.getUserId());
+        }
         volunteer.setId(id);
         volunteer.setUpdatedAt(LocalDateTime.now());
         volunteerMapper.updateById(volunteer);
+        syncUserStatus(volunteer);
         return ApiResponse.ok(volunteer);
     }
 
@@ -71,5 +82,22 @@ public class VolunteerController {
     public ApiResponse<Void> delete(@PathVariable Long id) {
         volunteerMapper.deleteById(id);
         return ApiResponse.ok(null);
+    }
+
+    private void syncUserStatus(Volunteer volunteer) {
+        if (volunteer.getUserId() == null) {
+            return;
+        }
+        User user = userMapper.selectById(volunteer.getUserId());
+        if (user == null) {
+            return;
+        }
+        if ("approved".equals(volunteer.getStatus())) {
+            user.setEnabled(true);
+        } else {
+            user.setEnabled(false);
+        }
+        user.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(user);
     }
 }

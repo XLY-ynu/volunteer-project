@@ -76,6 +76,11 @@
             <el-tag v-if="scope.row.recommended" size="small" type="warning" style="margin-left: 6px">推荐</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="recommendWeight" label="权重" width="90">
+          <template #default="scope">
+            <span>{{ scope.row.recommendWeight ?? 0 }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="publishTime" label="发布时间" width="160">
           <template #default="scope">{{ formatDate(scope.row.publishTime) }}</template>
         </el-table-column>
@@ -154,6 +159,9 @@
           <el-checkbox v-model="form.headline">头条</el-checkbox>
           <el-checkbox v-model="form.recommended" style="margin-left: 12px">推荐</el-checkbox>
         </el-form-item>
+        <el-form-item label="推荐权重">
+          <el-input-number v-model="form.recommendWeight" :min="0" :max="999" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -217,6 +225,13 @@
         <el-form-item label="轮播数量">
           <el-input-number v-model="configForm.recommendCount" :min="1" :max="20" />
         </el-form-item>
+        <el-form-item label="推荐策略">
+          <el-select v-model="configForm.recommendStrategy" placeholder="选择策略" style="width: 180px">
+            <el-option label="全站推荐" value="global" />
+            <el-option label="本栏目优先" value="prefer" />
+            <el-option label="仅本栏目" value="filter" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="预览轮询(秒)">
           <el-input-number v-model="configForm.previewIntervalSec" :min="5" :max="60" />
         </el-form-item>
@@ -255,7 +270,7 @@ const recommendPreviewDialog = ref(false);
 const headlineDialog = ref(false);
 const headlineList = ref<any[]>([]);
 const configDialog = ref(false);
-const configForm = ref({ recommendIntervalSec: 6, recommendCount: 6, previewIntervalSec: 10 });
+const configForm = ref({ recommendIntervalSec: 6, recommendCount: 6, recommendStrategy: 'prefer', previewIntervalSec: 10 });
 
 const recommendPreviewList = computed(() => {
   if (!recommendList.value.length) return [];
@@ -270,7 +285,8 @@ const form = ref({
   body: '',
   published: true,
   headline: false,
-  recommended: false
+  recommended: false,
+  recommendWeight: 0
 });
 
 const filter = ref<{ categoryId?: number; published?: boolean; keyword?: string }>({});
@@ -297,7 +313,7 @@ const formatDate = (d: string) => d ? d.replace('T', ' ').substring(0, 16) : '-'
 
 const onCreate = () => {
   editingId.value = null;
-  form.value = { title: '', categoryId: undefined, summary: '', coverUrl: '', body: '', published: true, headline: false, recommended: false };
+  form.value = { title: '', categoryId: undefined, summary: '', coverUrl: '', body: '', published: true, headline: false, recommended: false, recommendWeight: 0 };
   dialogVisible.value = true;
 };
 
@@ -311,7 +327,8 @@ const edit = (row: any) => {
     body: row.body,
     published: row.published,
     headline: row.headline,
-    recommended: row.recommended
+    recommended: row.recommended,
+    recommendWeight: row.recommendWeight ?? 0
   };
   dialogVisible.value = true;
 };
@@ -445,6 +462,7 @@ const loadConfig = async () => {
   if (data) {
     configForm.value.recommendIntervalSec = data.recommendIntervalSec || 6;
     configForm.value.recommendCount = data.recommendCount || 6;
+    configForm.value.recommendStrategy = data.recommendStrategy || 'prefer';
     configForm.value.previewIntervalSec = data.previewIntervalSec || 10;
   }
 };

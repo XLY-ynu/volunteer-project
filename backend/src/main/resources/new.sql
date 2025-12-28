@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS activity_checkin_log (
 -- ALTER TABLE content_item ADD COLUMN headline TINYINT(1) DEFAULT 0;
 -- ALTER TABLE content_item ADD COLUMN recommended TINYINT(1) DEFAULT 0;
 -- ALTER TABLE content_item ADD COLUMN sort_order INT DEFAULT 0;
+-- ALTER TABLE content_item ADD COLUMN recommend_weight INT DEFAULT 0;
 
 -- 12) 媒体元数据增强
 -- ALTER TABLE media_asset ADD COLUMN bitrate_kbps INT NULL;
@@ -111,9 +112,22 @@ CREATE TABLE IF NOT EXISTS content_config (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     recommend_interval_sec INT DEFAULT 6,
     recommend_count INT DEFAULT 6,
+    recommend_strategy VARCHAR(16) DEFAULT 'prefer',
     preview_interval_sec INT DEFAULT 10,
     updated_at DATETIME
 );
 
 -- 14) 推荐轮播数量配置（若字段已存在会报错可忽略）
 -- ALTER TABLE content_config ADD COLUMN recommend_count INT DEFAULT 6 AFTER recommend_interval_sec;
+-- 15) 推荐策略配置（若字段已存在会报错可忽略）
+-- ALTER TABLE content_config ADD COLUMN recommend_strategy VARCHAR(16) DEFAULT 'prefer' AFTER recommend_count;
+
+-- 16) 终端分组告警规则
+CREATE TABLE IF NOT EXISTS terminal_group_rule (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    group_name VARCHAR(64) NOT NULL,
+    offline_threshold INT DEFAULT 1,
+    enabled TINYINT(1) DEFAULT 1,
+    created_at DATETIME,
+    updated_at DATETIME
+);
