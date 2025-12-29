@@ -436,7 +436,9 @@ public class PortalController {
                                                         @RequestParam(defaultValue = "10") int size,
                                                         @RequestParam(required = false) String type,
                                                         @RequestParam(required = false) String status,
-                                                        @RequestParam(required = false) String read) {
+                                                        @RequestParam(required = false) String read,
+                                                        @RequestParam(required = false) String startTime,
+                                                        @RequestParam(required = false) String endTime) {
         User user = requirePortalUser();
         Volunteer volunteer = ensureVolunteer(user);
         List<PortalMessageDto> messages = buildPortalMessages(volunteer);
@@ -448,6 +450,14 @@ public class PortalController {
         }
         if (status != null && !status.isEmpty()) {
             messages = messages.stream().filter(m -> status.equalsIgnoreCase(m.getStatus())).collect(Collectors.toList());
+        }
+        LocalDateTime start = parseTime(startTime);
+        LocalDateTime end = parseTime(endTime);
+        if (start != null) {
+            messages = messages.stream().filter(m -> m.getCreatedAt() != null && !m.getCreatedAt().isBefore(start)).collect(Collectors.toList());
+        }
+        if (end != null) {
+            messages = messages.stream().filter(m -> m.getCreatedAt() != null && !m.getCreatedAt().isAfter(end)).collect(Collectors.toList());
         }
         Boolean readFilter = parseReadFilter(read);
         if (readFilter != null) {
@@ -703,5 +713,16 @@ public class PortalController {
             text = "\"" + text.replace("\"", "\"\"") + "\"";
         }
         return text;
+    }
+
+    private LocalDateTime parseTime(String val) {
+        if (val == null || val.isEmpty()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(val.replace(" ", "T"));
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

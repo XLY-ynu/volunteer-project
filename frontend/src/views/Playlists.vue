@@ -54,7 +54,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="布局">
-              <el-select v-model="form.layoutId" placeholder="选择布局（可选）" clearable style="width: 100%">
+              <el-select v-model="form.layoutId" placeholder="选择布局（可选）" clearable style="width: 100%" @change="onLayoutChange">
                 <el-option v-for="l in layouts" :key="l.id" :label="l.name" :value="l.id" />
               </el-select>
             </el-form-item>
@@ -95,6 +95,14 @@
               <el-input-number v-model="mediaDurations[scope.row.id]" :min="3" :max="600" size="small" controls-position="right" />
             </template>
           </el-table-column>
+          <el-table-column label="分区" width="110" v-if="layoutAreas.length">
+            <template #default="scope">
+              <el-select v-model="mediaAreas[scope.row.id]" size="small" placeholder="自动" style="width: 90px">
+                <el-option label="自动" :value="undefined" />
+                <el-option v-for="(area, idx) in layoutAreas" :key="idx" :label="'区域 ' + (idx + 1)" :value="idx + 1" />
+              </el-select>
+            </template>
+          </el-table-column>
         </el-table>
 
         <!-- 内容资源列表 -->
@@ -119,6 +127,14 @@
               <el-input-number v-model="contentDurations[scope.row.id]" :min="5" :max="600" size="small" controls-position="right" />
             </template>
           </el-table-column>
+          <el-table-column label="分区" width="110" v-if="layoutAreas.length">
+            <template #default="scope">
+              <el-select v-model="contentAreas[scope.row.id]" size="small" placeholder="自动" style="width: 90px">
+                <el-option label="自动" :value="undefined" />
+                <el-option v-for="(area, idx) in layoutAreas" :key="idx" :label="'区域 ' + (idx + 1)" :value="idx + 1" />
+              </el-select>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
 
@@ -141,6 +157,7 @@
                   <el-tag :type="element.type === 'content' ? 'primary' : 'success'" size="small">{{ element.type === 'content' ? '内容' : '媒体' }}</el-tag>
                 </div>
                 <span class="item-duration">{{ element.duration }}秒</span>
+                <el-tag v-if="element.areaIndex" type="info" size="small">区域 {{ element.areaIndex }}</el-tag>
                 <el-button type="danger" link size="small" @click="removeSelected(index)"><el-icon><Close /></el-icon></el-button>
               </div>
             </template>
@@ -190,6 +207,12 @@
             </template>
           </el-table-column>
           <el-table-column prop="displayDuration" label="时长(秒)" width="90" />
+          <el-table-column prop="areaIndex" label="分区" width="70">
+            <template #default="scope">
+              <span v-if="scope.row.areaIndex">区域 {{ scope.row.areaIndex }}</span>
+              <span v-else>自动</span>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
     </el-dialog>
@@ -200,7 +223,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { createPlaylist, deletePlaylist, fetchContent, fetchLayouts, fetchMedia, fetchPlaylistItems, fetchPlaylistPreview, fetchPlaylists, updatePlaylist } from '../api';
+import { createPlaylist, deletePlaylist, fetchContent, fetchLayouts, fetchMedia, fetchPlaylistItems, fetchPlaylistPreview, fetchPlaylists, updatePlaylist, fetchLayout } from '../api';
 import { Plus, Picture, Document, VideoPlay, Delete, Edit, Rank, Close } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 
@@ -211,6 +234,7 @@ interface SelectedItem {
   name: string;
   thumb: string;
   duration: number;
+  areaIndex?: number;
 }
 
 const dialogVisible = ref(false);
@@ -228,6 +252,9 @@ const previewDialog = ref(false);
 const previewData = ref<any | null>(null);
 const mediaTableRef = ref<any>(null);
 const contentTableRef = ref<any>(null);
+const layoutAreas = ref<any[]>([]);
+const mediaAreas = reactive<Record<number, number | undefined>>({});
+const contentAreas = reactive<Record<number, number | undefined>>({});
 
 const loadMedia = async () => {
   const resp = await fetchMedia(1, 200);
@@ -251,11 +278,44 @@ const loadLayouts = async () => {
   layouts.value = resp.data?.data || [];
 };
 
+const loadLayoutDetail = async (id?: number) => {
+  if (!id) {
+    layoutAreas.value = [];
+    return;
+  }
+  try {
+    const resp = await fetchLayout(id);
+    const json = resp.data?.data?.layoutJson;
+    if (json) {
+      const obj = JSON.parse(json);
+      layoutAreas.value = obj.areas || [];
+    } else {
+      layoutAreas.value = [];
+    }
+  } catch {
+    layoutAreas.value = [];
+  }
+};
+
 const getLayoutName = (id: number) => layouts.value.find(l => l.id === id)?.name || `ID:${id}`;
 
 const openCreate = () => {
   resetForm();
   dialogVisible.value = true;
+};
+
+const onLayoutChange = async (val: number) => {
+  await loadLayoutDetail(val);
+  const count = layoutAreas.value.length;
+  if (count === 0) return;
+  Object.keys(mediaAreas).forEach((k) => {
+    const v = mediaAreas[Number(k)];
+    if (v && v > count) mediaAreas[Number(k)] = undefined;
+  });
+  Object.keys(contentAreas).forEach((k) => {
+    const v = contentAreas[Number(k)];
+    if (v && v > count) contentAreas[Number(k)] = undefined;
+  });
 };
 
 const onMediaSelectChange = (rows: any[]) => {
@@ -267,7 +327,8 @@ const onMediaSelectChange = (rows: any[]) => {
       id: row.id,
       name: row.name,
       thumb: row.thumbUrl || row.url || '',
-      duration: mediaDurations[row.id] || 10
+      duration: mediaDurations[row.id] || 10,
+      areaIndex: mediaAreas[row.id]
     });
   });
 };
@@ -281,7 +342,8 @@ const onContentSelectChange = (rows: any[]) => {
       id: row.id,
       name: row.title,
       thumb: row.coverUrl || '',
-      duration: contentDurations[row.id] || 15
+      duration: contentDurations[row.id] || 15,
+      areaIndex: contentAreas[row.id]
     });
   });
 };
@@ -310,15 +372,29 @@ watch(contentDurations, () => {
   });
 }, { deep: true });
 
+watch(mediaAreas, () => {
+  selectedItems.value.forEach(item => {
+    if (item.type === 'media') item.areaIndex = mediaAreas[item.id];
+  });
+}, { deep: true });
+
+watch(contentAreas, () => {
+  selectedItems.value.forEach(item => {
+    if (item.type === 'content') item.areaIndex = contentAreas[item.id];
+  });
+}, { deep: true });
+
 const onSave = async () => {
   if (!form.name) { ElMessage.warning('请输入列表名称'); return; }
   if (selectedItems.value.length === 0) { ElMessage.warning('请选择至少一个资源'); return; }
+  const areaCount = layoutAreas.value.length;
   
   const items = selectedItems.value.map((item, idx) => ({
     mediaId: item.type === 'media' ? item.id : null,
     contentId: item.type === 'content' ? item.id : null,
     displayDuration: item.duration,
-    sortOrder: idx
+    sortOrder: idx,
+    areaIndex: areaCount > 0 && item.areaIndex && item.areaIndex <= areaCount ? item.areaIndex : null
   }));
   
   if (!form.coverUrl && selectedItems.value.length > 0) {
@@ -343,6 +419,7 @@ const edit = async (row: any) => {
   form.description = row.description;
   form.coverUrl = row.coverUrl || '';
   form.layoutId = row.layoutId;
+  await loadLayoutDetail(row.layoutId);
   dialogVisible.value = true;
   
   const resp = await fetchPlaylistItems(row.id);
@@ -359,13 +436,15 @@ const edit = async (row: any) => {
         const media = mediaItems.value.find(m => m.id === item.mediaId);
         if (media) {
           mediaDurations[item.mediaId] = item.displayDuration || 10;
+          mediaAreas[item.mediaId] = item.areaIndex;
           selectedItems.value.push({
             key: `media-${item.mediaId}`,
             type: 'media',
             id: item.mediaId,
             name: media.name,
             thumb: media.thumbUrl || media.url || '',
-            duration: item.displayDuration || 10
+            duration: item.displayDuration || 10,
+            areaIndex: item.areaIndex
           });
           mediaTableRef.value?.toggleRowSelection(media, true);
         }
@@ -373,13 +452,15 @@ const edit = async (row: any) => {
         const content = contentItems.value.find(c => c.id === item.contentId);
         if (content) {
           contentDurations[item.contentId] = item.displayDuration || 15;
+          contentAreas[item.contentId] = item.areaIndex;
           selectedItems.value.push({
             key: `content-${item.contentId}`,
             type: 'content',
             id: item.contentId,
             name: content.title,
             thumb: content.coverUrl || '',
-            duration: item.displayDuration || 15
+            duration: item.displayDuration || 15,
+            areaIndex: item.areaIndex
           });
           contentTableRef.value?.toggleRowSelection(content, true);
         }
@@ -403,6 +484,9 @@ const resetForm = () => {
   form.layoutId = undefined;
   selectedItems.value = [];
   resourceType.value = 'media';
+  layoutAreas.value = [];
+  Object.keys(mediaAreas).forEach(k => delete mediaAreas[Number(k)]);
+  Object.keys(contentAreas).forEach(k => delete contentAreas[Number(k)]);
 };
 
 const preview = async (id: number) => {

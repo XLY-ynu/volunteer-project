@@ -184,7 +184,8 @@ const buildQueue = async (playback: any) => {
         type,
         url: media.url,
         thumbUrl: media.thumbUrl,
-        duration: item.displayDuration || media.durationSeconds || 10
+        duration: item.displayDuration || media.durationSeconds || 10,
+        areaIndex: item.areaIndex
       });
     } else if (item.contentId) {
       try {
@@ -195,7 +196,8 @@ const buildQueue = async (playback: any) => {
           type: 'content',
           title: content?.title,
           summary: content?.summary,
-          duration: item.displayDuration || 12
+          duration: item.displayDuration || 12,
+          areaIndex: item.areaIndex
         });
       } catch (e) {
         // ignore
@@ -209,20 +211,26 @@ const buildQueue = async (playback: any) => {
 const buildAreaQueues = () => {
   const list = baseQueue.value || [];
   const count = areas.value.length || 1;
-  areaQueues.value = areas.value.map((area, idx) => {
-    const mode = area?.playMode || area?.mode || 'split';
-    let subset = list;
-    if (count > 1 && mode !== 'shared') {
-      subset = list.filter((_, i) => i % count === idx);
-      if (!subset.length) subset = list;
+  areaQueues.value = areas.value.map(() => []);
+  list.forEach((item: any, i: number) => {
+    const targetIdx = (item.areaIndex && item.areaIndex > 0 && item.areaIndex <= count) ? item.areaIndex - 1 : null;
+    if (targetIdx !== null) {
+      areaQueues.value[targetIdx].push(item);
+    } else {
+      const idx = count > 1 ? (i % count) : 0;
+      areaQueues.value[idx].push(item);
     }
+  });
+  areaQueues.value = areaQueues.value.map((subset, idx) => {
+    const area = areas.value[idx] || {};
+    if (subset.length === 0) return subset;
     if (area?.shuffle) {
-      subset = [...subset].sort(() => Math.random() - 0.5);
+      return [...subset].sort(() => Math.random() - 0.5);
     }
     return subset;
   });
   areaStates.value = areas.value.map((_, idx) => ({
-    index: list.length ? idx % list.length : 0,
+    index: areaQueues.value[idx]?.length ? 0 : 0,
     startedAt: Date.now()
   }));
 };

@@ -15,4 +15,5 @@ public class PlaylistItem {
     private Long contentId;
     private Integer displayDuration;
     private Integer sortOrder;
+    private Integer areaIndex;
 }

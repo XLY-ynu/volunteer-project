@@ -137,8 +137,8 @@ export const updatePortalReminderSettings = (payload: { signupReminder?: boolean
 export const fetchPortalReminders = () => http.get('/portal/reminders');
 export const fetchPortalReminderLogs = () => http.get('/portal/reminder-logs');
 export const downloadPortalReminderLogs = () => http.get('/portal/reminder-logs/export', { responseType: 'blob' });
-export const fetchPortalMessages = (page = 1, size = 10, type?: string, read?: string, status?: string) =>
-  http.get('/portal/messages', { params: { page, size, type, read, status } });
+export const fetchPortalMessages = (page = 1, size = 10, type?: string, read?: string, status?: string, startTime?: string, endTime?: string) =>
+  http.get('/portal/messages', { params: { page, size, type, read, status, startTime, endTime } });
 export const markPortalMessagesRead = (payload: { keys?: string[]; readAll?: boolean }) =>
   http.post('/portal/messages/read', payload);
 

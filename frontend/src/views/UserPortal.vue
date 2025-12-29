@@ -492,7 +492,9 @@
       <el-card v-if="portalLoggedIn" class="message-card" shadow="never">
         <template #header>
           <div class="card-title">
-            消息中心
+            <el-badge :value="unreadTotal" :hidden="!unreadTotal" type="danger">
+              <span>消息中心</span>
+            </el-badge>
             <div class="message-controls">
               <el-select v-model="messageTypeFilter" size="small" placeholder="类型" style="width: 120px" @change="onMessageFilterChange">
                 <el-option label="全部" value="all" />
@@ -505,6 +507,16 @@
                 <el-option label="未读" value="unread" />
                 <el-option label="已读" value="read" />
               </el-select>
+              <el-date-picker
+                v-model="messageDateRange"
+                type="datetimerange"
+                range-separator="至"
+                start-placeholder="开始时间"
+                end-placeholder="结束时间"
+                size="small"
+                style="width: 320px"
+                @change="onMessageFilterChange"
+              />
               <el-button size="small" @click="markSelectedRead">标记已读</el-button>
               <el-button size="small" text @click="markAllRead">全部已读</el-button>
             </div>
@@ -764,6 +776,8 @@ const messageTypeFilter = ref('all');
 const messageReadFilter = ref('all');
 const messageSelection = ref<string[]>([]);
 const messageLoading = ref(false);
+const messageDateRange = ref<any[]>([]);
+const unreadTotal = ref(0);
 
 const terminalCode = ref('public-screen');
 const playback = ref<any[]>([]);
@@ -965,6 +979,12 @@ const formatCountdown = (seconds: number) => {
 const formatDateTime = (val: string) => {
   if (!val) return '-';
   return val.replace('T', ' ').substring(0, 19);
+};
+
+const formatDateValue = (val: any) => {
+  if (!val) return '';
+  const d = new Date(val);
+  return d.toISOString().slice(0, 19).replace('T', ' ');
 };
 
 const scrollTo = (id: string) => {
@@ -1340,20 +1360,39 @@ const loadMessages = async () => {
   }
   messageLoading.value = true;
   try {
+    const start = messageDateRange.value?.[0] ? formatDateValue(messageDateRange.value[0]) : undefined;
+    const end = messageDateRange.value?.[1] ? formatDateValue(messageDateRange.value[1]) : undefined;
     const resp = await fetchPortalMessages(
       messagePage.value,
       messageSize.value,
       messageTypeFilter.value,
-      messageReadFilter.value
+      messageReadFilter.value,
+      undefined,
+      start,
+      end
     );
     const data = resp.data?.data;
     messageRecords.value = data?.records || [];
     messageTotal.value = data?.total || 0;
+    await loadUnreadCount();
   } catch (e) {
     messageRecords.value = [];
     messageTotal.value = 0;
   } finally {
     messageLoading.value = false;
+  }
+};
+
+const loadUnreadCount = async () => {
+  if (!portalLoggedIn.value) {
+    unreadTotal.value = 0;
+    return;
+  }
+  try {
+    const resp = await fetchPortalMessages(1, 1, undefined, 'unread');
+    unreadTotal.value = resp.data?.data?.total || 0;
+  } catch {
+    unreadTotal.value = 0;
   }
 };
 
@@ -1397,6 +1436,7 @@ const onMessageSize = (size: number) => {
 const onMessageFilterChange = () => {
   messagePage.value = 1;
   loadMessages();
+  loadUnreadCount();
 };
 
 const downloadReminderLogs = async () => {

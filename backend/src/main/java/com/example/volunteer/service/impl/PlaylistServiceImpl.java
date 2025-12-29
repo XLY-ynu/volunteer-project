@@ -159,6 +159,7 @@ public class PlaylistServiceImpl implements PlaylistService {
             item.setContentId(dto.getContentId());
             item.setDisplayDuration(dto.getDisplayDuration());
             item.setSortOrder(dto.getSortOrder());
+            item.setAreaIndex(dto.getAreaIndex());
             playlistItemMapper.insert(item);
         }
     }

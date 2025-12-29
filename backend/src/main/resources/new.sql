@@ -221,6 +221,9 @@ CREATE TABLE IF NOT EXISTS layout_template (
     updated_at DATETIME
 );
 
+-- 23) 播放列表项增加分区绑定
+-- ALTER TABLE playlist_item ADD COLUMN area_index INT NULL AFTER sort_order;
+
 -- 21) 通知日志增强（若字段已存在会报错可忽略）
 -- ALTER TABLE notification_log ADD COLUMN retry_count INT DEFAULT 0;
 -- ALTER TABLE notification_log ADD COLUMN max_retries INT DEFAULT 3;

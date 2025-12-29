@@ -32,6 +32,9 @@
               <el-tag v-for="tag in tpl.tags" :key="tag" size="small">{{ tag }}</el-tag>
             </div>
           </div>
+          <div class="template-actions" v-if="tpl.raw">
+            <el-button size="small" text type="danger" @click.stop="removeTemplate(tpl)">删除</el-button>
+          </div>
         </div>
       </div>
     </el-card>
@@ -310,7 +313,8 @@ const saveAsTemplate = async () => {
       name: form.value.name,
       description: '自定义布局模板',
       layoutJson: JSON.stringify({ areas: areas.value }),
-      tags: '自定义'
+      tags: '自定义',
+      coverUrl: ''
     };
     await createLayoutTemplate(payload);
     ElMessage.success('已保存为模板');
@@ -320,6 +324,14 @@ const saveAsTemplate = async () => {
   } finally {
     savingTemplate.value = false;
   }
+};
+
+const removeTemplate = async (tpl: any) => {
+  if (!tpl?.raw?.id) return;
+  await ElMessageBox.confirm('确定删除该模板？', '提示', { type: 'warning' });
+  await deleteLayoutTemplate(tpl.raw.id);
+  ElMessage.success('已删除模板');
+  loadTemplates();
 };
 
 const onCreate = () => {
@@ -398,6 +410,7 @@ onMounted(() => {
 .template-desc { font-size: 12px; color: #909399; margin-top: 4px; }
 .template-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .template-hint { font-size: 12px; color: #909399; margin-top: 6px; }
+.template-actions { display: flex; justify-content: flex-end; }
 
 .layout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
 .layout-item { background: #fff; border: 1px solid #ebeef5; border-radius: 12px; overflow: hidden; transition: box-shadow 0.3s; }
