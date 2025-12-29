@@ -137,7 +137,11 @@
       <el-table-column prop="success" label="成功" width="90" />
       <el-table-column prop="failed" label="失败" width="90" />
       <el-table-column prop="pending" label="排队/待发" width="110" />
-      <el-table-column prop="successRate" label="成功率" width="100" />
+      <el-table-column prop="successRate" label="成功率" width="120">
+        <template #default="scope">
+          <el-progress :percentage="Number((scope.row.successRate || '0').replace('%',''))" :text-inside="true" :stroke-width="16" />
+        </template>
+      </el-table-column>
     </el-table>
   </el-card>
 

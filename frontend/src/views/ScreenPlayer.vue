@@ -59,6 +59,11 @@
         <span class="label">队列</span>
         <el-button size="small" text @click="togglePanel">{{ showPanel ? '隐藏面板' : '显示面板' }}</el-button>
       </div>
+      <div class="status-item">
+        <span class="label">刷新周期</span>
+        <el-input-number v-model="reloadInterval" :min="20" :max="300" size="small" @change="changeReloadInterval" />
+        <span class="label">秒</span>
+      </div>
     </div>
 
     <div class="queue-panel" v-if="showPanel">
@@ -147,6 +152,10 @@ const reloadTimer = ref<number | null>(null);
 const broadcastList = ref<any[]>([]);
 const broadcastIndex = ref(0);
 const broadcastStartedAt = ref(Date.now());
+const reloadInterval = ref<number>(() => {
+  const saved = localStorage.getItem('screen_reload_interval');
+  return saved ? Number(saved) || 60 : 60;
+} as any);
 
 const broadcastItem = computed(() => broadcastList.value[broadcastIndex.value] || null);
 const broadcastItemKey = computed(() => `broadcast-${broadcastIndex.value}-${broadcastItem.value?.id || ''}`);
@@ -161,6 +170,12 @@ const areaStyle = (area: { x: number; y: number; w: number; h: number }) => ({
 const togglePanel = () => {
   showPanel.value = !showPanel.value;
   localStorage.setItem(`screen_panel_${terminalCode.value}`, showPanel.value ? '1' : '0');
+};
+
+const changeReloadInterval = (val: number) => {
+  reloadInterval.value = val;
+  localStorage.setItem('screen_reload_interval', String(val));
+  startTimers();
 };
 
 const itemLabel = (item: any) => item?.name || item?.title || item?.type || '素材';
@@ -403,7 +418,7 @@ const startTimers = () => {
   reloadTimer.value = window.setInterval(() => {
     loadPlayback();
     loadBroadcasts();
-  }, 60000);
+  }, Math.max(20, reloadInterval.value) * 1000);
 };
 
 onMounted(async () => {
@@ -448,6 +463,7 @@ onBeforeUnmount(() => {
 .status-item { background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 8px; color: #e2e8f0; font-size: 12px; display: flex; flex-direction: column; }
 .status-item .label { color: #94a3b8; }
 .status-item .value { font-weight: 600; }
+.status-item .el-input-number { width: 120px; }
 
 .queue-panel { position: absolute; right: 16px; top: 64px; width: 320px; max-height: calc(100vh - 90px); background: rgba(15, 23, 42, 0.86); border-radius: 12px; padding: 12px; overflow: auto; z-index: 5; }
 .panel-section { margin-bottom: 16px; }
