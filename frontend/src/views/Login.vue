@@ -21,9 +21,6 @@
             <span>活动管理</span>
           </div>
         </div>
-        <div class="portal-entry">
-          <el-button type="success" plain @click="goPortal">访问门户</el-button>
-        </div>
       </div>
       <div class="login-right">
         <el-card class="login-card" shadow="never">
@@ -54,6 +51,9 @@
               </el-button>
             </el-form-item>
           </el-form>
+          <div class="portal-link">
+            <router-link to="/portal">访问志愿者服务中心 →</router-link>
+          </div>
           <div class="login-footer">
             <span>© 2025 志愿者多媒体平台</span>
           </div>
@@ -96,10 +96,6 @@ const onSubmit = async () => {
   } finally {
     loading.value = false;
   }
-};
-
-const goPortal = () => {
-  router.push('/portal');
 };
 </script>
 
@@ -152,9 +148,6 @@ const goPortal = () => {
   font-size: 16px;
   opacity: 0.9;
   margin-bottom: 40px;
-}
-.portal-entry {
-  margin-top: 20px;
 }
 
 .features {
@@ -223,6 +216,24 @@ const goPortal = () => {
   margin-top: 24px;
   color: #c0c4cc;
   font-size: 12px;
+}
+
+.portal-link {
+  text-align: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #ebeef5;
+}
+
+.portal-link a {
+  color: #409eff;
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.portal-link a:hover {
+  color: #66b1ff;
 }
 
 @media (max-width: 768px) {

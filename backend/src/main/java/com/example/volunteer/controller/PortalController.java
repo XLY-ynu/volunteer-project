@@ -42,7 +42,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.Assert;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -234,7 +236,7 @@ public class PortalController {
     public ApiResponse<PortalProfileDto> me() {
         User user = requirePortalUser();
         Volunteer volunteer = ensureVolunteer(user);
-        return ApiResponse.ok(toProfile(volunteer));
+        return ApiResponse.ok(toProfile(volunteer, user));
     }
 
     @PutMapping("/me")
@@ -255,7 +257,7 @@ public class PortalController {
         volunteerMapper.updateById(volunteer);
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
-        return ApiResponse.ok(toProfile(volunteer));
+        return ApiResponse.ok(toProfile(volunteer, user));
     }
 
     @GetMapping("/my-signups")
@@ -527,12 +529,81 @@ public class PortalController {
         return ApiResponse.ok(signup);
     }
 
+    @PostMapping("/checkin")
+    public ApiResponse<ActivitySignup> checkin(@RequestBody java.util.Map<String, String> request) {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        String code = request.get("code");
+        if (code == null || code.trim().isEmpty()) {
+            return ApiResponse.fail("请输入签到码");
+        }
+        // 通过签到码查找活动
+        Activity activity = activityMapper.selectOne(new LambdaQueryWrapper<Activity>()
+                .eq(Activity::getCheckinCode, code.trim()));
+        if (activity == null) {
+            return ApiResponse.fail("签到码无效");
+        }
+        // 查找报名记录
+        ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getActivityId, activity.getId())
+                .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
+        if (signup == null) {
+            // 未报名，自动报名并签到
+            signup = new ActivitySignup();
+            signup.setActivityId(activity.getId());
+            signup.setVolunteerId(volunteer.getId());
+            signup.setStatus("checked_in");
+            signup.setCheckinTime(LocalDateTime.now());
+            signup.setCreatedAt(LocalDateTime.now());
+            activitySignupMapper.insert(signup);
+        } else if ("checked_in".equals(signup.getStatus())) {
+            return ApiResponse.fail("您已签到过此活动");
+        } else {
+            signup.setStatus("checked_in");
+            signup.setCheckinTime(LocalDateTime.now());
+            activitySignupMapper.updateById(signup);
+        }
+        return ApiResponse.ok(signup);
+    }
+
+    @DeleteMapping("/activities/signup/{activityId}")
+    public ApiResponse<Void> cancelSignup(@PathVariable Long activityId) {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        
+        // 查找报名记录
+        ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getActivityId, activityId)
+                .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
+        
+        if (signup == null) {
+            return ApiResponse.fail("您未报名此活动");
+        }
+        
+        // 已签到不能取消
+        if ("checked_in".equals(signup.getStatus())) {
+            return ApiResponse.fail("已签到的活动无法取消报名");
+        }
+        
+        // 检查活动是否已开始
+        Activity activity = activityMapper.selectById(activityId);
+        if (activity != null && activity.getStartTime() != null 
+                && LocalDateTime.now().isAfter(activity.getStartTime())) {
+            return ApiResponse.fail("活动已开始，无法取消报名");
+        }
+        
+        // 删除报名记录
+        activitySignupMapper.deleteById(signup.getId());
+        return ApiResponse.ok(null);
+    }
+
     private User requirePortalUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Assert.notNull(auth, "未登录");
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getUsername, auth.getName()));
         Assert.notNull(user, "用户不存在");
+        Assert.isTrue(user.getEnabled() != null && user.getEnabled(), "账号已被禁用");
         Assert.isTrue("VOLUNTEER".equals(user.getRoleCode()), "权限不足");
         return user;
     }
@@ -587,7 +658,7 @@ public class PortalController {
         return setting;
     }
 
-    private PortalProfileDto toProfile(Volunteer volunteer) {
+    private PortalProfileDto toProfile(Volunteer volunteer, User user) {
         PortalProfileDto dto = new PortalProfileDto();
         dto.setId(volunteer.getId());
         dto.setUserId(volunteer.getUserId());
@@ -596,6 +667,7 @@ public class PortalController {
         dto.setEmail(volunteer.getEmail());
         dto.setOrganization(volunteer.getOrganization());
         dto.setStatus(volunteer.getStatus());
+        dto.setEnabled(user != null ? user.getEnabled() : true);
         dto.setCreatedAt(volunteer.getCreatedAt());
         dto.setUpdatedAt(volunteer.getUpdatedAt());
         return dto;

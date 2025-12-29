@@ -13,6 +13,7 @@ public class PortalProfileDto {
     private String email;
     private String organization;
     private String status;
+    private Boolean enabled; // 用户账号是否启用
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -26,6 +26,7 @@ import com.example.volunteer.entity.Terminal;
 import com.example.volunteer.entity.ContentConfig;
 import com.example.volunteer.dto.TerminalPublicDto;
 import com.example.volunteer.dto.BroadcastPlaybackDto;
+import com.example.volunteer.dto.ActivityPublicDto;
 import com.example.volunteer.entity.VolunteerStatusLog;
 import com.example.volunteer.entity.MediaAsset;
 import com.example.volunteer.service.BroadcastService;
@@ -33,6 +34,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -200,7 +203,7 @@ public class PublicController {
     }
 
     @GetMapping("/activities")
-    public ApiResponse<Page<Activity>> activities(@RequestParam(defaultValue = "1") int page,
+    public ApiResponse<Map<String, Object>> activities(@RequestParam(defaultValue = "1") int page,
                                                   @RequestParam(defaultValue = "10") int size,
                                                   @RequestParam(required = false) String keyword) {
         LambdaQueryWrapper<Activity> w = new LambdaQueryWrapper<>();
@@ -209,7 +212,32 @@ public class PublicController {
         }
         Page<Activity> p = new Page<>(page, size);
         activityMapper.selectPage(p, w);
-        return ApiResponse.ok(p);
+        
+        // 转换为DTO并计算报名人数
+        List<ActivityPublicDto> dtoList = p.getRecords().stream().map(act -> {
+            ActivityPublicDto dto = new ActivityPublicDto();
+            dto.setId(act.getId());
+            dto.setTitle(act.getTitle());
+            dto.setDescription(act.getDescription());
+            dto.setLocation(act.getLocation());
+            dto.setStartTime(act.getStartTime());
+            dto.setEndTime(act.getEndTime());
+            dto.setCapacity(act.getCapacity());
+            dto.setCreatedAt(act.getCreatedAt());
+            dto.setUpdatedAt(act.getUpdatedAt());
+            // 计算报名人数
+            Long count = activitySignupMapper.selectCount(new LambdaQueryWrapper<ActivitySignup>()
+                    .eq(ActivitySignup::getActivityId, act.getId()));
+            dto.setSignupCount(count != null ? count.intValue() : 0);
+            return dto;
+        }).collect(Collectors.toList());
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", dtoList);
+        result.put("total", p.getTotal());
+        result.put("current", p.getCurrent());
+        result.put("size", p.getSize());
+        return ApiResponse.ok(result);
     }
 
     @PostMapping("/volunteer/register")
@@ -394,6 +422,19 @@ public class PublicController {
         log.setRemark(remark);
         log.setCreatedAt(LocalDateTime.now());
         volunteerStatusLogMapper.insert(log);
+    }
+
+    @GetMapping("/media")
+    public ApiResponse<Page<MediaAsset>> publicMedia(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String type) {
+        LambdaQueryWrapper<MediaAsset> wrapper = new LambdaQueryWrapper<>();
+        if (type != null && !type.isEmpty()) {
+            wrapper.eq(MediaAsset::getType, type);
+        }
+        wrapper.orderByDesc(MediaAsset::getCreatedAt);
+        return ApiResponse.ok(mediaAssetMapper.selectPage(new Page<>(page, size), wrapper));
     }
 
     private int resolveRecommendLimit(Integer limit) {

@@ -204,3 +204,34 @@ export const fetchPublicBroadcasts = (terminalCode: string) =>
   http.get('/public/broadcasts/active', { params: { terminalCode } });
 export const sendPublicHeartbeat = (payload: { code: string; status: string }) =>
   http.post('/public/heartbeat', payload);
+
+// 志愿者门户公开接口
+export const getPublicActivities = (params?: { page?: number; size?: number; keyword?: string }) =>
+  http.get('/public/activities', { params });
+export const getPublicCategories = () => http.get('/public/categories');
+export const getPublicContent = (params?: { categoryId?: number; page?: number; size?: number; keyword?: string }) =>
+  http.get('/public/content', { params });
+export const getPublicMedia = (params?: { page?: number; size?: number; type?: string }) =>
+  http.get('/public/media', { params });
+
+// 门户认证（带 token 参数）
+export const portalLoginApi = (phone: string, password: string) =>
+  http.post('/portal/auth/login', { phone, password });
+export const portalRegisterApi = (payload: any) =>
+  http.post('/portal/auth/register', payload);
+export const portalProfile = (token: string) =>
+  http.get('/portal/me', { headers: { Authorization: `Bearer ${token}` } });
+export const portalSignups = (token: string) =>
+  http.get('/portal/my-signups', { headers: { Authorization: `Bearer ${token}` } });
+export const portalCheckin = (code: string, token: string) =>
+  http.post('/portal/checkin', { code }, { headers: { Authorization: `Bearer ${token}` } });
+export const activitySignup = (payload: any, token?: string) => {
+  const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+  return http.post('/portal/activities/signup', payload, config);
+};
+export const cancelActivitySignup = (activityId: number, token: string) =>
+  http.delete(`/portal/activities/signup/${activityId}`, { headers: { Authorization: `Bearer ${token}` } });
+export const getPortalMessages = (token: string, params?: any) =>
+  http.get('/portal/messages', { params, headers: { Authorization: `Bearer ${token}` } });
+export const markPortalMessagesReadApi = (keys: string[], token: string) =>
+  http.post('/portal/messages/read', { keys }, { headers: { Authorization: `Bearer ${token}` } });

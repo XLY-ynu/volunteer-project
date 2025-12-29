@@ -66,7 +66,9 @@
     <!-- 志愿者列表 -->
     <el-card class="content-card" shadow="never">
       <el-table :data="list" stripe>
-        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column prop="userId" label="用户ID" width="80">
+          <template #default="scope">{{ scope.row.userId || '-' }}</template>
+        </el-table-column>
         <el-table-column prop="name" label="姓名" min-width="100" />
         <el-table-column prop="phone" label="电话" min-width="130" />
         <el-table-column prop="email" label="邮箱" min-width="180" />
