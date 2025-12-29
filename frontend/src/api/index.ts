@@ -88,6 +88,10 @@ export const createLayout = (payload: any) => http.post('/layouts', payload);
 export const updateLayout = (id: number, payload: any) => http.put(`/layouts/${id}`, payload);
 export const deleteLayout = (id: number) => http.delete(`/layouts/${id}`);
 export const fetchLayout = (id: number) => http.get(`/layouts/${id}`);
+export const fetchLayoutTemplates = () => http.get('/layout-templates');
+export const createLayoutTemplate = (payload: any) => http.post('/layout-templates', payload);
+export const updateLayoutTemplate = (id: number, payload: any) => http.put(`/layout-templates/${id}`, payload);
+export const deleteLayoutTemplate = (id: number) => http.delete(`/layout-templates/${id}`);
 
 export const fetchBroadcasts = (page = 1, size = 10, targetGroup?: string, targetTerminalCode?: string) =>
   http.get('/broadcasts', { params: { page, size, targetGroup, targetTerminalCode } });

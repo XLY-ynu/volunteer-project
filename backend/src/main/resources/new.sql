@@ -208,6 +208,19 @@ CREATE TABLE IF NOT EXISTS portal_message_read (
     UNIQUE KEY uk_portal_message_read (volunteer_id, message_key)
 );
 
+-- 22) 布局模板库
+CREATE TABLE IF NOT EXISTS layout_template (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(128) NOT NULL,
+    description VARCHAR(255),
+    layout_json TEXT NOT NULL,
+    tags VARCHAR(255),
+    cover_url VARCHAR(255),
+    builtin TINYINT(1) DEFAULT 0,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
 -- 21) 通知日志增强（若字段已存在会报错可忽略）
 -- ALTER TABLE notification_log ADD COLUMN retry_count INT DEFAULT 0;
 -- ALTER TABLE notification_log ADD COLUMN max_retries INT DEFAULT 3;

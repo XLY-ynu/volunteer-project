@@ -43,7 +43,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/portal/**").hasAuthority("VOLUNTEER")
                 .requestMatchers("/api/monitor/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/broadcasts/**").hasAuthority("ADMIN")
-                .requestMatchers("/api/users/**", "/api/ops/**", "/api/activities/**", "/api/volunteers/**", "/api/layouts/**").hasAuthority("ADMIN")
+                .requestMatchers("/api/users/**", "/api/ops/**", "/api/activities/**", "/api/volunteers/**", "/api/layouts/**", "/api/layout-templates/**").hasAuthority("ADMIN")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

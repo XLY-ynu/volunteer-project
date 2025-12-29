@@ -156,6 +156,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button @click="saveAsTemplate">存为模板</el-button>
         <el-button type="primary" @click="submit">{{ editingId ? '保存' : '创建' }}</el-button>
       </template>
     </el-dialog>
@@ -175,7 +176,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
-import { createLayout, fetchLayouts, updateLayout, deleteLayout } from '../api';
+import { createLayout, fetchLayouts, updateLayout, deleteLayout, fetchLayoutTemplates, createLayoutTemplate, updateLayoutTemplate, deleteLayoutTemplate } from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete } from '@element-plus/icons-vue';
 
@@ -188,73 +189,39 @@ const selectedArea = ref(0);
 const previewAreas = ref<any[]>([]);
 const selectedTemplateId = ref('full');
 const advancedMode = ref(false);
+const savingTemplate = ref(false);
 
 // 分区数据 (x, y, w, h 都是百分比 0-100)
 const areas = ref<any[]>([
   { x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }
 ]);
 
-const templateLibrary = [
-  {
-    id: 'full',
-    name: '全屏独播',
-    description: '单区全屏，独立轮播',
-    tags: ['单区', '独立轮播'],
-    areas: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }]
-  },
-  {
-    id: 'lr',
-    name: '左右双区',
-    description: '左右分屏，各自独立',
-    tags: ['双区', '独立轮播'],
-    areas: [
-      { x: 0, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 },
-      { x: 50, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }
-    ]
-  },
-  {
-    id: 'tb',
-    name: '上下双区',
-    description: '上下分屏，内容同步节奏',
-    tags: ['双区', '同步排期'],
-    areas: [
-      { x: 0, y: 0, w: 100, h: 50, playMode: 'shared', shuffle: false, defaultDuration: 12 },
-      { x: 0, y: 50, w: 100, h: 50, playMode: 'shared', shuffle: false, defaultDuration: 12 }
-    ]
-  },
-  {
-    id: 'grid4',
-    name: '四宫格',
-    description: '四区轮播，信息密集展示',
-    tags: ['四区', '独立轮播'],
-    areas: [
-      { x: 0, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
-      { x: 50, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
-      { x: 0, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
-      { x: 50, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 }
-    ]
-  },
-  {
-    id: 'main-side',
-    name: '主屏+侧栏',
-    description: '主屏共享，侧栏独立轮播',
-    tags: ['三分区', '主屏共享'],
-    areas: [
-      { x: 0, y: 0, w: 70, h: 100, playMode: 'shared', shuffle: false, defaultDuration: 12 },
-      { x: 70, y: 0, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
-      { x: 70, y: 50, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 }
-    ]
-  },
-  {
-    id: 'custom',
-    name: '高级自定义',
-    description: '手动设置分区，适配特殊屏幕',
-    tags: ['自定义', '高级'],
-    areas: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }]
-  }
+const builtinTemplates = [
+  { id: 'full', name: '全屏独播', description: '单区全屏，独立轮播', tags: ['单区', '独立轮播'], areas: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }] },
+  { id: 'lr', name: '左右双区', description: '左右分屏，各自独立', tags: ['双区', '独立轮播'], areas: [
+    { x: 0, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 },
+    { x: 50, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }
+  ] },
+  { id: 'tb', name: '上下双区', description: '上下分屏，内容同步节奏', tags: ['双区', '同步排期'], areas: [
+    { x: 0, y: 0, w: 100, h: 50, playMode: 'shared', shuffle: false, defaultDuration: 12 },
+    { x: 0, y: 50, w: 100, h: 50, playMode: 'shared', shuffle: false, defaultDuration: 12 }
+  ] },
+  { id: 'grid4', name: '四宫格', description: '四区轮播，信息密集展示', tags: ['四区', '独立轮播'], areas: [
+    { x: 0, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
+    { x: 50, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
+    { x: 0, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
+    { x: 50, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 }
+  ] },
+  { id: 'main-side', name: '主屏+侧栏', description: '主屏共享，侧栏独立轮播', tags: ['三分区', '主屏共享'], areas: [
+    { x: 0, y: 0, w: 70, h: 100, playMode: 'shared', shuffle: false, defaultDuration: 12 },
+    { x: 70, y: 0, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
+    { x: 70, y: 50, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 }
+  ] },
+  { id: 'custom', name: '高级自定义', description: '手动设置分区，适配特殊屏幕', tags: ['自定义', '高级'], areas: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }] }
 ];
+const templateLibrary = ref<any[]>([...builtinTemplates]);
 
-const selectedTemplate = computed(() => templateLibrary.find((tpl) => tpl.id === selectedTemplateId.value));
+const selectedTemplate = computed(() => templateLibrary.value.find((tpl: any) => tpl.id === selectedTemplateId.value));
 
 const normalizeArea = (area: any) => ({
   x: area.x ?? 0,
@@ -269,6 +236,24 @@ const normalizeArea = (area: any) => ({
 const load = async () => {
   const resp = await fetchLayouts();
   list.value = resp.data?.data || [];
+};
+
+const loadTemplates = async () => {
+  try {
+    const resp = await fetchLayoutTemplates();
+    const remote = resp.data?.data || [];
+    templateLibrary.value = [...builtinTemplates, ...remote.map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      tags: t.tags ? t.tags.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
+      areas: parseAreas(t.layoutJson),
+      coverUrl: t.coverUrl,
+      raw: t
+    }))];
+  } catch {
+    templateLibrary.value = [...builtinTemplates];
+  }
 };
 
 const parseAreas = (json: string) => {
@@ -289,7 +274,7 @@ const getAreaStyle = (area: { x: number; y: number; w: number; h: number }) => (
 
 const selectTemplate = (tpl: any) => {
   selectedTemplateId.value = tpl.id;
-  const source = tpl.areas || templateLibrary[0].areas;
+  const source = tpl.areas || templateLibrary.value[0].areas;
   areas.value = JSON.parse(JSON.stringify(source)).map(normalizeArea);
   selectedArea.value = 0;
   advancedMode.value = tpl.id === 'custom';
@@ -314,10 +299,33 @@ const removeArea = (idx: number) => {
   if (selectedArea.value >= areas.value.length) selectedArea.value = areas.value.length - 1;
 };
 
+const saveAsTemplate = async () => {
+  if (!form.value.name) {
+    ElMessage.warning('请先填写布局名称');
+    return;
+  }
+  savingTemplate.value = true;
+  try {
+    const payload = {
+      name: form.value.name,
+      description: '自定义布局模板',
+      layoutJson: JSON.stringify({ areas: areas.value }),
+      tags: '自定义'
+    };
+    await createLayoutTemplate(payload);
+    ElMessage.success('已保存为模板');
+    await loadTemplates();
+  } catch (e) {
+    ElMessage.error('保存模板失败');
+  } finally {
+    savingTemplate.value = false;
+  }
+};
+
 const onCreate = () => {
   editingId.value = null;
   form.value = { name: '' };
-  selectTemplate(templateLibrary[0]);
+  selectTemplate(templateLibrary.value[0]);
   dialogVisible.value = true;
 };
 
@@ -361,7 +369,10 @@ const submit = async () => {
   load();
 };
 
-onMounted(load);
+onMounted(() => {
+  load();
+  loadTemplates();
+});
 </script>
 
 <style scoped>
