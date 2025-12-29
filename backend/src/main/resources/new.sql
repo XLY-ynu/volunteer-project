@@ -272,3 +272,16 @@ CREATE TABLE IF NOT EXISTS activity_reminder_log (
 -- 24) 插播优先级与排队策略
 -- ALTER TABLE broadcast_job ADD COLUMN priority INT DEFAULT 0;
 -- ALTER TABLE broadcast_job ADD COLUMN queue_mode VARCHAR(32) DEFAULT 'queue';
+
+-- 25) 布局模板历史表（记录导入/编辑，支持回滚统计）
+CREATE TABLE IF NOT EXISTS layout_template_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    template_id BIGINT NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    description VARCHAR(255),
+    layout_json LONGTEXT,
+    tags VARCHAR(255),
+    cover_url VARCHAR(255),
+    version INT DEFAULT 1,
+    created_at DATETIME
+);

@@ -42,6 +42,10 @@
           </div>
         </div>
         <div v-else class="area-empty">暂无内容</div>
+        <div class="area-meta" v-if="currentItem(idx)">
+          <span class="area-meta-name">{{ currentItem(idx)?.name || currentItem(idx)?.title }}</span>
+          <span class="area-meta-duration" v-if="currentItem(idx)?.duration">· {{ currentItem(idx)?.duration }}s</span>
+        </div>
       </div>
     </div>
     <div v-else class="screen-empty">未配置布局或播放列表</div>
@@ -63,6 +67,10 @@
         <span class="label">刷新周期</span>
         <el-input-number v-model="reloadInterval" :min="20" :max="300" size="small" @change="changeReloadInterval" />
         <span class="label">秒</span>
+      </div>
+      <div class="status-item">
+        <span class="label">调试</span>
+        <el-switch v-model="debugMode" size="small" active-text="开" />
       </div>
     </div>
 
@@ -110,8 +118,8 @@
       </div>
     </div>
 
-    <div class="broadcast-overlay" v-if="broadcastItem">
-      <div class="broadcast-badge">插播中</div>
+<div class="broadcast-overlay" v-if="broadcastItem">
+  <div class="broadcast-badge">插播中</div>
       <video
         v-if="broadcastItem.type === 'video'"
         :key="broadcastItemKey"
@@ -145,6 +153,7 @@ const areaStates = ref<{ index: number; startedAt: number }[]>([]);
 const offlineMode = ref(false);
 const playbackReady = ref(false);
 const lastHeartbeat = ref<Date | null>(null);
+const debugMode = ref(route.query.debug === '1');
 const timer = ref<number | null>(null);
 const broadcastTimer = ref<number | null>(null);
 const heartbeatTimer = ref<number | null>(null);
@@ -152,10 +161,10 @@ const reloadTimer = ref<number | null>(null);
 const broadcastList = ref<any[]>([]);
 const broadcastIndex = ref(0);
 const broadcastStartedAt = ref(Date.now());
-const reloadInterval = ref<number>(() => {
+const reloadInterval = ref<number>((() => {
   const saved = localStorage.getItem('screen_reload_interval');
   return saved ? Number(saved) || 60 : 60;
-} as any);
+})());
 
 const broadcastItem = computed(() => broadcastList.value[broadcastIndex.value] || null);
 const broadcastItemKey = computed(() => `broadcast-${broadcastIndex.value}-${broadcastItem.value?.id || ''}`);
@@ -192,6 +201,19 @@ const formatTimeStr = (date: Date) => {
   const iso = date.toISOString();
   return iso.replace('T', ' ').substring(0, 19);
 };
+
+const debugInfo = computed(() => {
+  if (!debugMode.value) return [];
+  return areas.value.map((area: any, idx: number) => {
+    const item = currentItem(idx);
+    return {
+      idx,
+      item: item ? itemLabel(item) : '无',
+      duration: item?.duration,
+      mode: areaModeLabel(idx)
+    };
+  });
+});
 
 const itemKey = (idx: number) => {
   const item = currentItem(idx);
@@ -458,6 +480,9 @@ onBeforeUnmount(() => {
 .area-content { width: 100%; height: 100%; background: #111827; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .area-content video, .area-content img { width: 100%; height: 100%; object-fit: cover; }
 .area-empty { width: 100%; height: 100%; border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #94a3b8; }
+.area-meta { position: absolute; left: 8px; bottom: 8px; background: rgba(0,0,0,0.45); padding: 4px 8px; border-radius: 8px; font-size: 12px; color: #e2e8f0; }
+.area-meta-name { font-weight: 600; }
+.area-meta-duration { color: #cbd5f5; margin-left: 4px; }
 .screen-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #94a3b8; }
 .content-slide { padding: 16px; text-align: center; }
 .content-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
@@ -471,6 +496,7 @@ onBeforeUnmount(() => {
 .status-item .label { color: #94a3b8; }
 .status-item .value { font-weight: 600; }
 .status-item .el-input-number { width: 120px; }
+.status-item :deep(.el-switch__core) { margin-top: 4px; }
 
 .queue-panel { position: absolute; right: 16px; top: 64px; width: 320px; max-height: calc(100vh - 90px); background: rgba(15, 23, 42, 0.86); border-radius: 12px; padding: 12px; overflow: auto; z-index: 5; }
 .panel-section { margin-bottom: 16px; }

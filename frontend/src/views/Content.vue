@@ -13,6 +13,7 @@
           <el-button :disabled="selectedRows.length === 0" @click="openWeightBatchDialog">批量调整权重</el-button>
           <el-button @click="openRecommendPreviewDialog">轮播顺序预览</el-button>
           <el-button @click="openConfigDialog">轮播配置</el-button>
+          <el-button @click="openStrategyDialog">推荐策略可视化</el-button>
           <el-button @click="previewPortal">推荐预览</el-button>
           <el-button type="primary" @click="onCreate"><el-icon><Plus /></el-icon>发布内容</el-button>
         </div>
@@ -267,6 +268,30 @@
         <el-button type="primary" @click="applyWeightBatch">应用</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="strategyDialog" title="推荐策略调优" width="520px">
+      <div class="strategy-row">
+        <span class="label">本栏目优先</span>
+        <el-slider v-model="strategyWeights.prefer" :min="0" :max="100" show-input />
+      </div>
+      <div class="strategy-row">
+        <span class="label">仅本栏目</span>
+        <el-slider v-model="strategyWeights.filter" :min="0" :max="100" show-input />
+      </div>
+      <div class="strategy-row">
+        <span class="label">全站推荐</span>
+        <el-slider v-model="strategyWeights.global" :min="0" :max="100" show-input />
+      </div>
+      <div class="strategy-preview">
+        <div class="bar" :style="{ width: preferPercent + '%' }">本栏目 {{ preferPercent }}%</div>
+        <div class="bar secondary" :style="{ width: filterPercent + '%' }">仅本栏目 {{ filterPercent }}%</div>
+        <div class="bar info" :style="{ width: globalPercent + '%' }">全站 {{ globalPercent }}%</div>
+      </div>
+      <template #footer>
+        <el-button @click="strategyDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveStrategy">保存策略</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -297,6 +322,8 @@ const headlineDialog = ref(false);
 const headlineList = ref<any[]>([]);
 const configDialog = ref(false);
 const configForm = ref({ recommendIntervalSec: 6, recommendCount: 6, recommendStrategy: 'prefer', previewIntervalSec: 10 });
+const strategyDialog = ref(false);
+const strategyWeights = ref({ prefer: 60, filter: 20, global: 20 });
 const selectedRows = ref<any[]>([]);
 const weightBatchDialog = ref(false);
 const weightBatchForm = ref({ mode: 'set', value: 0 });
@@ -305,6 +332,10 @@ const recommendPreviewList = computed(() => {
   if (!recommendList.value.length) return [];
   return [...recommendList.value];
 });
+
+const preferPercent = computed(() => Math.min(100, Math.max(0, strategyWeights.value.prefer || 0)));
+const filterPercent = computed(() => Math.min(100, Math.max(0, strategyWeights.value.filter || 0)));
+const globalPercent = computed(() => Math.min(100, Math.max(0, strategyWeights.value.global || 0)));
 
 const form = ref({
   title: '',
@@ -533,6 +564,20 @@ const applyWeightBatch = async () => {
 
 const openConfigDialog = () => {
   configDialog.value = true;
+  loadConfig();
+};
+
+const openStrategyDialog = async () => {
+  await loadConfig();
+  const strategy = configForm.value.recommendStrategy || 'prefer';
+  if (strategy === 'prefer') {
+    strategyWeights.value = { prefer: 60, filter: 20, global: 20 };
+  } else if (strategy === 'filter') {
+    strategyWeights.value = { prefer: 30, filter: 50, global: 20 };
+  } else {
+    strategyWeights.value = { prefer: 30, filter: 20, global: 50 };
+  }
+  strategyDialog.value = true;
 };
 
 const loadConfig = async () => {
@@ -543,6 +588,14 @@ const loadConfig = async () => {
     configForm.value.recommendCount = data.recommendCount || 6;
     configForm.value.recommendStrategy = data.recommendStrategy || 'prefer';
     configForm.value.previewIntervalSec = data.previewIntervalSec || 10;
+    const strategy = configForm.value.recommendStrategy;
+    if (strategy === 'prefer') {
+      strategyWeights.value = { prefer: 60, filter: 20, global: 20 };
+    } else if (strategy === 'filter') {
+      strategyWeights.value = { prefer: 30, filter: 50, global: 20 };
+    } else {
+      strategyWeights.value = { prefer: 30, filter: 20, global: 50 };
+    }
   }
 };
 
@@ -550,6 +603,22 @@ const saveConfig = async () => {
   await updateContentConfig(configForm.value);
   ElMessage.success('配置已保存');
   configDialog.value = false;
+};
+
+const saveStrategy = async () => {
+  const maxVal = Math.max(preferPercent.value, filterPercent.value, globalPercent.value);
+  let strategy = 'prefer';
+  if (maxVal === globalPercent.value) {
+    strategy = 'global';
+  } else if (maxVal === filterPercent.value) {
+    strategy = 'filter';
+  } else {
+    strategy = 'prefer';
+  }
+  await updateContentConfig({ recommendStrategy: strategy });
+  configForm.value.recommendStrategy = strategy;
+  ElMessage.success('策略已保存');
+  strategyDialog.value = false;
 };
 
 const previewPortal = () => {
@@ -597,4 +666,10 @@ const previewPortal = () => {
 .weight-cell :deep(.el-progress) { flex: 1; }
 .weight-value { width: 32px; text-align: right; font-size: 12px; color: #606266; }
 .weight-hint { margin-left: 8px; color: #909399; font-size: 12px; }
+.strategy-row { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+.strategy-row .label { width: 90px; text-align: right; color: #606266; }
+.strategy-preview { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.strategy-preview .bar { height: 26px; background: #ecf5ff; color: #409eff; border-radius: 6px; padding-left: 8px; display: flex; align-items: center; font-size: 12px; }
+.strategy-preview .bar.secondary { background: #fdf6ec; color: #e6a23c; }
+.strategy-preview .bar.info { background: #f0f9eb; color: #67c23a; }
 </style>

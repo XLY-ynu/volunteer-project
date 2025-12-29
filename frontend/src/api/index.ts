@@ -94,6 +94,19 @@ export const fetchLayoutTemplates = () => http.get('/layout-templates');
 export const createLayoutTemplate = (payload: any) => http.post('/layout-templates', payload);
 export const updateLayoutTemplate = (id: number, payload: any) => http.put(`/layout-templates/${id}`, payload);
 export const deleteLayoutTemplate = (id: number) => http.delete(`/layout-templates/${id}`);
+export const uploadLayoutTemplateCover = (file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return http.post('/layout-templates/cover', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
+export const importLayoutTemplateFile = (file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return http.post('/layout-templates/import-file', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
+export const exportLayoutTemplateFile = (id: number) => http.get(`/layout-templates/${id}/export-file`, { responseType: 'blob' });
+export const fetchLayoutTemplateHistory = (id: number) => http.get(`/layout-templates/${id}/history`);
+export const rollbackLayoutTemplate = (id: number, historyId: number) => http.post(`/layout-templates/${id}/rollback/${historyId}`);
 
 export const fetchBroadcasts = (page = 1, size = 10, targetGroup?: string, targetTerminalCode?: string) =>
   http.get('/broadcasts', { params: { page, size, targetGroup, targetTerminalCode } });
@@ -139,6 +152,8 @@ export const updatePortalReminderSettings = (payload: { signupReminder?: boolean
 export const fetchPortalReminders = () => http.get('/portal/reminders');
 export const fetchPortalReminderLogs = () => http.get('/portal/reminder-logs');
 export const downloadPortalReminderLogs = () => http.get('/portal/reminder-logs/export', { responseType: 'blob' });
+export const downloadPortalReminderLogsWithTime = (start?: string, end?: string) =>
+  http.get('/portal/reminder-logs/export', { params: { startTime: start, endTime: end }, responseType: 'blob' });
 export const fetchPortalMessages = (page = 1, size = 10, type?: string, read?: string, status?: string, startTime?: string, endTime?: string) =>
   http.get('/portal/messages', { params: { page, size, type, read, status, startTime, endTime } });
 export const markPortalMessagesRead = (payload: { keys?: string[]; readAll?: boolean }) =>
@@ -156,7 +171,8 @@ export const fetchAlertHistory = (page = 1, size = 20, groupName?: string) =>
   http.get('/monitor/alert-history', { params: { page, size, groupName } });
 export const fetchNotificationLogs = (page = 1, size = 20, channel?: string) =>
   http.get('/monitor/notification-logs', { params: { page, size, channel } });
-export const fetchNotificationHealth = () => http.get('/monitor/notification-health');
+export const fetchNotificationHealth = (days?: number, startTime?: string, endTime?: string) =>
+  http.get('/monitor/notification-health', { params: { days, startTime, endTime } });
 export const fetchNotificationConfigs = () => http.get('/monitor/notification-configs');
 export const fetchNotificationConfig = (channel: string) => http.get(`/monitor/notification-configs/${channel}`);
 export const saveNotificationConfig = (channel: string, payload: { enabled?: boolean; config?: Record<string, any> }) =>

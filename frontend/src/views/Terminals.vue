@@ -125,11 +125,22 @@
     </el-table>
   </el-card>
 
-  <el-card class="group-alert-card" shadow="never">
-    <div class="group-head">
-      <div class="group-title">通知通道健康度</div>
-      <el-button size="small" @click="loadNotificationHealth">刷新</el-button>
-    </div>
+    <el-card class="group-alert-card" shadow="never">
+      <div class="group-head">
+        <div class="group-title">通知通道健康度</div>
+        <el-button size="small" @click="loadNotificationHealth">刷新</el-button>
+        <div class="group-actions">
+          <el-date-picker
+            v-model="healthRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始"
+            end-placeholder="结束"
+            size="small"
+            style="width: 320px"
+          />
+        </div>
+      </div>
     <el-empty v-if="notificationHealth.length === 0" description="暂无数据" />
     <el-table v-else :data="notificationHealth" size="small">
       <el-table-column prop="channel" label="通道" width="140" />
@@ -864,6 +875,7 @@ const alertHistory = ref<any[]>([]);
 const notificationLogs = ref<any[]>([]);
 const notificationHealth = ref<any[]>([]);
 const notificationConfigs = ref<any[]>([]);
+const healthRange = ref<any[]>([]);
 const historyPage = ref(1);
 const historySize = ref(10);
 const historyTotal = ref(0);
@@ -986,7 +998,9 @@ const loadNotificationLogs = async () => {
 };
 const loadNotificationHealth = async () => {
   try {
-    const resp = await fetchNotificationHealth();
+    const start = healthRange.value?.[0] ? new Date(healthRange.value[0]).toISOString().slice(0, 19).replace('T', ' ') : undefined;
+    const end = healthRange.value?.[1] ? new Date(healthRange.value[1]).toISOString().slice(0, 19).replace('T', ' ') : undefined;
+    const resp = await fetchNotificationHealth(undefined, start, end);
     notificationHealth.value = resp.data?.data || [];
   } catch {
     notificationHealth.value = [];

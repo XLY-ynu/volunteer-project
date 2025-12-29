@@ -72,7 +72,9 @@
         </el-menu-item>
         <el-menu-item index="/ops">
           <el-icon><List /></el-icon>
-          <span>操作日志</span>
+          <el-badge :value="pendingAlerts" :hidden="pendingAlerts === 0" class="menu-badge">
+            <span>操作日志</span>
+          </el-badge>
         </el-menu-item>
         <el-menu-item index="/system">
           <el-icon><Setting /></el-icon>
@@ -99,8 +101,9 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useUserStore } from '../stores/user';
+import { fetchNotificationLogs } from '../api';
 import {
   HomeFilled, Picture, Folder, Document, Grid, VideoPlay, Bell,
   Monitor, View, Calendar, User, UserFilled, List, Setting
@@ -111,6 +114,19 @@ const route = useRoute();
 const userStore = useUserStore();
 
 const active = computed(() => route.path);
+const pendingAlerts = ref(0);
+
+const loadPending = async () => {
+  try {
+    const resp = await fetchNotificationLogs(1, 20);
+    const records = resp.data?.data?.records || [];
+    pendingAlerts.value = records.filter((r: any) => r.status === 'failed' || r.status === 'abandoned').length;
+  } catch {
+    pendingAlerts.value = 0;
+  }
+};
+
+onMounted(loadPending);
 
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {

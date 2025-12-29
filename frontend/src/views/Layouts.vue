@@ -16,7 +16,12 @@
           <div class="template-title">播放策略模板库</div>
           <div class="template-sub">选择模板快速配置多区布局与轮播策略</div>
         </div>
-        <el-button size="small" @click="onCreate">自定义布局</el-button>
+        <div class="template-actions-head">
+          <el-upload :show-file-list="false" :http-request="onImportTemplate">
+            <el-button size="small">导入模板文件</el-button>
+          </el-upload>
+          <el-button size="small" @click="onCreate">自定义布局</el-button>
+        </div>
       </div>
       <div class="template-grid">
         <div class="template-item" v-for="tpl in templateLibrary" :key="tpl.id" @click="openFromTemplate(tpl)">
@@ -30,6 +35,11 @@
             <div class="template-desc">{{ tpl.description }}</div>
             <div class="template-tags">
               <el-tag v-for="tag in tpl.tags" :key="tag" size="small">{{ tag }}</el-tag>
+            </div>
+            <div class="template-tools">
+              <el-button size="small" text @click.stop="exportTemplate(tpl)" v-if="tpl.raw">导出</el-button>
+              <el-button size="small" text type="primary" @click.stop="editTemplateCover(tpl)" v-if="tpl.raw">封面</el-button>
+              <el-button size="small" text type="success" @click.stop="openHistory(tpl)" v-if="tpl.raw">历史/回滚</el-button>
             </div>
           </div>
           <div class="template-actions" v-if="tpl.raw">
@@ -219,13 +229,45 @@
         </el-tab-pane>
       </el-tabs>
     </el-dialog>
+
+    <el-dialog v-model="historyDialog" :title="`模板历史/回滚 - ${historyTemplateName}`" width="640px">
+      <el-skeleton v-if="historyLoading" :rows="4" animated />
+      <el-table v-else :data="historyList" size="small">
+        <el-table-column prop="version" label="版本" width="90" />
+        <el-table-column prop="createdAt" label="时间" width="180" />
+        <el-table-column prop="name" label="名称" />
+        <el-table-column label="操作" width="140">
+          <template #default="scope">
+            <el-button size="small" type="primary" text @click="rollbackHistory(scope.row.id, scope.row.templateId)">回滚</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div v-if="!historyLoading && !historyList.length" class="history-empty">暂无历史版本</div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
-import { createLayout, fetchLayouts, updateLayout, deleteLayout, fetchLayoutTemplates, createLayoutTemplate, updateLayoutTemplate, deleteLayoutTemplate, fetchLayoutPools, saveLayoutPool, fetchMedia } from '../api';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import {
+  createLayout,
+  fetchLayouts,
+  updateLayout,
+  deleteLayout,
+  fetchLayoutTemplates,
+  createLayoutTemplate,
+  updateLayoutTemplate,
+  deleteLayoutTemplate,
+  fetchLayoutPools,
+  saveLayoutPool,
+  fetchMedia,
+  uploadLayoutTemplateCover,
+  importLayoutTemplateFile,
+  exportLayoutTemplateFile,
+  fetchLayoutTemplateHistory,
+  rollbackLayoutTemplate
+} from '../api';
+import { ElMessage, ElMessageBox, ElUpload } from 'element-plus';
 import { Plus, Edit, Delete } from '@element-plus/icons-vue';
 
 const list = ref<any[]>([]);
@@ -242,6 +284,11 @@ const advancedMode = ref(false);
 const savingTemplate = ref(false);
 const mediaList = ref<any[]>([]);
 const poolItems = ref<Record<number, any[]>>({});
+const coverUploading = ref(false);
+const historyDialog = ref(false);
+const historyLoading = ref(false);
+const historyList = ref<any[]>([]);
+const historyTemplateName = ref('');
 
 // 分区数据 (x, y, w, h 都是百分比 0-100)
 const areas = ref<any[]>([
@@ -439,6 +486,71 @@ const removeTemplate = async (tpl: any) => {
   loadTemplates();
 };
 
+const editTemplateCover = (tpl: any) => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    coverUploading.value = true;
+    try {
+      const resp = await uploadLayoutTemplateCover(file);
+      const url = resp.data?.data;
+      await updateLayoutTemplate(tpl.id, { ...tpl.raw, coverUrl: url });
+      ElMessage.success('封面已更新');
+      loadTemplates();
+    } catch (err) {
+      ElMessage.error('封面上传失败');
+    } finally {
+      coverUploading.value = false;
+    }
+  };
+  input.click();
+};
+
+const onImportTemplate = async (options: any) => {
+  try {
+    await importLayoutTemplateFile(options.file);
+    ElMessage.success('导入成功');
+    loadTemplates();
+  } catch (e) {
+    ElMessage.error('导入失败');
+  }
+};
+
+const exportTemplate = async (tpl: any) => {
+  if (!tpl.id) return;
+  const resp = await exportLayoutTemplateFile(tpl.id);
+  const blob = new Blob([resp.data], { type: 'application/json' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${tpl.name || 'template'}.json`;
+  link.click();
+  window.URL.revokeObjectURL(url);
+};
+
+const openHistory = async (tpl: any) => {
+  historyTemplateName.value = tpl.name;
+  historyDialog.value = true;
+  historyLoading.value = true;
+  try {
+    const resp = await fetchLayoutTemplateHistory(tpl.id);
+    historyList.value = resp.data?.data || [];
+  } finally {
+    historyLoading.value = false;
+  }
+};
+
+const rollbackHistory = async (historyId: number, tplId: number) => {
+  await ElMessageBox.confirm('确认回滚到该历史版本？', '提示', { type: 'warning' });
+  await rollbackLayoutTemplate(tplId, historyId);
+  ElMessage.success('已回滚并生成新版本');
+  historyDialog.value = false;
+  await loadTemplates();
+};
+
 const onCreate = () => {
   editingId.value = null;
   form.value = { name: '' };
@@ -504,6 +616,7 @@ onMounted(() => {
 .template-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .template-title { font-weight: 600; }
 .template-sub { font-size: 12px; color: #909399; }
+.template-actions-head { display: flex; align-items: center; gap: 8px; }
 .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .template-grid.mini { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 .template-item { border: 1px solid #ebeef5; border-radius: 10px; padding: 10px; cursor: pointer; transition: all 0.2s; background: #fff; }
@@ -517,6 +630,7 @@ onMounted(() => {
 .template-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .template-hint { font-size: 12px; color: #909399; margin-top: 6px; }
 .template-actions { display: flex; justify-content: flex-end; }
+.template-tools { display: flex; gap: 6px; margin-top: 6px; }
 
 .layout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
 .layout-item { background: #fff; border: 1px solid #ebeef5; border-radius: 12px; overflow: hidden; transition: box-shadow 0.3s; }

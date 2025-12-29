@@ -28,6 +28,15 @@
       </div>
     </section>
 
+    <div class="portal-nav">
+      <el-button text @click="scrollTo('content')">内容</el-button>
+      <el-button text @click="scrollTo('videos')">视频</el-button>
+      <el-button text @click="scrollTo('activities')">活动</el-button>
+      <el-badge :value="unreadTotal" :hidden="!unreadTotal" type="danger">
+        <el-button text @click="scrollTo('messages')">消息中心</el-button>
+      </el-badge>
+    </div>
+
     <section class="content" id="content">
       <div class="section-head">
         <h2>内容展示</h2>
@@ -489,7 +498,7 @@
         <el-table-column prop="checkinTime" label="签到时间" width="160" />
       </el-table>
 
-      <el-card v-if="portalLoggedIn" class="message-card" shadow="never">
+      <el-card v-if="portalLoggedIn" class="message-card" shadow="never" id="messages">
         <template #header>
           <div class="card-title">
             <el-badge :value="unreadTotal" :hidden="!unreadTotal" type="danger">
@@ -564,6 +573,15 @@
           <div class="card-title">
             提醒日志
             <div class="message-controls">
+              <el-date-picker
+                v-model="reminderExportRange"
+                type="datetimerange"
+                range-separator="至"
+                start-placeholder="开始时间"
+                end-placeholder="结束时间"
+                size="small"
+                style="width: 320px"
+              />
               <el-button size="small" text type="primary" @click="loadPortalReminderLogs">刷新</el-button>
               <el-button size="small" @click="downloadReminderLogs">下载</el-button>
             </div>
@@ -600,37 +618,40 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="detailDialog" :title="detailData?.title || detailData?.name" width="760px">
-      <div class="breadcrumb" v-if="detailType === 'content'">
-        <el-breadcrumb separator="/">
-          <el-breadcrumb-item>{{ activeParent?.name || '内容' }}</el-breadcrumb-item>
-          <el-breadcrumb-item>{{ activeChild?.name || '子菜单' }}</el-breadcrumb-item>
-          <el-breadcrumb-item>{{ detailData?.title }}</el-breadcrumb-item>
-        </el-breadcrumb>
-      </div>
-      <div class="detail-hero">
-        <img v-if="detailType === 'content' && detailData?.coverUrl" :src="detailData.coverUrl" />
-        <img v-else-if="detailType === 'media' && (detailData?.thumbUrl || detailData?.coverUrl)" :src="detailData.thumbUrl || detailData.coverUrl" />
-        <div v-else class="detail-hero-fallback">
-          {{ detailType === 'media' ? (detailData?.type || 'MEDIA') : '内容详情' }}
+    <el-dialog v-model="detailDialog" :title="detailData?.title || detailData?.name || '详情'" width="760px">
+      <el-skeleton v-if="detailLoading" animated :rows="6" />
+      <template v-else>
+        <div class="breadcrumb" v-if="detailType === 'content'">
+          <el-breadcrumb separator="/">
+            <el-breadcrumb-item>{{ activeParent?.name || '内容' }}</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ activeChild?.name || '子菜单' }}</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ detailData?.title }}</el-breadcrumb-item>
+          </el-breadcrumb>
         </div>
-        <div class="detail-meta">
-          <div class="detail-title">{{ detailData?.title || detailData?.name }}</div>
-          <div class="detail-tags">
-            <el-tag v-for="tag in detailTags" :key="tag" size="small" type="info">{{ tag }}</el-tag>
+        <div class="detail-hero">
+          <img v-if="detailType === 'content' && detailData?.coverUrl" :src="detailData.coverUrl" />
+          <img v-else-if="detailType === 'media' && (detailData?.thumbUrl || detailData?.coverUrl)" :src="detailData.thumbUrl || detailData.coverUrl" />
+          <div v-else class="detail-hero-fallback">
+            {{ detailType === 'media' ? (detailData?.type || 'MEDIA') : '内容详情' }}
           </div>
-          <div class="detail-desc" v-if="detailType === 'media'">
-            <span>{{ mediaMeta(detailData) || '媒体素材' }}</span>
-            <el-button size="small" type="primary" plain @click="playMedia(detailData)">播放此媒体</el-button>
+          <div class="detail-meta">
+            <div class="detail-title">{{ detailData?.title || detailData?.name }}</div>
+            <div class="detail-tags">
+              <el-tag v-for="tag in detailTags" :key="tag" size="small" type="info">{{ tag }}</el-tag>
+            </div>
+            <div class="detail-desc" v-if="detailType === 'media'">
+              <span>{{ mediaMeta(detailData) || '媒体素材' }}</span>
+              <el-button size="small" type="primary" plain @click="playMedia(detailData)">播放此媒体</el-button>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="detail-body" v-if="detailType === 'content'" v-html="detailData?.body || detailData?.summary"></div>
-      <div v-else class="detail-body media-body">
-        <p>时长：{{ detailData?.durationSeconds ? detailData.durationSeconds + ' 秒' : '—' }}</p>
-        <p>分辨率：{{ resolutionLabel(detailData) || '—' }}</p>
-        <p>码率：{{ bitrateLabel(detailData) || '—' }}</p>
-      </div>
+        <div class="detail-body" v-if="detailType === 'content'" v-html="detailData?.body || detailData?.summary"></div>
+        <div v-else class="detail-body media-body">
+          <p>时长：{{ detailData?.durationSeconds ? detailData.durationSeconds + ' 秒' : '—' }}</p>
+          <p>分辨率：{{ resolutionLabel(detailData) || '—' }}</p>
+          <p>码率：{{ bitrateLabel(detailData) || '—' }}</p>
+        </div>
+      </template>
     </el-dialog>
 
     <el-dialog v-model="favDialog" title="收藏终端管理" width="520px">
@@ -730,6 +751,7 @@ const contentPage = ref(1);
 const contentSize = ref(6);
 const contentTotal = ref(0);
 const detailDialog = ref(false);
+const detailLoading = ref(false);
 const detailType = ref<'content' | 'media'>('content');
 const detailData = ref<any | null>(null);
 const headline = ref<any | null>(null);
@@ -1118,16 +1140,25 @@ const onContentPage = (p: number) => {
 };
 
 const openContent = async (id: number) => {
-  const resp = await fetchPublicContentById(id);
   detailType.value = 'content';
-  detailData.value = resp.data?.data || null;
   detailDialog.value = true;
+  detailLoading.value = true;
+  detailData.value = null;
+  try {
+    const resp = await fetchPublicContentById(id);
+    detailData.value = resp.data?.data || null;
+  } catch (e) {
+    detailData.value = null;
+  } finally {
+    detailLoading.value = false;
+  }
 };
 
 const openMediaDetail = (media: any) => {
   detailType.value = 'media';
   detailData.value = media;
   detailDialog.value = true;
+  detailLoading.value = false;
 };
 
 const loadPlayback = async () => {
@@ -1439,9 +1470,12 @@ const onMessageFilterChange = () => {
   loadUnreadCount();
 };
 
+const reminderExportRange = ref<any[]>([]);
 const downloadReminderLogs = async () => {
   try {
-    const resp = await downloadPortalReminderLogs();
+    const start = reminderExportRange.value?.[0] ? formatDateValue(reminderExportRange.value[0]) : undefined;
+    const end = reminderExportRange.value?.[1] ? formatDateValue(reminderExportRange.value[1]) : undefined;
+    const resp = await downloadPortalReminderLogsWithTime(start, end);
     const blob = new Blob([resp.data], { type: 'text/csv;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -2115,6 +2149,8 @@ onBeforeUnmount(() => {
 .meta-value { font-size: 24px; font-weight: 700; }
 .meta-label { font-size: 13px; opacity: 0.9; }
 .admin-btn { margin-left: 8px; }
+.portal-nav { display: flex; gap: 10px; align-items: center; margin: 12px 0 18px; }
+.portal-nav :deep(.el-button) { padding: 0 12px; }
 .headline-card { margin-bottom: 12px; border-radius: 12px; overflow: hidden; }
 .headline-cover { position: relative; }
 .headline-cover img { width: 100%; height: 260px; object-fit: cover; display: block; }

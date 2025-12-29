@@ -398,12 +398,15 @@ public class PortalController {
     }
 
     @GetMapping("/reminder-logs/export")
-    public ResponseEntity<byte[]> exportReminderLogs() {
+    public ResponseEntity<byte[]> exportReminderLogs(@RequestParam(required = false) String startTime,
+                                                     @RequestParam(required = false) String endTime) {
         User user = requirePortalUser();
         Volunteer volunteer = ensureVolunteer(user);
         List<ActivityReminderLog> logs = activityReminderLogMapper.selectList(
                 new LambdaQueryWrapper<ActivityReminderLog>()
                         .eq(ActivityReminderLog::getVolunteerId, volunteer.getId())
+                        .ge(startTime != null && !startTime.isEmpty(), ActivityReminderLog::getCreatedAt, parseTime(startTime))
+                        .le(endTime != null && !endTime.isEmpty(), ActivityReminderLog::getCreatedAt, parseTime(endTime))
                         .orderByDesc(ActivityReminderLog::getCreatedAt));
         Map<Long, Activity> activityMap = loadActivities(logs.stream()
                 .map(ActivityReminderLog::getActivityId)

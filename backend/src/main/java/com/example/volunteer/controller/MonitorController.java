@@ -299,10 +299,14 @@ public class MonitorController {
     }
 
     @GetMapping("/notification-health")
-    public ApiResponse<List<Map<String, Object>>> notificationHealth() {
-        LocalDateTime since = LocalDateTime.now().minusDays(7);
+    public ApiResponse<List<Map<String, Object>>> notificationHealth(@RequestParam(required = false) Integer days,
+                                                                      @RequestParam(required = false) String startTime,
+                                                                      @RequestParam(required = false) String endTime) {
+        LocalDateTime since = startTime != null && !startTime.isEmpty() ? parseTime(startTime) : LocalDateTime.now().minusDays(days != null ? days : 7);
+        LocalDateTime until = endTime != null && !endTime.isEmpty() ? parseTime(endTime) : LocalDateTime.now();
         QueryWrapper<NotificationLog> w = new QueryWrapper<>();
         w.ge("created_at", since);
+        w.le("created_at", until);
         List<NotificationLog> logs = notificationLogMapper.selectList(w);
         Map<String, Map<String, Object>> stats = new java.util.HashMap<>();
         for (NotificationLog log : logs) {
@@ -334,6 +338,14 @@ public class MonitorController {
             map.put("successRate", String.format("%.1f%%", rate));
         });
         return ApiResponse.ok(result);
+    }
+
+    private LocalDateTime parseTime(String val) {
+        try {
+            return LocalDateTime.parse(val.replace(" ", "T"));
+        } catch (Exception e) {
+            return LocalDateTime.now();
+        }
     }
 
     @PostMapping("/notification-logs/{id}/retry")
