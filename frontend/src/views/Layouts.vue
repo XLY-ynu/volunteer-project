@@ -55,6 +55,7 @@
           </div>
           <div class="layout-actions">
             <el-button size="small" @click="onEdit(item)"><el-icon><Edit /></el-icon></el-button>
+            <el-button size="small" @click="openPool(item)"><el-icon><Setting /></el-icon></el-button>
             <el-button size="small" type="danger" @click="onDelete(item.id)"><el-icon><Delete /></el-icon></el-button>
           </div>
         </div>
@@ -174,25 +175,73 @@
         </div>
       </div>
     </el-dialog>
+
+    <el-dialog v-model="poolDialog" title="分区素材池" width="760px" destroy-on-close>
+      <el-tabs v-model="selectedAreaTab">
+        <el-tab-pane v-for="(area, idx) in areas" :key="idx" :name="String(idx)" :label="'区域 ' + (idx + 1)">
+          <div class="pool-ops">
+            <el-button size="small" @click="addPoolRow(idx)">添加行</el-button>
+            <el-button size="small" type="primary" @click="savePool(idx)">保存该分区</el-button>
+          </div>
+          <el-table :data="poolItems[idx] || []" size="small">
+            <el-table-column prop="sortOrder" label="#" width="60">
+              <template #default="scope">
+                <el-input-number v-model="scope.row.sortOrder" :min="0" :max="999" size="small" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="type" label="类型" width="100">
+              <template #default="scope">
+                <el-select v-model="scope.row.type" size="small" style="width: 90px">
+                  <el-option label="媒体" value="media" />
+                  <el-option label="内容" value="content" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column prop="targetId" label="选择" min-width="180">
+              <template #default="scope">
+                <el-select v-if="scope.row.type === 'media'" v-model="scope.row.targetId" filterable size="small" style="width: 180px" placeholder="选择媒体">
+                  <el-option v-for="m in mediaList" :key="m.id" :label="m.name" :value="m.id" />
+                </el-select>
+                <el-input v-else v-model="scope.row.targetId" size="small" placeholder="填写内容ID" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="displayDuration" label="时长(秒)" width="120">
+              <template #default="scope">
+                <el-input-number v-model="scope.row.displayDuration" :min="5" :max="600" size="small" />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="scope">
+                <el-button size="small" type="danger" text @click="removePoolRow(idx, scope.$index)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
-import { createLayout, fetchLayouts, updateLayout, deleteLayout, fetchLayoutTemplates, createLayoutTemplate, updateLayoutTemplate, deleteLayoutTemplate } from '../api';
+import { createLayout, fetchLayouts, updateLayout, deleteLayout, fetchLayoutTemplates, createLayoutTemplate, updateLayoutTemplate, deleteLayoutTemplate, fetchLayoutPools, saveLayoutPool, fetchMedia } from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete } from '@element-plus/icons-vue';
 
 const list = ref<any[]>([]);
 const dialogVisible = ref(false);
 const previewVisible = ref(false);
+const poolDialog = ref(false);
 const editingId = ref<number | null>(null);
 const form = ref({ name: '' });
 const selectedArea = ref(0);
 const previewAreas = ref<any[]>([]);
+const selectedAreaTab = ref('0');
 const selectedTemplateId = ref('full');
 const advancedMode = ref(false);
 const savingTemplate = ref(false);
+const mediaList = ref<any[]>([]);
+const poolItems = ref<Record<number, any[]>>({});
 
 // 分区数据 (x, y, w, h 都是百分比 0-100)
 const areas = ref<any[]>([
@@ -239,6 +288,11 @@ const normalizeArea = (area: any) => ({
 const load = async () => {
   const resp = await fetchLayouts();
   list.value = resp.data?.data || [];
+};
+
+const loadMedia = async () => {
+  const resp = await fetchMedia(1, 200);
+  mediaList.value = resp.data?.data?.records || [];
 };
 
 const loadTemplates = async () => {
@@ -288,6 +342,57 @@ const openFromTemplate = (tpl: any) => {
   form.value = { name: tpl.name };
   selectTemplate(tpl);
   dialogVisible.value = true;
+};
+
+const openPool = async (item: any) => {
+  editingId.value = item.id;
+  areas.value = parseAreas(item.layoutJson);
+  if (!areas.value.length) areas.value = [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }];
+  selectedAreaTab.value = '0';
+  await loadPoolData(item.id);
+  poolDialog.value = true;
+};
+
+const loadPoolData = async (layoutId: number) => {
+  const resp = await fetchLayoutPools(layoutId);
+  const list = resp.data?.data || [];
+  const grouped: Record<number, any[]> = {};
+  list.forEach((row: any) => {
+    const idx = row.areaIndex ? row.areaIndex - 1 : 0;
+    if (!grouped[idx]) grouped[idx] = [];
+    grouped[idx].push({
+      type: row.mediaId ? 'media' : 'content',
+      targetId: row.mediaId || row.contentId,
+      displayDuration: row.displayDuration || 10,
+      sortOrder: row.sortOrder || 0
+    });
+  });
+  areas.value.forEach((_, idx) => {
+    if (!grouped[idx]) grouped[idx] = [];
+  });
+  poolItems.value = grouped;
+};
+
+const addPoolRow = (idx: number) => {
+  if (!poolItems.value[idx]) poolItems.value[idx] = [];
+  poolItems.value[idx].push({ type: 'media', targetId: null, displayDuration: 10, sortOrder: poolItems.value[idx].length });
+};
+
+const removePoolRow = (areaIdx: number, rowIdx: number) => {
+  if (!poolItems.value[areaIdx]) return;
+  poolItems.value[areaIdx].splice(rowIdx, 1);
+};
+
+const savePool = async (idx: number) => {
+  if (!editingId.value) return;
+  const items = (poolItems.value[idx] || []).map((row: any, i: number) => ({
+    mediaId: row.type === 'media' ? row.targetId : null,
+    contentId: row.type === 'content' ? row.targetId : null,
+    displayDuration: row.displayDuration || 10,
+    sortOrder: row.sortOrder ?? i
+  }));
+  await saveLayoutPool(editingId.value, idx + 1, { items });
+  ElMessage.success(`区域 ${idx + 1} 已保存`);
 };
 
 const addArea = () => {
@@ -384,6 +489,7 @@ const submit = async () => {
 onMounted(() => {
   load();
   loadTemplates();
+  loadMedia();
 });
 </script>
 

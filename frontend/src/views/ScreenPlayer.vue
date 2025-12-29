@@ -249,10 +249,17 @@ const buildAreaQueues = () => {
   const list = baseQueue.value || [];
   const count = areas.value.length || 1;
   areaQueues.value = areas.value.map(() => []);
+  // 预先按 areaIndex 分配
   list.forEach((item: any, i: number) => {
     const targetIdx = (item.areaIndex && item.areaIndex > 0 && item.areaIndex <= count) ? item.areaIndex - 1 : null;
     if (targetIdx !== null) {
       areaQueues.value[targetIdx].push(item);
+    }
+  });
+  list.forEach((item: any, i: number) => {
+    const targetIdx = (item.areaIndex && item.areaIndex > 0 && item.areaIndex <= count) ? item.areaIndex - 1 : null;
+    if (targetIdx !== null) {
+      return;
     } else {
       const idx = count > 1 ? (i % count) : 0;
       areaQueues.value[idx].push(item);

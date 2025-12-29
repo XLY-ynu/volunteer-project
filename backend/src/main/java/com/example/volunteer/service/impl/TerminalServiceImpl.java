@@ -14,6 +14,7 @@ import com.example.volunteer.entity.Playlist;
 import com.example.volunteer.entity.PlaylistItem;
 import com.example.volunteer.entity.Layout;
 import com.example.volunteer.entity.MediaAsset;
+import com.example.volunteer.entity.LayoutAreaPool;
 import com.example.volunteer.mapper.TerminalMapper;
 import com.example.volunteer.mapper.TerminalPlaylistMapper;
 import com.example.volunteer.mapper.TerminalHeartbeatMapper;
@@ -21,6 +22,7 @@ import com.example.volunteer.mapper.PlaylistMapper;
 import com.example.volunteer.mapper.PlaylistItemMapper;
 import com.example.volunteer.mapper.LayoutMapper;
 import com.example.volunteer.mapper.MediaAssetMapper;
+import com.example.volunteer.mapper.LayoutAreaPoolMapper;
 import com.example.volunteer.service.TerminalService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +43,7 @@ public class TerminalServiceImpl implements TerminalService {
     private final PlaylistItemMapper playlistItemMapper;
     private final LayoutMapper layoutMapper;
     private final MediaAssetMapper mediaAssetMapper;
+    private final LayoutAreaPoolMapper layoutAreaPoolMapper;
     private final long offlineSeconds;
 
     public TerminalServiceImpl(TerminalMapper terminalMapper, TerminalPlaylistMapper terminalPlaylistMapper,
@@ -49,6 +52,7 @@ public class TerminalServiceImpl implements TerminalService {
                                PlaylistItemMapper playlistItemMapper,
                                LayoutMapper layoutMapper,
                                MediaAssetMapper mediaAssetMapper,
+                               LayoutAreaPoolMapper layoutAreaPoolMapper,
                                @Value("${app.terminal.offline-seconds:300}") long offlineSeconds) {
         this.terminalMapper = terminalMapper;
         this.terminalPlaylistMapper = terminalPlaylistMapper;
@@ -57,6 +61,7 @@ public class TerminalServiceImpl implements TerminalService {
         this.playlistItemMapper = playlistItemMapper;
         this.layoutMapper = layoutMapper;
         this.mediaAssetMapper = mediaAssetMapper;
+        this.layoutAreaPoolMapper = layoutAreaPoolMapper;
         this.offlineSeconds = offlineSeconds;
     }
 
@@ -222,11 +227,21 @@ public class TerminalServiceImpl implements TerminalService {
                     .distinct()
                     .toList();
             List<MediaAsset> assets = mediaIds.isEmpty() ? List.of() : mediaAssetMapper.selectBatchIds(mediaIds);
+            List<LayoutAreaPool> pools = List.of();
+            if (layout != null) {
+                pools = layoutAreaPoolMapper.selectList(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<LayoutAreaPool>()
+                                .eq(LayoutAreaPool::getLayoutId, layout.getId())
+                                .orderByAsc(LayoutAreaPool::getAreaIndex)
+                                .orderByAsc(LayoutAreaPool::getSortOrder)
+                );
+            }
             TerminalPlaybackDto dto = new TerminalPlaybackDto();
             dto.setPlaylist(p);
             dto.setItems(items);
             dto.setLayout(layout);
             dto.setMediaAssets(assets);
+            dto.setAreaPools(pools);
             return dto;
         }).collect(Collectors.toList());
     }
