@@ -199,6 +199,15 @@ CREATE TABLE IF NOT EXISTS notification_channel_config (
     updated_at DATETIME
 );
 
+-- 21) 门户消息已读记录
+CREATE TABLE IF NOT EXISTS portal_message_read (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    message_key VARCHAR(128) NOT NULL,
+    read_at DATETIME,
+    UNIQUE KEY uk_portal_message_read (volunteer_id, message_key)
+);
+
 -- 21) 通知日志增强（若字段已存在会报错可忽略）
 -- ALTER TABLE notification_log ADD COLUMN retry_count INT DEFAULT 0;
 -- ALTER TABLE notification_log ADD COLUMN max_retries INT DEFAULT 3;

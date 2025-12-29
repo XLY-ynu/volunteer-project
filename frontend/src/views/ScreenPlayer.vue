@@ -10,6 +10,7 @@
       </div>
       <div class="toolbar-right">
         <el-button size="small" @click="loadPlayback">刷新</el-button>
+        <el-button size="small" @click="togglePanel">{{ showPanel ? '隐藏队列' : '显示队列' }}</el-button>
       </div>
     </div>
 
@@ -45,6 +46,50 @@
     </div>
     <div v-else class="screen-empty">未配置布局或播放列表</div>
 
+    <div class="queue-panel" v-if="showPanel">
+      <div class="panel-section">
+        <div class="panel-title">插播队列</div>
+        <div v-if="!broadcastList.length" class="panel-empty">暂无插播任务</div>
+        <div v-else class="queue-list">
+          <div class="queue-item" v-for="(item, idx) in broadcastList" :key="item.id + '-' + idx">
+            <div class="queue-index">{{ idx + 1 }}</div>
+            <div class="queue-info">
+              <div class="queue-name">{{ itemLabel(item) }}</div>
+              <div class="queue-meta">
+                {{ queueModeLabel(item) }} · 优先级 {{ item.priority || 0 }} · {{ item.duration || '-' }}s
+              </div>
+            </div>
+            <el-tag size="small" type="danger" v-if="idx === broadcastIndex">播放中</el-tag>
+          </div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-title">区域级素材池</div>
+        <div v-if="!areaQueues.length" class="panel-empty">暂无素材</div>
+        <div v-else>
+          <div class="pool" v-for="(pool, idx) in areaQueues" :key="'pool-' + idx">
+            <div class="pool-head">
+              <span>区域 {{ idx + 1 }}</span>
+              <span class="pool-meta">{{ pool.length }} 条</span>
+              <el-tag size="small" type="info">{{ areaModeLabel(idx) }}</el-tag>
+            </div>
+            <div class="pool-items">
+              <div
+                v-for="(item, pIdx) in pool.slice(0, 8)"
+                :key="item.id + '-' + pIdx"
+                class="pool-item"
+                :class="{ active: pIdx === areaStates[idx]?.index }"
+              >
+                <span class="pool-name">{{ itemLabel(item) }}</span>
+                <span class="pool-duration">{{ item.duration || '-' }}s</span>
+              </div>
+            </div>
+            <div v-if="pool.length > 8" class="pool-more">+{{ pool.length - 8 }} 条</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="broadcast-overlay" v-if="broadcastItem">
       <div class="broadcast-badge">插播中</div>
       <video
@@ -72,6 +117,7 @@ import { fetchPlaybackPublic, fetchPublicBroadcasts, sendPublicHeartbeat, fetchP
 
 const route = useRoute();
 const terminalCode = computed(() => String(route.query.code || 'public-screen'));
+const showPanel = ref(route.query.debug === '1');
 const areas = ref<any[]>([]);
 const baseQueue = ref<any[]>([]);
 const areaQueues = ref<any[][]>([]);
@@ -95,6 +141,20 @@ const areaStyle = (area: { x: number; y: number; w: number; h: number }) => ({
   width: area.w + '%',
   height: area.h + '%'
 });
+
+const togglePanel = () => {
+  showPanel.value = !showPanel.value;
+};
+
+const itemLabel = (item: any) => item?.name || item?.title || item?.type || '素材';
+
+const queueModeLabel = (item: any) => (item?.queueMode === 'interrupt' ? '插播优先' : '顺序排队');
+
+const areaModeLabel = (idx: number) => {
+  const area = areas.value[idx];
+  if (!area) return '未知';
+  return area.playMode === 'shared' ? '共享轮播' : '独立轮播';
+};
 
 const itemKey = (idx: number) => {
   const item = currentItem(idx);
@@ -120,8 +180,10 @@ const buildQueue = async (playback: any) => {
       const type = media.type === 'video' ? 'video' : 'image';
       list.push({
         id: media.id,
+        name: media.name,
         type,
         url: media.url,
+        thumbUrl: media.thumbUrl,
         duration: item.displayDuration || media.durationSeconds || 10
       });
     } else if (item.contentId) {
@@ -245,6 +307,7 @@ const loadBroadcasts = async () => {
           return {
             id: item.media.id,
             type: item.media.type === 'video' ? 'video' : 'image',
+            name: item.media.name,
             url: item.media.url,
             duration: item.media.durationSeconds || 10,
             priority: job.priority || 0,
@@ -345,4 +408,24 @@ onBeforeUnmount(() => {
 .broadcast-overlay { position: absolute; inset: 0; background: rgba(17, 24, 39, 0.88); display: flex; align-items: center; justify-content: center; z-index: 6; }
 .broadcast-overlay video, .broadcast-overlay img { width: 90%; height: 90%; object-fit: contain; border-radius: 12px; }
 .broadcast-badge { position: absolute; top: 20px; right: 20px; background: #ef4444; padding: 6px 12px; border-radius: 999px; font-size: 12px; }
+
+.queue-panel { position: absolute; right: 16px; top: 64px; width: 320px; max-height: calc(100vh - 90px); background: rgba(15, 23, 42, 0.86); border-radius: 12px; padding: 12px; overflow: auto; z-index: 5; }
+.panel-section { margin-bottom: 16px; }
+.panel-title { font-weight: 600; margin-bottom: 8px; color: #e2e8f0; }
+.panel-empty { color: #94a3b8; font-size: 12px; }
+.queue-list { display: flex; flex-direction: column; gap: 8px; }
+.queue-item { display: flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.6); padding: 8px; border-radius: 8px; }
+.queue-index { width: 20px; height: 20px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.queue-info { flex: 1; }
+.queue-name { font-weight: 600; font-size: 13px; }
+.queue-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.pool { margin-bottom: 12px; }
+.pool-head { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #cbd5f5; margin-bottom: 6px; }
+.pool-meta { color: #94a3b8; }
+.pool-items { display: flex; flex-direction: column; gap: 6px; }
+.pool-item { display: flex; align-items: center; justify-content: space-between; background: rgba(30, 41, 59, 0.6); border-radius: 6px; padding: 6px 8px; font-size: 12px; }
+.pool-item.active { background: rgba(59, 130, 246, 0.4); }
+.pool-name { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pool-duration { color: #e2e8f0; }
+.pool-more { font-size: 11px; color: #94a3b8; margin-top: 4px; text-align: right; }
 </style>

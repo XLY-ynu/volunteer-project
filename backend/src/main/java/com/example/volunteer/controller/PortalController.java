@@ -6,6 +6,8 @@ import com.example.volunteer.dto.LoginResponse;
 import com.example.volunteer.dto.PortalActivitySignupRequest;
 import com.example.volunteer.dto.PortalChangePasswordRequest;
 import com.example.volunteer.dto.PortalLoginRequest;
+import com.example.volunteer.dto.PortalMessageDto;
+import com.example.volunteer.dto.PortalMessageReadRequest;
 import com.example.volunteer.dto.PortalProfileDto;
 import com.example.volunteer.dto.PortalProfileRequest;
 import com.example.volunteer.dto.PortalReminderDto;
@@ -14,6 +16,7 @@ import com.example.volunteer.dto.PortalReminderSettingRequest;
 import com.example.volunteer.dto.PortalRegisterRequest;
 import com.example.volunteer.dto.PortalResetPasswordRequest;
 import com.example.volunteer.dto.VolunteerSignupDto;
+import com.example.volunteer.entity.PortalMessageRead;
 import com.example.volunteer.entity.Activity;
 import com.example.volunteer.entity.ActivitySignup;
 import com.example.volunteer.entity.ActivityReminderLog;
@@ -24,12 +27,17 @@ import com.example.volunteer.entity.VolunteerStatusLog;
 import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivityReminderLogMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
+import com.example.volunteer.mapper.PortalMessageReadMapper;
 import com.example.volunteer.mapper.UserMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
 import com.example.volunteer.mapper.VolunteerReminderSettingMapper;
 import com.example.volunteer.mapper.VolunteerStatusLogMapper;
 import com.example.volunteer.security.JwtUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,7 +52,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -59,6 +72,7 @@ public class PortalController {
     private final VolunteerStatusLogMapper volunteerStatusLogMapper;
     private final VolunteerReminderSettingMapper reminderSettingMapper;
     private final ActivityReminderLogMapper activityReminderLogMapper;
+    private final PortalMessageReadMapper portalMessageReadMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -69,6 +83,7 @@ public class PortalController {
                             VolunteerStatusLogMapper volunteerStatusLogMapper,
                             VolunteerReminderSettingMapper reminderSettingMapper,
                             ActivityReminderLogMapper activityReminderLogMapper,
+                            PortalMessageReadMapper portalMessageReadMapper,
                             PasswordEncoder passwordEncoder,
                             JwtUtil jwtUtil) {
         this.userMapper = userMapper;
@@ -78,6 +93,7 @@ public class PortalController {
         this.volunteerStatusLogMapper = volunteerStatusLogMapper;
         this.reminderSettingMapper = reminderSettingMapper;
         this.activityReminderLogMapper = activityReminderLogMapper;
+        this.portalMessageReadMapper = portalMessageReadMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -381,6 +397,99 @@ public class PortalController {
         return ApiResponse.ok(list);
     }
 
+    @GetMapping("/reminder-logs/export")
+    public ResponseEntity<byte[]> exportReminderLogs() {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        List<ActivityReminderLog> logs = activityReminderLogMapper.selectList(
+                new LambdaQueryWrapper<ActivityReminderLog>()
+                        .eq(ActivityReminderLog::getVolunteerId, volunteer.getId())
+                        .orderByDesc(ActivityReminderLog::getCreatedAt));
+        Map<Long, Activity> activityMap = loadActivities(logs.stream()
+                .map(ActivityReminderLog::getActivityId)
+                .collect(Collectors.toSet()));
+        StringBuilder sb = new StringBuilder();
+        sb.append("时间,活动,通道,状态,内容\n");
+        for (ActivityReminderLog log : logs) {
+            Activity activity = activityMap.get(log.getActivityId());
+            sb.append(formatCsv(log.getCreatedAt()))
+                    .append(",")
+                    .append(activity != null ? activity.getTitle() : "")
+                    .append(",")
+                    .append(log.getChannel() != null ? log.getChannel() : "")
+                    .append(",")
+                    .append(log.getStatus() != null ? log.getStatus() : "")
+                    .append(",")
+                    .append(formatCsv(log.getMessage()))
+                    .append("\n");
+        }
+        byte[] bytes = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=portal-reminder-logs.csv")
+                .contentType(MediaType.TEXT_PLAIN)
+                .contentLength(bytes.length)
+                .body(bytes);
+    }
+
+    @GetMapping("/messages")
+    public ApiResponse<Page<PortalMessageDto>> messages(@RequestParam(defaultValue = "1") int page,
+                                                        @RequestParam(defaultValue = "10") int size,
+                                                        @RequestParam(required = false) String type,
+                                                        @RequestParam(required = false) String status,
+                                                        @RequestParam(required = false) String read) {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        List<PortalMessageDto> messages = buildPortalMessages(volunteer);
+        Map<String, PortalMessageRead> readMap = loadReadMap(volunteer.getId());
+        messages.forEach(m -> m.setRead(readMap.containsKey(m.getKey())));
+
+        if (type != null && !type.isEmpty() && !"all".equalsIgnoreCase(type)) {
+            messages = messages.stream().filter(m -> type.equalsIgnoreCase(m.getType())).collect(Collectors.toList());
+        }
+        if (status != null && !status.isEmpty()) {
+            messages = messages.stream().filter(m -> status.equalsIgnoreCase(m.getStatus())).collect(Collectors.toList());
+        }
+        Boolean readFilter = parseReadFilter(read);
+        if (readFilter != null) {
+            boolean isRead = readFilter;
+            messages = messages.stream().filter(m -> Boolean.TRUE.equals(m.getRead()) == isRead).collect(Collectors.toList());
+        }
+
+        long total = messages.size();
+        int from = Math.max(0, (page - 1) * size);
+        int to = Math.min(messages.size(), from + size);
+        List<PortalMessageDto> records = from >= messages.size() ? List.of() : messages.subList(from, to);
+        Page<PortalMessageDto> result = new Page<>(page, size);
+        result.setTotal(total);
+        result.setRecords(records);
+        return ApiResponse.ok(result);
+    }
+
+    @PostMapping("/messages/read")
+    public ApiResponse<Void> markMessagesRead(@RequestBody PortalMessageReadRequest request) {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        List<String> keys = request != null ? request.getKeys() : null;
+        if ((keys == null || keys.isEmpty()) && Boolean.TRUE.equals(request != null ? request.getReadAll() : null)) {
+            keys = buildPortalMessages(volunteer).stream().map(PortalMessageDto::getKey).collect(Collectors.toList());
+        }
+        if (keys == null || keys.isEmpty()) {
+            return ApiResponse.ok(null);
+        }
+        Map<String, PortalMessageRead> readMap = loadReadMap(volunteer.getId());
+        for (String key : keys) {
+            if (readMap.containsKey(key)) {
+                continue;
+            }
+            PortalMessageRead readItem = new PortalMessageRead();
+            readItem.setVolunteerId(volunteer.getId());
+            readItem.setMessageKey(key);
+            readItem.setReadAt(LocalDateTime.now());
+            portalMessageReadMapper.insert(readItem);
+        }
+        return ApiResponse.ok(null);
+    }
+
     @PostMapping("/activities/signup")
     public ApiResponse<ActivitySignup> signup(@Valid @RequestBody PortalActivitySignupRequest request) {
         User user = requirePortalUser();
@@ -486,5 +595,113 @@ public class PortalController {
         log.setRemark(remark);
         log.setCreatedAt(LocalDateTime.now());
         volunteerStatusLogMapper.insert(log);
+    }
+
+    private List<PortalMessageDto> buildPortalMessages(Volunteer volunteer) {
+        List<ActivitySignup> signups = activitySignupMapper.selectList(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
+        List<ActivityReminderLog> reminderLogs = activityReminderLogMapper.selectList(
+                new LambdaQueryWrapper<ActivityReminderLog>()
+                        .eq(ActivityReminderLog::getVolunteerId, volunteer.getId())
+                        .orderByDesc(ActivityReminderLog::getCreatedAt)
+                        .last("limit 200"));
+        Set<Long> activityIds = new HashSet<>();
+        signups.forEach(s -> activityIds.add(s.getActivityId()));
+        reminderLogs.forEach(r -> activityIds.add(r.getActivityId()));
+        Map<Long, Activity> activityMap = loadActivities(activityIds);
+
+        List<PortalMessageDto> list = new ArrayList<>();
+        for (ActivitySignup s : signups) {
+            Activity activity = activityMap.get(s.getActivityId());
+            String title = activity != null ? activity.getTitle() : "活动";
+            if (s.getCreatedAt() != null) {
+                PortalMessageDto dto = new PortalMessageDto();
+                dto.setKey("signup:" + s.getId());
+                dto.setType("signup");
+                dto.setTitle("报名活动 · " + title);
+                dto.setStatus(s.getStatus());
+                dto.setMessage(activity != null ? activity.getLocation() : null);
+                dto.setCreatedAt(s.getCreatedAt());
+                list.add(dto);
+            }
+            if (s.getCheckinTime() != null) {
+                PortalMessageDto dto = new PortalMessageDto();
+                dto.setKey("checkin:" + s.getId());
+                dto.setType("checkin");
+                dto.setTitle("签到成功 · " + title);
+                dto.setStatus("checked_in");
+                dto.setMessage(activity != null ? activity.getLocation() : null);
+                dto.setCreatedAt(s.getCheckinTime());
+                list.add(dto);
+            }
+        }
+        for (ActivityReminderLog log : reminderLogs) {
+            Activity activity = activityMap.get(log.getActivityId());
+            PortalMessageDto dto = new PortalMessageDto();
+            dto.setKey("reminder:" + log.getId());
+            dto.setType("reminder");
+            dto.setTitle("提醒推送 · " + (activity != null ? activity.getTitle() : ""));
+            dto.setStatus(log.getStatus());
+            dto.setChannel(log.getChannel());
+            dto.setMessage(log.getMessage());
+            dto.setCreatedAt(log.getCreatedAt());
+            list.add(dto);
+        }
+        return list.stream()
+                .sorted((a, b) -> {
+                    LocalDateTime ta = a.getCreatedAt();
+                    LocalDateTime tb = b.getCreatedAt();
+                    if (ta == null && tb == null) return 0;
+                    if (ta == null) return 1;
+                    if (tb == null) return -1;
+                    return tb.compareTo(ta);
+                })
+                .collect(Collectors.toList());
+    }
+
+    private Map<String, PortalMessageRead> loadReadMap(Long volunteerId) {
+        List<PortalMessageRead> reads = portalMessageReadMapper.selectList(
+                new LambdaQueryWrapper<PortalMessageRead>().eq(PortalMessageRead::getVolunteerId, volunteerId));
+        Map<String, PortalMessageRead> map = new HashMap<>();
+        for (PortalMessageRead read : reads) {
+            map.put(read.getMessageKey(), read);
+        }
+        return map;
+    }
+
+    private Map<Long, Activity> loadActivities(Set<Long> ids) {
+        Map<Long, Activity> map = new HashMap<>();
+        if (ids == null || ids.isEmpty()) {
+            return map;
+        }
+        List<Activity> activities = activityMapper.selectBatchIds(ids);
+        for (Activity a : activities) {
+            map.put(a.getId(), a);
+        }
+        return map;
+    }
+
+    private Boolean parseReadFilter(String read) {
+        if (read == null || read.isEmpty() || "all".equalsIgnoreCase(read)) {
+            return null;
+        }
+        if ("read".equalsIgnoreCase(read) || "true".equalsIgnoreCase(read)) {
+            return true;
+        }
+        if ("unread".equalsIgnoreCase(read) || "false".equalsIgnoreCase(read)) {
+            return false;
+        }
+        return null;
+    }
+
+    private String formatCsv(Object value) {
+        if (value == null) {
+            return "";
+        }
+        String text = value.toString().replace("T", " ");
+        if (text.contains(",") || text.contains("\"") || text.contains("\n")) {
+            text = "\"" + text.replace("\"", "\"\"") + "\"";
+        }
+        return text;
     }
 }

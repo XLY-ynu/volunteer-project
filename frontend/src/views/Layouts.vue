@@ -10,6 +10,32 @@
       </div>
     </el-card>
 
+    <el-card class="template-card" shadow="never">
+      <div class="template-head">
+        <div>
+          <div class="template-title">播放策略模板库</div>
+          <div class="template-sub">选择模板快速配置多区布局与轮播策略</div>
+        </div>
+        <el-button size="small" @click="onCreate">自定义布局</el-button>
+      </div>
+      <div class="template-grid">
+        <div class="template-item" v-for="tpl in templateLibrary" :key="tpl.id" @click="openFromTemplate(tpl)">
+          <div class="preview-screen template-preview">
+            <div v-for="(area, idx) in tpl.areas" :key="idx" class="preview-area" :style="getAreaStyle(area)">
+              {{ idx + 1 }}
+            </div>
+          </div>
+          <div class="template-info">
+            <div class="template-name">{{ tpl.name }}</div>
+            <div class="template-desc">{{ tpl.description }}</div>
+            <div class="template-tags">
+              <el-tag v-for="tag in tpl.tags" :key="tag" size="small">{{ tag }}</el-tag>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-card>
+
     <el-card class="content-card" shadow="never">
       <div class="layout-grid" v-if="list.length">
         <div class="layout-item" v-for="item in list" :key="item.id">
@@ -39,15 +65,27 @@
         <el-form-item label="布局名称" required>
           <el-input v-model="form.name" placeholder="如：单屏全屏、左右分屏" />
         </el-form-item>
-        <el-form-item label="布局类型">
-          <el-radio-group v-model="layoutType" @change="onLayoutTypeChange">
-            <el-radio-button value="single">单屏全屏</el-radio-button>
-            <el-radio-button value="lr">左右分屏</el-radio-button>
-            <el-radio-button value="tb">上下分屏</el-radio-button>
-            <el-radio-button value="grid4">四宫格</el-radio-button>
-            <el-radio-button value="main-side">主屏+侧边</el-radio-button>
-            <el-radio-button value="custom">自定义</el-radio-button>
-          </el-radio-group>
+        <el-form-item label="模板库">
+          <div class="template-grid mini">
+            <div
+              class="template-item mini"
+              v-for="tpl in templateLibrary"
+              :key="tpl.id"
+              :class="{ active: selectedTemplateId === tpl.id }"
+              @click="selectTemplate(tpl)"
+            >
+              <div class="preview-screen template-preview mini">
+                <div v-for="(area, idx) in tpl.areas" :key="idx" class="preview-area" :style="getAreaStyle(area)">
+                  {{ idx + 1 }}
+                </div>
+              </div>
+              <div class="template-info">
+                <div class="template-name">{{ tpl.name }}</div>
+                <div class="template-desc">{{ tpl.description }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="template-hint">已选模板：{{ selectedTemplate?.name || '未选择' }}</div>
         </el-form-item>
 
         <!-- 可视化预览 -->
@@ -82,7 +120,11 @@
         </el-form-item>
 
         <!-- 分区参数调整（自定义模式） -->
-        <el-form-item label="分区设置" v-if="layoutType === 'custom'">
+        <el-form-item label="高级调整">
+          <el-switch v-model="advancedMode" active-text="手动分区" />
+        </el-form-item>
+
+        <el-form-item label="分区设置" v-if="advancedMode">
           <div class="area-settings">
             <div class="area-list">
               <div v-for="(area, idx) in areas" :key="idx" class="area-item" :class="{ active: selectedArea === idx }" @click="selectedArea = idx">
@@ -132,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { createLayout, fetchLayouts, updateLayout, deleteLayout } from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Edit, Delete } from '@element-plus/icons-vue';
@@ -142,39 +184,77 @@ const dialogVisible = ref(false);
 const previewVisible = ref(false);
 const editingId = ref<number | null>(null);
 const form = ref({ name: '' });
-const layoutType = ref('single');
 const selectedArea = ref(0);
 const previewAreas = ref<any[]>([]);
+const selectedTemplateId = ref('full');
+const advancedMode = ref(false);
 
 // 分区数据 (x, y, w, h 都是百分比 0-100)
 const areas = ref<any[]>([
   { x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }
 ]);
 
-// 预设布局模板
-const layoutTemplates: Record<string, any[]> = {
-  single: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }],
-  lr: [
-    { x: 0, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 },
-    { x: 50, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }
-  ],
-  tb: [
-    { x: 0, y: 0, w: 100, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 },
-    { x: 0, y: 50, w: 100, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 }
-  ],
-  grid4: [
-    { x: 0, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 },
-    { x: 50, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 },
-    { x: 0, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 },
-    { x: 50, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 12 }
-  ],
-  'main-side': [
-    { x: 0, y: 0, w: 70, h: 100, playMode: 'shared', shuffle: false, defaultDuration: 12 },
-    { x: 70, y: 0, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
-    { x: 70, y: 50, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 }
-  ],
-  custom: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }]
-};
+const templateLibrary = [
+  {
+    id: 'full',
+    name: '全屏独播',
+    description: '单区全屏，独立轮播',
+    tags: ['单区', '独立轮播'],
+    areas: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }]
+  },
+  {
+    id: 'lr',
+    name: '左右双区',
+    description: '左右分屏，各自独立',
+    tags: ['双区', '独立轮播'],
+    areas: [
+      { x: 0, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 },
+      { x: 50, y: 0, w: 50, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }
+    ]
+  },
+  {
+    id: 'tb',
+    name: '上下双区',
+    description: '上下分屏，内容同步节奏',
+    tags: ['双区', '同步排期'],
+    areas: [
+      { x: 0, y: 0, w: 100, h: 50, playMode: 'shared', shuffle: false, defaultDuration: 12 },
+      { x: 0, y: 50, w: 100, h: 50, playMode: 'shared', shuffle: false, defaultDuration: 12 }
+    ]
+  },
+  {
+    id: 'grid4',
+    name: '四宫格',
+    description: '四区轮播，信息密集展示',
+    tags: ['四区', '独立轮播'],
+    areas: [
+      { x: 0, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
+      { x: 50, y: 0, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
+      { x: 0, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
+      { x: 50, y: 50, w: 50, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 }
+    ]
+  },
+  {
+    id: 'main-side',
+    name: '主屏+侧栏',
+    description: '主屏共享，侧栏独立轮播',
+    tags: ['三分区', '主屏共享'],
+    areas: [
+      { x: 0, y: 0, w: 70, h: 100, playMode: 'shared', shuffle: false, defaultDuration: 12 },
+      { x: 70, y: 0, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 },
+      { x: 70, y: 50, w: 30, h: 50, playMode: 'split', shuffle: false, defaultDuration: 10 }
+    ]
+  },
+  {
+    id: 'custom',
+    name: '高级自定义',
+    description: '手动设置分区，适配特殊屏幕',
+    tags: ['自定义', '高级'],
+    areas: [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }]
+  }
+];
+
+const selectedTemplate = computed(() => templateLibrary.find((tpl) => tpl.id === selectedTemplateId.value));
 
 const normalizeArea = (area: any) => ({
   x: area.x ?? 0,
@@ -207,17 +287,29 @@ const getAreaStyle = (area: { x: number; y: number; w: number; h: number }) => (
   height: area.h + '%'
 });
 
-const onLayoutTypeChange = (type: string) => {
-  areas.value = JSON.parse(JSON.stringify(layoutTemplates[type] || layoutTemplates.single));
+const selectTemplate = (tpl: any) => {
+  selectedTemplateId.value = tpl.id;
+  const source = tpl.areas || templateLibrary[0].areas;
+  areas.value = JSON.parse(JSON.stringify(source)).map(normalizeArea);
   selectedArea.value = 0;
+  advancedMode.value = tpl.id === 'custom';
+};
+
+const openFromTemplate = (tpl: any) => {
+  editingId.value = null;
+  form.value = { name: tpl.name };
+  selectTemplate(tpl);
+  dialogVisible.value = true;
 };
 
 const addArea = () => {
+  if (!advancedMode.value) return;
   areas.value.push({ x: 0, y: 0, w: 30, h: 30, playMode: 'split', shuffle: false, defaultDuration: 12 });
   selectedArea.value = areas.value.length - 1;
 };
 
 const removeArea = (idx: number) => {
+  if (!advancedMode.value) return;
   areas.value.splice(idx, 1);
   if (selectedArea.value >= areas.value.length) selectedArea.value = areas.value.length - 1;
 };
@@ -225,9 +317,7 @@ const removeArea = (idx: number) => {
 const onCreate = () => {
   editingId.value = null;
   form.value = { name: '' };
-  layoutType.value = 'single';
-  areas.value = JSON.parse(JSON.stringify(layoutTemplates.single));
-  selectedArea.value = 0;
+  selectTemplate(templateLibrary[0]);
   dialogVisible.value = true;
 };
 
@@ -236,8 +326,9 @@ const onEdit = (item: any) => {
   form.value = { name: item.name };
   areas.value = parseAreas(item.layoutJson);
   if (!areas.value.length) areas.value = [{ x: 0, y: 0, w: 100, h: 100, playMode: 'split', shuffle: false, defaultDuration: 12 }];
-  layoutType.value = 'custom';
   selectedArea.value = 0;
+  selectedTemplateId.value = 'custom';
+  advancedMode.value = false;
   dialogVisible.value = true;
 };
 
@@ -276,9 +367,26 @@ onMounted(load);
 <style scoped>
 .page-container { display: flex; flex-direction: column; gap: 16px; }
 .page-header, .content-card { border-radius: 12px; }
+.template-card { border-radius: 12px; }
 .header-content { display: flex; justify-content: space-between; align-items: center; }
 .header-left h3 { margin: 0; font-size: 18px; }
 .subtitle { font-size: 13px; color: #909399; }
+
+.template-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.template-title { font-weight: 600; }
+.template-sub { font-size: 12px; color: #909399; }
+.template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.template-grid.mini { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.template-item { border: 1px solid #ebeef5; border-radius: 10px; padding: 10px; cursor: pointer; transition: all 0.2s; background: #fff; }
+.template-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.template-item.active { border-color: #409eff; box-shadow: 0 0 0 2px rgba(64,158,255,0.15); }
+.template-item.mini { padding: 8px; }
+.template-preview { margin-bottom: 8px; }
+.template-preview.mini { padding-top: 48%; }
+.template-name { font-weight: 600; font-size: 13px; }
+.template-desc { font-size: 12px; color: #909399; margin-top: 4px; }
+.template-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.template-hint { font-size: 12px; color: #909399; margin-top: 6px; }
 
 .layout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
 .layout-item { background: #fff; border: 1px solid #ebeef5; border-radius: 12px; overflow: hidden; transition: box-shadow 0.3s; }
