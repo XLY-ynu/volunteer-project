@@ -154,6 +154,7 @@ export const fetchAlertHistory = (page = 1, size = 20, groupName?: string) =>
   http.get('/monitor/alert-history', { params: { page, size, groupName } });
 export const fetchNotificationLogs = (page = 1, size = 20, channel?: string) =>
   http.get('/monitor/notification-logs', { params: { page, size, channel } });
+export const fetchNotificationHealth = () => http.get('/monitor/notification-health');
 export const fetchNotificationConfigs = () => http.get('/monitor/notification-configs');
 export const fetchNotificationConfig = (channel: string) => http.get(`/monitor/notification-configs/${channel}`);
 export const saveNotificationConfig = (channel: string, payload: { enabled?: boolean; config?: Record<string, any> }) =>

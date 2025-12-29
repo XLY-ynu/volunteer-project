@@ -104,26 +104,42 @@
       </el-table>
     </el-card>
 
-    <el-card class="group-alert-card" shadow="never">
-      <div class="group-head">
-        <div class="group-title">告警通知通道</div>
-        <el-button size="small" @click="loadGroupAlerts">刷新</el-button>
-      </div>
-      <el-empty v-if="activeAlerts.length === 0" description="暂无告警通知" />
-      <el-table v-else :data="activeAlerts" size="small">
-        <el-table-column prop="groupName" label="分组" width="160" />
-        <el-table-column prop="offline" label="离线" width="80" />
-        <el-table-column prop="ruleThreshold" label="阈值" width="80" />
-        <el-table-column prop="notifyChannel" label="通道" width="120">
-          <template #default="scope">
-            <el-tag size="small" :type="channelTagType(scope.row.notifyChannel)">
-              {{ channelLabel(scope.row.notifyChannel) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="notifyTarget" label="目标" min-width="180" />
-      </el-table>
-    </el-card>
+  <el-card class="group-alert-card" shadow="never">
+    <div class="group-head">
+      <div class="group-title">告警通知通道</div>
+      <el-button size="small" @click="loadGroupAlerts">刷新</el-button>
+    </div>
+    <el-empty v-if="activeAlerts.length === 0" description="暂无告警通知" />
+    <el-table v-else :data="activeAlerts" size="small">
+      <el-table-column prop="groupName" label="分组" width="160" />
+      <el-table-column prop="offline" label="离线" width="80" />
+      <el-table-column prop="ruleThreshold" label="阈值" width="80" />
+      <el-table-column prop="notifyChannel" label="通道" width="120">
+        <template #default="scope">
+          <el-tag size="small" :type="channelTagType(scope.row.notifyChannel)">
+            {{ channelLabel(scope.row.notifyChannel) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="notifyTarget" label="目标" min-width="180" />
+    </el-table>
+  </el-card>
+
+  <el-card class="group-alert-card" shadow="never">
+    <div class="group-head">
+      <div class="group-title">通知通道健康度</div>
+      <el-button size="small" @click="loadNotificationHealth">刷新</el-button>
+    </div>
+    <el-empty v-if="notificationHealth.length === 0" description="暂无数据" />
+    <el-table v-else :data="notificationHealth" size="small">
+      <el-table-column prop="channel" label="通道" width="140" />
+      <el-table-column prop="total" label="7日总量" width="100" />
+      <el-table-column prop="success" label="成功" width="90" />
+      <el-table-column prop="failed" label="失败" width="90" />
+      <el-table-column prop="pending" label="排队/待发" width="110" />
+      <el-table-column prop="successRate" label="成功率" width="100" />
+    </el-table>
+  </el-card>
 
     <el-card class="group-alert-card" shadow="never">
       <div class="group-head">
@@ -799,6 +815,7 @@ import {
   fetchOfflineTrend,
   fetchAlertHistory,
   fetchNotificationLogs,
+  fetchNotificationHealth,
   fetchNotificationConfigs,
   saveNotificationConfig,
   sendNotificationTest,
@@ -841,6 +858,7 @@ const alertSubscriptions = ref<any[]>([]);
 const alertSilences = ref<any[]>([]);
 const alertHistory = ref<any[]>([]);
 const notificationLogs = ref<any[]>([]);
+const notificationHealth = ref<any[]>([]);
 const notificationConfigs = ref<any[]>([]);
 const historyPage = ref(1);
 const historySize = ref(10);
@@ -961,6 +979,14 @@ const loadNotificationLogs = async () => {
   const data = resp.data?.data || {};
   notificationLogs.value = data.records || [];
   logTotal.value = data.total || 0;
+};
+const loadNotificationHealth = async () => {
+  try {
+    const resp = await fetchNotificationHealth();
+    notificationHealth.value = resp.data?.data || [];
+  } catch {
+    notificationHealth.value = [];
+  }
 };
 const loadNotificationConfigs = async () => {
   const resp = await fetchNotificationConfigs();
@@ -1456,6 +1482,7 @@ onMounted(() => {
   loadAlertSilences();
   loadAlertHistory();
   loadNotificationLogs();
+  loadNotificationHealth();
   loadNotificationConfigs();
 });
 </script>

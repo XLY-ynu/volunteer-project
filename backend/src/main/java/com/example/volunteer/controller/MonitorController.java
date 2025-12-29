@@ -298,6 +298,44 @@ public class MonitorController {
         return ApiResponse.ok(p);
     }
 
+    @GetMapping("/notification-health")
+    public ApiResponse<List<Map<String, Object>>> notificationHealth() {
+        LocalDateTime since = LocalDateTime.now().minusDays(7);
+        QueryWrapper<NotificationLog> w = new QueryWrapper<>();
+        w.ge("created_at", since);
+        List<NotificationLog> logs = notificationLogMapper.selectList(w);
+        Map<String, Map<String, Object>> stats = new java.util.HashMap<>();
+        for (NotificationLog log : logs) {
+            String channel = log.getChannel() != null ? log.getChannel() : "unknown";
+            String status = log.getStatus() != null ? log.getStatus() : "unknown";
+            Map<String, Object> map = stats.computeIfAbsent(channel, k -> {
+                Map<String, Object> m = new java.util.HashMap<>();
+                m.put("channel", k);
+                m.put("total", 0);
+                m.put("success", 0);
+                m.put("failed", 0);
+                m.put("pending", 0);
+                return m;
+            });
+            map.put("total", ((Number) map.get("total")).intValue() + 1);
+            if ("failed".equalsIgnoreCase(status) || "abandoned".equalsIgnoreCase(status)) {
+                map.put("failed", ((Number) map.get("failed")).intValue() + 1);
+            } else if ("pending".equalsIgnoreCase(status) || "queued".equalsIgnoreCase(status)) {
+                map.put("pending", ((Number) map.get("pending")).intValue() + 1);
+            } else {
+                map.put("success", ((Number) map.get("success")).intValue() + 1);
+            }
+        }
+        List<Map<String, Object>> result = new ArrayList<>(stats.values());
+        result.forEach(map -> {
+            int total = ((Number) map.get("total")).intValue();
+            int success = ((Number) map.get("success")).intValue();
+            double rate = total == 0 ? 0.0 : (success * 100.0 / total);
+            map.put("successRate", String.format("%.1f%%", rate));
+        });
+        return ApiResponse.ok(result);
+    }
+
     @PostMapping("/notification-logs/{id}/retry")
     public ApiResponse<NotificationLog> retryNotification(@PathVariable Long id) {
         NotificationLog log = notificationLogMapper.selectById(id);

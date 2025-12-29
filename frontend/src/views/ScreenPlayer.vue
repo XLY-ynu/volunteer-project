@@ -46,6 +46,21 @@
     </div>
     <div v-else class="screen-empty">未配置布局或播放列表</div>
 
+    <div class="status-panel">
+      <div class="status-item">
+        <span class="label">心跳</span>
+        <span class="value">{{ lastHeartbeat ? formatTimeStr(lastHeartbeat) : '—' }}</span>
+      </div>
+      <div class="status-item">
+        <span class="label">模式</span>
+        <span class="value">{{ offlineMode ? '离线回放' : '在线' }}</span>
+      </div>
+      <div class="status-item">
+        <span class="label">队列</span>
+        <el-button size="small" text @click="togglePanel">{{ showPanel ? '隐藏面板' : '显示面板' }}</el-button>
+      </div>
+    </div>
+
     <div class="queue-panel" v-if="showPanel">
       <div class="panel-section">
         <div class="panel-title">插播队列</div>
@@ -124,6 +139,7 @@ const areaQueues = ref<any[][]>([]);
 const areaStates = ref<{ index: number; startedAt: number }[]>([]);
 const offlineMode = ref(false);
 const playbackReady = ref(false);
+const lastHeartbeat = ref<Date | null>(null);
 const timer = ref<number | null>(null);
 const broadcastTimer = ref<number | null>(null);
 const heartbeatTimer = ref<number | null>(null);
@@ -144,6 +160,7 @@ const areaStyle = (area: { x: number; y: number; w: number; h: number }) => ({
 
 const togglePanel = () => {
   showPanel.value = !showPanel.value;
+  localStorage.setItem(`screen_panel_${terminalCode.value}`, showPanel.value ? '1' : '0');
 };
 
 const itemLabel = (item: any) => item?.name || item?.title || item?.type || '素材';
@@ -154,6 +171,11 @@ const areaModeLabel = (idx: number) => {
   const area = areas.value[idx];
   if (!area) return '未知';
   return area.playMode === 'shared' ? '共享轮播' : '独立轮播';
+};
+
+const formatTimeStr = (date: Date) => {
+  const iso = date.toISOString();
+  return iso.replace('T', ' ').substring(0, 19);
 };
 
 const itemKey = (idx: number) => {
@@ -367,6 +389,7 @@ const loadBroadcasts = async () => {
 
 const sendHeartbeat = () => {
   sendPublicHeartbeat({ code: terminalCode.value, status: offlineMode.value ? 'offline' : 'online' });
+  lastHeartbeat.value = new Date();
 };
 
 const startTimers = () => {
@@ -384,6 +407,10 @@ const startTimers = () => {
 };
 
 onMounted(async () => {
+  const cachedPanel = localStorage.getItem(`screen_panel_${terminalCode.value}`);
+  if (cachedPanel !== null) {
+    showPanel.value = cachedPanel === '1';
+  }
   await loadPlayback();
   await loadBroadcasts();
   sendHeartbeat();
@@ -416,6 +443,11 @@ onBeforeUnmount(() => {
 .broadcast-overlay { position: absolute; inset: 0; background: rgba(17, 24, 39, 0.88); display: flex; align-items: center; justify-content: center; z-index: 6; }
 .broadcast-overlay video, .broadcast-overlay img { width: 90%; height: 90%; object-fit: contain; border-radius: 12px; }
 .broadcast-badge { position: absolute; top: 20px; right: 20px; background: #ef4444; padding: 6px 12px; border-radius: 999px; font-size: 12px; }
+
+.status-panel { position: absolute; top: 16px; right: 16px; display: flex; gap: 10px; z-index: 6; }
+.status-item { background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 8px; color: #e2e8f0; font-size: 12px; display: flex; flex-direction: column; }
+.status-item .label { color: #94a3b8; }
+.status-item .value { font-weight: 600; }
 
 .queue-panel { position: absolute; right: 16px; top: 64px; width: 320px; max-height: calc(100vh - 90px); background: rgba(15, 23, 42, 0.86); border-radius: 12px; padding: 12px; overflow: auto; z-index: 5; }
 .panel-section { margin-bottom: 16px; }
