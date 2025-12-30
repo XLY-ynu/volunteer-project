@@ -6,11 +6,15 @@ import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.dto.ActivityRequest;
 import com.example.volunteer.dto.ActivitySignupRequest;
 import com.example.volunteer.entity.Activity;
+import com.example.volunteer.entity.ActivityReminderLog;
 import com.example.volunteer.entity.ActivitySignup;
 import com.example.volunteer.entity.Volunteer;
+import com.example.volunteer.entity.VolunteerMessage;
 import com.example.volunteer.mapper.ActivityMapper;
+import com.example.volunteer.mapper.ActivityReminderLogMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
+import com.example.volunteer.mapper.VolunteerMessageMapper;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -18,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,11 +33,19 @@ public class ActivityController {
     private final ActivityMapper activityMapper;
     private final ActivitySignupMapper activitySignupMapper;
     private final VolunteerMapper volunteerMapper;
+    private final VolunteerMessageMapper volunteerMessageMapper;
+    private final ActivityReminderLogMapper activityReminderLogMapper;
 
-    public ActivityController(ActivityMapper activityMapper, ActivitySignupMapper activitySignupMapper, VolunteerMapper volunteerMapper) {
+    public ActivityController(ActivityMapper activityMapper, 
+                              ActivitySignupMapper activitySignupMapper, 
+                              VolunteerMapper volunteerMapper,
+                              VolunteerMessageMapper volunteerMessageMapper,
+                              ActivityReminderLogMapper activityReminderLogMapper) {
         this.activityMapper = activityMapper;
         this.activitySignupMapper = activitySignupMapper;
         this.volunteerMapper = volunteerMapper;
+        this.volunteerMessageMapper = volunteerMessageMapper;
+        this.activityReminderLogMapper = activityReminderLogMapper;
     }
 
     @GetMapping
@@ -197,5 +210,103 @@ public class ActivityController {
 
     private String generateCode() {
         return String.valueOf(100000 + new java.util.Random().nextInt(900000));
+    }
+
+    /**
+     * 向活动的报名志愿者发送站内提醒消息
+     * 支持：全部发送、指定志愿者发送、自定义消息内容、提醒类型
+     */
+    @PostMapping("/{id}/send-reminder")
+    public ApiResponse<?> sendReminder(@PathVariable Long id, @RequestBody(required = false) java.util.Map<String, Object> body) {
+        Activity activity = activityMapper.selectById(id);
+        if (activity == null) {
+            return ApiResponse.fail("活动不存在");
+        }
+        
+        // 解析参数
+        String customContent = body != null ? (String) body.get("content") : null;
+        String reminderType = body != null ? (String) body.get("type") : "checkin"; // checkin, signup, custom
+        @SuppressWarnings("unchecked")
+        List<Long> volunteerIds = body != null ? (List<Long>) body.get("volunteerIds") : null;
+        String targetStatus = body != null ? (String) body.get("targetStatus") : null; // applied, checked_in, all
+        
+        // 获取目标志愿者
+        LambdaQueryWrapper<ActivitySignup> query = new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getActivityId, id);
+        
+        // 根据状态筛选
+        if ("applied".equals(targetStatus)) {
+            query.eq(ActivitySignup::getStatus, "applied");
+        } else if ("checked_in".equals(targetStatus)) {
+            query.eq(ActivitySignup::getStatus, "checked_in");
+        }
+        // targetStatus 为 null 或 "all" 时不筛选
+        
+        List<ActivitySignup> signups = activitySignupMapper.selectList(query);
+        
+        // 如果指定了志愿者ID列表，则只发送给这些志愿者
+        if (volunteerIds != null && !volunteerIds.isEmpty()) {
+            signups = signups.stream()
+                    .filter(s -> volunteerIds.contains(s.getVolunteerId()))
+                    .collect(Collectors.toList());
+        }
+        
+        if (signups.isEmpty()) {
+            return ApiResponse.fail("没有符合条件的志愿者");
+        }
+        
+        // 生成消息内容
+        String title;
+        String content;
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        String startTimeStr = activity.getStartTime() != null ? activity.getStartTime().format(formatter) : "待定";
+        String location = activity.getLocation() != null ? activity.getLocation() : "待定";
+        
+        if (customContent != null && !customContent.trim().isEmpty()) {
+            title = "活动通知 · " + activity.getTitle();
+            content = customContent;
+        } else if ("signup".equals(reminderType)) {
+            title = "报名确认 · " + activity.getTitle();
+            content = String.format("您已成功报名活动【%s】，活动时间：%s，地点：%s，请准时参加！", 
+                    activity.getTitle(), startTimeStr, location);
+        } else {
+            // 默认签到提醒
+            title = "签到提醒 · " + activity.getTitle();
+            content = String.format("您报名的活动【%s】即将开始，时间：%s，地点：%s，请准时到场签到！签到码：%s", 
+                    activity.getTitle(), startTimeStr, location, 
+                    activity.getCheckinCode() != null ? activity.getCheckinCode() : "现场获取");
+        }
+        
+        int sentCount = 0;
+        for (ActivitySignup signup : signups) {
+            // 发送站内消息
+            VolunteerMessage message = new VolunteerMessage();
+            message.setVolunteerId(signup.getVolunteerId());
+            message.setActivityId(id);
+            message.setTitle(title);
+            message.setContent(content);
+            message.setType("reminder");
+            message.setIsRead(false);
+            message.setCreatedAt(LocalDateTime.now());
+            volunteerMessageMapper.insert(message);
+            
+            // 记录提醒日志
+            ActivityReminderLog log = new ActivityReminderLog();
+            log.setActivityId(id);
+            log.setVolunteerId(signup.getVolunteerId());
+            log.setReminderType(reminderType != null ? reminderType : "checkin");
+            log.setChannel("站内消息");
+            log.setStatus("sent");
+            log.setMessage(content);
+            log.setCreatedAt(LocalDateTime.now());
+            activityReminderLogMapper.insert(log);
+            
+            sentCount++;
+        }
+        
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("sentCount", sentCount);
+        result.put("message", "已成功发送 " + sentCount + " 条站内消息");
+        return ApiResponse.ok(result);
     }
 }

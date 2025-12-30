@@ -54,7 +54,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="布局">
-              <el-select v-model="form.layoutId" placeholder="选择布局（可选）" clearable style="width: 100%" @change="onLayoutChange">
+              <el-select v-model="form.layoutId" placeholder="选择布局（可选）" clearable style="width: 100%">
                 <el-option v-for="l in layouts" :key="l.id" :label="l.name" :value="l.id" />
               </el-select>
             </el-form-item>
@@ -84,23 +84,10 @@
               <div v-else class="thumb-placeholder"><el-icon><VideoPlay /></el-icon></div>
             </template>
           </el-table-column>
-          <el-table-column prop="name" label="名称" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="name" label="名称" min-width="180" show-overflow-tooltip />
           <el-table-column prop="type" label="类型" width="80">
             <template #default="scope">
               <el-tag :type="scope.row.type === 'video' ? 'warning' : 'success'" size="small">{{ scope.row.type === 'video' ? '视频' : '图片' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="时长(秒)" width="110">
-            <template #default="scope">
-              <el-input-number v-model="mediaDurations[scope.row.id]" :min="3" :max="600" size="small" controls-position="right" />
-            </template>
-          </el-table-column>
-          <el-table-column label="分区" width="110" v-if="layoutAreas.length">
-            <template #default="scope">
-              <el-select v-model="mediaAreas[scope.row.id]" size="small" placeholder="自动" style="width: 90px">
-                <el-option label="自动" :value="undefined" />
-                <el-option v-for="(area, idx) in layoutAreas" :key="idx" :label="'区域 ' + (idx + 1)" :value="idx + 1" />
-              </el-select>
             </template>
           </el-table-column>
         </el-table>
@@ -114,25 +101,12 @@
               <div v-else class="thumb-placeholder"><el-icon><Document /></el-icon></div>
             </template>
           </el-table-column>
-          <el-table-column label="标题" min-width="150" show-overflow-tooltip>
+          <el-table-column label="标题" min-width="180" show-overflow-tooltip>
             <template #default="scope">{{ scope.row.title }}</template>
           </el-table-column>
           <el-table-column label="状态" width="80">
             <template #default="scope">
               <el-tag :type="scope.row.published ? 'success' : 'info'" size="small">{{ scope.row.published ? '已发布' : '草稿' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="时长(秒)" width="110">
-            <template #default="scope">
-              <el-input-number v-model="contentDurations[scope.row.id]" :min="5" :max="600" size="small" controls-position="right" />
-            </template>
-          </el-table-column>
-          <el-table-column label="分区" width="110" v-if="layoutAreas.length">
-            <template #default="scope">
-              <el-select v-model="contentAreas[scope.row.id]" size="small" placeholder="自动" style="width: 90px">
-                <el-option label="自动" :value="undefined" />
-                <el-option v-for="(area, idx) in layoutAreas" :key="idx" :label="'区域 ' + (idx + 1)" :value="idx + 1" />
-              </el-select>
             </template>
           </el-table-column>
         </el-table>
@@ -156,8 +130,15 @@
                   <span class="item-name">{{ element.name }}</span>
                   <el-tag :type="element.type === 'content' ? 'primary' : 'success'" size="small">{{ element.type === 'content' ? '内容' : '媒体' }}</el-tag>
                 </div>
-                <span class="item-duration">{{ element.duration }}秒</span>
-                <el-tag v-if="element.areaIndex" type="info" size="small">区域 {{ element.areaIndex }}</el-tag>
+                <div class="item-duration-wrap">
+                  <template v-if="element.isVideo">
+                    <span class="item-duration">{{ formatDuration(element.duration) }}</span>
+                  </template>
+                  <template v-else>
+                    <el-input-number v-model="element.duration" :min="3" :max="300" size="small" class="duration-input" controls-position="right" />
+                    <span class="duration-unit">秒</span>
+                  </template>
+                </div>
                 <el-button type="danger" link size="small" @click="removeSelected(index)"><el-icon><Close /></el-icon></el-button>
               </div>
             </template>
@@ -207,12 +188,6 @@
             </template>
           </el-table-column>
           <el-table-column prop="displayDuration" label="时长(秒)" width="90" />
-          <el-table-column prop="areaIndex" label="分区" width="70">
-            <template #default="scope">
-              <span v-if="scope.row.areaIndex">区域 {{ scope.row.areaIndex }}</span>
-              <span v-else>自动</span>
-            </template>
-          </el-table-column>
         </el-table>
       </div>
     </el-dialog>
@@ -221,9 +196,9 @@
 
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { createPlaylist, deletePlaylist, fetchContent, fetchLayouts, fetchMedia, fetchPlaylistItems, fetchPlaylistPreview, fetchPlaylists, updatePlaylist, fetchLayout } from '../api';
+import { createPlaylist, deletePlaylist, fetchContent, fetchLayouts, fetchMedia, fetchPlaylistItems, fetchPlaylistPreview, fetchPlaylists, updatePlaylist } from '../api';
 import { Plus, Picture, Document, VideoPlay, Delete, Edit, Rank, Close } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 
@@ -234,7 +209,7 @@ interface SelectedItem {
   name: string;
   thumb: string;
   duration: number;
-  areaIndex?: number;
+  isVideo?: boolean;
 }
 
 const dialogVisible = ref(false);
@@ -252,9 +227,6 @@ const previewDialog = ref(false);
 const previewData = ref<any | null>(null);
 const mediaTableRef = ref<any>(null);
 const contentTableRef = ref<any>(null);
-const layoutAreas = ref<any[]>([]);
-const mediaAreas = reactive<Record<number, number | undefined>>({});
-const contentAreas = reactive<Record<number, number | undefined>>({});
 
 const loadMedia = async () => {
   const resp = await fetchMedia(1, 200);
@@ -278,25 +250,6 @@ const loadLayouts = async () => {
   layouts.value = resp.data?.data || [];
 };
 
-const loadLayoutDetail = async (id?: number) => {
-  if (!id) {
-    layoutAreas.value = [];
-    return;
-  }
-  try {
-    const resp = await fetchLayout(id);
-    const json = resp.data?.data?.layoutJson;
-    if (json) {
-      const obj = JSON.parse(json);
-      layoutAreas.value = obj.areas || [];
-    } else {
-      layoutAreas.value = [];
-    }
-  } catch {
-    layoutAreas.value = [];
-  }
-};
-
 const getLayoutName = (id: number) => layouts.value.find(l => l.id === id)?.name || `ID:${id}`;
 
 const openCreate = () => {
@@ -304,31 +257,20 @@ const openCreate = () => {
   dialogVisible.value = true;
 };
 
-const onLayoutChange = async (val: number) => {
-  await loadLayoutDetail(val);
-  const count = layoutAreas.value.length;
-  if (count === 0) return;
-  Object.keys(mediaAreas).forEach((k) => {
-    const v = mediaAreas[Number(k)];
-    if (v && v > count) mediaAreas[Number(k)] = undefined;
-  });
-  Object.keys(contentAreas).forEach((k) => {
-    const v = contentAreas[Number(k)];
-    if (v && v > count) contentAreas[Number(k)] = undefined;
-  });
-};
-
 const onMediaSelectChange = (rows: any[]) => {
   selectedItems.value = selectedItems.value.filter(item => item.type !== 'media');
   rows.forEach(row => {
+    const isVideo = row.type === 'video';
+    // 视频使用 durationSeconds，如果没有则默认30秒；图片默认10秒
+    const duration = isVideo ? (row.durationSeconds || 30) : 10;
     selectedItems.value.push({
       key: `media-${row.id}`,
       type: 'media',
       id: row.id,
       name: row.name,
       thumb: row.thumbUrl || row.url || '',
-      duration: mediaDurations[row.id] || 10,
-      areaIndex: mediaAreas[row.id]
+      duration,
+      isVideo: isVideo && row.durationSeconds > 0 // 只有有时长数据的视频才标记为不可编辑
     });
   });
 };
@@ -342,8 +284,8 @@ const onContentSelectChange = (rows: any[]) => {
       id: row.id,
       name: row.title,
       thumb: row.coverUrl || '',
-      duration: contentDurations[row.id] || 15,
-      areaIndex: contentAreas[row.id]
+      duration: 10,
+      isVideo: false
     });
   });
 };
@@ -360,41 +302,16 @@ const removeSelected = (index: number) => {
   }
 };
 
-watch(mediaDurations, () => {
-  selectedItems.value.forEach(item => {
-    if (item.type === 'media') item.duration = mediaDurations[item.id] || 10;
-  });
-}, { deep: true });
-
-watch(contentDurations, () => {
-  selectedItems.value.forEach(item => {
-    if (item.type === 'content') item.duration = contentDurations[item.id] || 15;
-  });
-}, { deep: true });
-
-watch(mediaAreas, () => {
-  selectedItems.value.forEach(item => {
-    if (item.type === 'media') item.areaIndex = mediaAreas[item.id];
-  });
-}, { deep: true });
-
-watch(contentAreas, () => {
-  selectedItems.value.forEach(item => {
-    if (item.type === 'content') item.areaIndex = contentAreas[item.id];
-  });
-}, { deep: true });
-
 const onSave = async () => {
   if (!form.name) { ElMessage.warning('请输入列表名称'); return; }
   if (selectedItems.value.length === 0) { ElMessage.warning('请选择至少一个资源'); return; }
-  const areaCount = layoutAreas.value.length;
   
   const items = selectedItems.value.map((item, idx) => ({
     mediaId: item.type === 'media' ? item.id : null,
     contentId: item.type === 'content' ? item.id : null,
     displayDuration: item.duration,
     sortOrder: idx,
-    areaIndex: areaCount > 0 && item.areaIndex && item.areaIndex <= areaCount ? item.areaIndex : null
+    areaIndex: null
   }));
   
   if (!form.coverUrl && selectedItems.value.length > 0) {
@@ -419,7 +336,6 @@ const edit = async (row: any) => {
   form.description = row.description;
   form.coverUrl = row.coverUrl || '';
   form.layoutId = row.layoutId;
-  await loadLayoutDetail(row.layoutId);
   dialogVisible.value = true;
   
   const resp = await fetchPlaylistItems(row.id);
@@ -435,32 +351,30 @@ const edit = async (row: any) => {
       if (item.mediaId) {
         const media = mediaItems.value.find(m => m.id === item.mediaId);
         if (media) {
-          mediaDurations[item.mediaId] = item.displayDuration || 10;
-          mediaAreas[item.mediaId] = item.areaIndex;
+          const isVideo = media.type === 'video';
+          const hasVideoDuration = isVideo && media.durationSeconds > 0;
           selectedItems.value.push({
             key: `media-${item.mediaId}`,
             type: 'media',
             id: item.mediaId,
             name: media.name,
             thumb: media.thumbUrl || media.url || '',
-            duration: item.displayDuration || 10,
-            areaIndex: item.areaIndex
+            duration: hasVideoDuration ? media.durationSeconds : (item.displayDuration || (isVideo ? 30 : 10)),
+            isVideo: hasVideoDuration
           });
           mediaTableRef.value?.toggleRowSelection(media, true);
         }
       } else if (item.contentId) {
         const content = contentItems.value.find(c => c.id === item.contentId);
         if (content) {
-          contentDurations[item.contentId] = item.displayDuration || 15;
-          contentAreas[item.contentId] = item.areaIndex;
           selectedItems.value.push({
             key: `content-${item.contentId}`,
             type: 'content',
             id: item.contentId,
             name: content.title,
             thumb: content.coverUrl || '',
-            duration: item.displayDuration || 15,
-            areaIndex: item.areaIndex
+            duration: item.displayDuration || 10,
+            isVideo: false
           });
           contentTableRef.value?.toggleRowSelection(content, true);
         }
@@ -484,9 +398,6 @@ const resetForm = () => {
   form.layoutId = undefined;
   selectedItems.value = [];
   resourceType.value = 'media';
-  layoutAreas.value = [];
-  Object.keys(mediaAreas).forEach(k => delete mediaAreas[Number(k)]);
-  Object.keys(contentAreas).forEach(k => delete contentAreas[Number(k)]);
 };
 
 const preview = async (id: number) => {
@@ -501,6 +412,14 @@ const getContentCover = (id: number) => previewData.value?.contentAssets?.find((
 const getContentTitle = (id: number) => previewData.value?.contentAssets?.find((a: any) => a.id === id)?.title || `内容#${id}`;
 
 const formatDate = (date: string) => date ? date.replace('T', ' ').substring(0, 10) : '-';
+
+const formatDuration = (seconds: number) => {
+  if (!seconds) return '-';
+  if (seconds < 60) return `${seconds}秒`;
+  const min = Math.floor(seconds / 60);
+  const sec = seconds % 60;
+  return sec > 0 ? `${min}分${sec}秒` : `${min}分钟`;
+};
 
 onMounted(() => { loadMedia(); loadContent(); loadPlaylists(); loadLayouts(); });
 </script>
@@ -584,7 +503,11 @@ onMounted(() => { loadMedia(); loadContent(); loadPlaylists(); loadLayouts(); })
 .item-thumb-placeholder { width: 40px; height: 28px; border-radius: 4px; background: #e4e7ed; display: flex; align-items: center; justify-content: center; color: #909399; font-size: 14px; }
 .item-info { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .item-name { font-size: 13px; color: #303133; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.item-duration { color: #909399; font-size: 12px; white-space: nowrap; }
+.item-duration { color: #909399; font-size: 12px; white-space: nowrap; min-width: 50px; }
+.item-duration-wrap { display: flex; align-items: center; gap: 4px; min-width: 100px; }
+.duration-input { width: 80px; }
+.duration-input :deep(.el-input__inner) { text-align: center; }
+.duration-unit { color: #909399; font-size: 12px; }
 .empty-selected { text-align: center; color: #c0c4cc; padding: 20px; font-size: 13px; }
 
 /* 预览对话框 */

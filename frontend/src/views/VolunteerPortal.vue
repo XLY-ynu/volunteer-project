@@ -176,8 +176,6 @@
                 <p>{{ item.summary || '点击查看详情' }}</p>
                 <div class="content-meta">
                   <span>{{ formatDate(item.publishTime || item.createdAt) }}</span>
-                  <el-tag v-if="item.headline" size="small" type="danger">头条</el-tag>
-                  <el-tag v-if="item.recommended" size="small" type="warning">推荐</el-tag>
                 </div>
               </div>
             </div>
@@ -276,12 +274,23 @@
                 <el-button text size="small" @click="markAllRead">全部已读</el-button>
               </div>
             </template>
-            <el-table :data="messages" size="small" max-height="300">
-              <el-table-column prop="title" label="标题" min-width="200" />
-              <el-table-column prop="createdAt" label="时间" width="160">
+            <el-table :data="messages" size="small" max-height="300" @row-click="openMessageDetail" style="cursor: pointer">
+              <el-table-column prop="title" label="标题" min-width="180">
+                <template #default="{ row }">
+                  <span :class="{ 'unread-title': !row.read }">{{ row.title }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="type" label="类型" width="100">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="getMessageTypeTag(row.type)">
+                    {{ getMessageTypeLabel(row.type) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="createdAt" label="时间" width="140">
                 <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
               </el-table-column>
-              <el-table-column prop="read" label="状态" width="80">
+              <el-table-column prop="read" label="状态" width="70">
                 <template #default="{ row }">
                   <el-tag size="small" :type="row.read ? 'info' : 'warning'">
                     {{ row.read ? '已读' : '未读' }}
@@ -443,10 +452,6 @@
     <el-dialog v-model="showContentDialog" :title="currentContent?.title || '详情'" width="800px" class="content-detail-dialog">
       <div class="content-detail" v-if="currentContent">
         <div class="content-detail-header">
-          <div class="content-detail-tags">
-            <el-tag v-if="currentContent.headline" size="small" type="danger">头条</el-tag>
-            <el-tag v-if="currentContent.recommended" size="small" type="warning">推荐</el-tag>
-          </div>
           <div class="content-detail-time">
             <el-icon><Clock /></el-icon>
             {{ formatDateTime(currentContent.publishTime || currentContent.createdAt) }}
@@ -577,6 +582,24 @@
         <el-button type="primary" @click="changePassword">确认修改</el-button>
       </template>
     </el-dialog>
+
+    <!-- 消息详情对话框 -->
+    <el-dialog v-model="showMessageDetailDialog" :title="currentMessage?.title || '消息详情'" width="500px" class="message-detail-dialog">
+      <div class="message-detail" v-if="currentMessage">
+        <div class="message-detail-header">
+          <el-tag size="small" :type="getMessageTypeTag(currentMessage.type)">
+            {{ getMessageTypeLabel(currentMessage.type) }}
+          </el-tag>
+          <span class="message-time">{{ formatDateTime(currentMessage.createdAt) }}</span>
+        </div>
+        <div class="message-detail-content">
+          {{ currentMessage.message || '暂无详细内容' }}
+        </div>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="showMessageDetailDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -617,6 +640,7 @@ const showImagePreview = ref(false);
 const showImageDialog = ref(false);
 const showProfileDialog = ref(false);
 const showPasswordDialog = ref(false);
+const showMessageDetailDialog = ref(false);
 
 // 表单
 const loginForm = ref({ phone: '', password: '' });
@@ -655,6 +679,7 @@ const currentVideo = ref<any>(null);
 const currentContent = ref<any>(null);
 const currentActivityDetail = ref<any>(null);
 const currentImage = ref<any>(null);
+const currentMessage = ref<any>(null);
 
 // 计算属性
 const userName = computed(() => profile.value?.name || '志愿者');
@@ -1197,6 +1222,44 @@ const formatSignupStatus = (status: string) => {
   return map[status] || status || '未知';
 };
 
+// 消息类型标签
+const getMessageTypeLabel = (type: string) => {
+  const map: Record<string, string> = {
+    'signup': '报名',
+    'checkin': '签到',
+    'reminder': '提醒',
+    'custom': '通知'
+  };
+  return map[type] || '消息';
+};
+
+const getMessageTypeTag = (type: string) => {
+  const map: Record<string, string> = {
+    'signup': 'success',
+    'checkin': 'primary',
+    'reminder': 'warning',
+    'custom': 'info'
+  };
+  return map[type] || 'info';
+};
+
+// 打开消息详情
+const openMessageDetail = async (row: any) => {
+  currentMessage.value = row;
+  showMessageDetailDialog.value = true;
+  // 标记为已读
+  if (!row.read && row.key) {
+    try {
+      await markPortalMessagesRead([row.key], portalToken.value);
+      row.read = true;
+      // 更新未读数
+      unreadCount.value = Math.max(0, unreadCount.value - 1);
+    } catch (e) {
+      console.error('标记已读失败', e);
+    }
+  }
+};
+
 // 定时检查账号状态（每10秒）
 let statusCheckInterval: any = null;
 
@@ -1348,12 +1411,12 @@ onUnmounted(() => {
 
 /* Hero 区域 */
 .hero {
-  padding: 120px 60px 80px;
+  padding: 100px 60px 60px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 60px;
+  gap: 40px;
 }
 
 .hero-content {
@@ -1362,22 +1425,22 @@ onUnmounted(() => {
 }
 
 .hero-content h1 {
-  font-size: 48px;
+  font-size: 42px;
   font-weight: 700;
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   line-height: 1.2;
 }
 
 .hero-desc {
-  font-size: 18px;
+  font-size: 16px;
   opacity: 0.9;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .hero-stats {
   display: flex;
-  gap: 40px;
-  margin-bottom: 40px;
+  gap: 32px;
+  margin-bottom: 32px;
 }
 
 .stat-item {
@@ -1385,26 +1448,26 @@ onUnmounted(() => {
 }
 
 .stat-value {
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 700;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 13px;
   opacity: 0.8;
   margin-top: 4px;
 }
 
 .hero-actions {
   display: flex;
-  gap: 16px;
+  gap: 12px;
 }
 
 .hero-actions .el-button {
-  height: 48px;
-  padding: 0 32px;
-  font-size: 16px;
-  border-radius: 24px;
+  height: 44px;
+  padding: 0 28px;
+  font-size: 15px;
+  border-radius: 22px;
 }
 
 .hero-image {
@@ -1433,47 +1496,47 @@ onUnmounted(() => {
 /* 通用 Section */
 .section-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 28px;
 }
 
 .section-header h2 {
-  font-size: 32px;
+  font-size: 26px;
   color: #303133;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 
 .section-header p {
   color: #909399;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .section-more {
   text-align: center;
-  margin-top: 32px;
+  margin-top: 24px;
 }
 
 /* 活动区域 */
 .activities-section {
-  padding: 60px;
+  padding: 40px 60px;
   background: #fff;
 }
 
 .activities-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  gap: 20px;
 }
 
 .activity-card {
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.3s, box-shadow 0.3s;
 }
 
 .activity-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
 .activity-card :deep(.el-card__body) {
@@ -1482,7 +1545,7 @@ onUnmounted(() => {
 
 .activity-cover {
   position: relative;
-  height: 160px;
+  height: 140px;
   background: linear-gradient(135deg, #667eea, #764ba2);
 }
 
@@ -1532,21 +1595,21 @@ onUnmounted(() => {
 }
 
 .activity-info {
-  padding: 16px;
+  padding: 14px;
 }
 
 .activity-info h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
+  margin: 0 0 6px;
+  font-size: 15px;
   color: #303133;
 }
 
 .activity-meta {
   display: flex;
-  gap: 16px;
-  font-size: 13px;
+  gap: 12px;
+  font-size: 12px;
   color: #909399;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .activity-meta span {
@@ -1556,9 +1619,9 @@ onUnmounted(() => {
 }
 
 .activity-desc {
-  font-size: 13px;
+  font-size: 12px;
   color: #606266;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1575,35 +1638,36 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: 12px;
   color: #909399;
 }
 
 /* 资讯区域 */
 .content-section {
-  padding: 60px;
+  padding: 40px 60px;
   background: #f5f7fa;
 }
 
 .content-layout {
   display: flex;
-  gap: 24px;
+  gap: 20px;
 }
 
 .category-sidebar {
-  width: 200px;
+  width: 180px;
   flex-shrink: 0;
   background: #fff;
-  border-radius: 12px;
-  padding: 8px;
+  border-radius: 10px;
+  padding: 6px;
 }
 
 .category-item {
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: 10px 14px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
   color: #606266;
+  font-size: 14px;
 }
 
 .category-item:hover {
@@ -1618,14 +1682,14 @@ onUnmounted(() => {
 .content-list {
   flex: 1;
   background: #fff;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 12px;
 }
 
 .content-item {
   display: flex;
-  gap: 16px;
-  padding: 16px 0;
+  gap: 14px;
+  padding: 12px 0;
   border-bottom: 1px solid #ebeef5;
   cursor: pointer;
   transition: background 0.2s;
@@ -1640,9 +1704,9 @@ onUnmounted(() => {
 }
 
 .content-thumb {
-  width: 120px;
-  height: 80px;
-  border-radius: 8px;
+  width: 100px;
+  height: 70px;
+  border-radius: 6px;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -1683,33 +1747,33 @@ onUnmounted(() => {
 
 /* 媒体展示区域 */
 .media-section {
-  padding: 60px;
+  padding: 40px 60px;
   background: #fff;
 }
 
 .media-filter {
   display: flex;
   justify-content: center;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 .media-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  gap: 16px;
 }
 
 .media-card {
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   background: #f5f7fa;
   transition: transform 0.3s, box-shadow 0.3s;
 }
 
 .media-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
 .media-card:hover .play-overlay {
@@ -1718,7 +1782,7 @@ onUnmounted(() => {
 
 .media-thumb {
   position: relative;
-  height: 160px;
+  height: 140px;
   background: #f0f0f0;
 }
 
@@ -1784,12 +1848,12 @@ onUnmounted(() => {
 }
 
 .media-info {
-  padding: 12px;
+  padding: 10px;
 }
 
 .media-info h4 {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   color: #303133;
   white-space: nowrap;
   overflow: hidden;
@@ -1816,45 +1880,45 @@ onUnmounted(() => {
 
 /* 个人中心 */
 .profile-section {
-  padding: 60px;
+  padding: 40px 60px;
   background: #f5f7fa;
 }
 
 .profile-card {
-  border-radius: 16px;
+  border-radius: 12px;
 }
 
 .profile-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 14px;
+  margin-bottom: 20px;
 }
 
 .profile-avatar {
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: #fff;
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .profile-info h3 {
   margin: 0 0 4px;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .profile-info p {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   color: #909399;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .profile-stats {
   display: flex;
-  gap: 24px;
-  margin-bottom: 24px;
-  padding: 16px;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding: 14px;
   background: #f5f7fa;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .p-stat {
@@ -1863,13 +1927,13 @@ onUnmounted(() => {
 }
 
 .p-stat-value {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   color: #409eff;
 }
 
 .p-stat-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #909399;
   margin-top: 4px;
 }
@@ -1880,20 +1944,20 @@ onUnmounted(() => {
 }
 
 .message-card, .signup-card {
-  border-radius: 16px;
+  border-radius: 12px;
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 /* 页脚 */
 .portal-footer {
   background: #1f2937;
   color: #fff;
-  padding: 40px 60px;
+  padding: 30px 60px;
 }
 
 .footer-content {
@@ -2204,5 +2268,39 @@ onUnmounted(() => {
     gap: 16px;
     text-align: center;
   }
+}
+
+/* 消息详情样式 */
+.message-detail {
+  padding: 8px 0;
+}
+
+.message-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.message-time {
+  color: #909399;
+  font-size: 13px;
+}
+
+.message-detail-content {
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 16px;
+  line-height: 1.8;
+  color: #303133;
+  font-size: 14px;
+}
+
+/* 未读消息标题加粗 */
+.unread-title {
+  font-weight: 600;
+  color: #303133;
 }
 </style>

@@ -192,3 +192,27 @@ CREATE TABLE IF NOT EXISTS activity_signup (
     checkin_time DATETIME,
     created_at DATETIME
 );
+
+-- 志愿者站内消息表
+CREATE TABLE IF NOT EXISTS volunteer_message (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    activity_id BIGINT,
+    title VARCHAR(255) NOT NULL,
+    content TEXT,
+    type VARCHAR(32) DEFAULT 'reminder',
+    is_read TINYINT(1) DEFAULT 0,
+    created_at DATETIME,
+    INDEX idx_volunteer_id (volunteer_id),
+    INDEX idx_activity_id (activity_id)
+);
+
+-- 门户消息已读记录表
+CREATE TABLE IF NOT EXISTS portal_message_read (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    message_key VARCHAR(128) NOT NULL,
+    read_at DATETIME,
+    INDEX idx_volunteer_id (volunteer_id),
+    UNIQUE KEY uk_volunteer_message (volunteer_id, message_key)
+);

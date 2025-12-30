@@ -14,6 +14,7 @@ import com.example.volunteer.entity.Playlist;
 import com.example.volunteer.entity.PlaylistItem;
 import com.example.volunteer.entity.Layout;
 import com.example.volunteer.entity.MediaAsset;
+import com.example.volunteer.entity.ContentItem;
 import com.example.volunteer.entity.LayoutAreaPool;
 import com.example.volunteer.mapper.TerminalMapper;
 import com.example.volunteer.mapper.TerminalPlaylistMapper;
@@ -22,6 +23,7 @@ import com.example.volunteer.mapper.PlaylistMapper;
 import com.example.volunteer.mapper.PlaylistItemMapper;
 import com.example.volunteer.mapper.LayoutMapper;
 import com.example.volunteer.mapper.MediaAssetMapper;
+import com.example.volunteer.mapper.ContentItemMapper;
 import com.example.volunteer.mapper.LayoutAreaPoolMapper;
 import com.example.volunteer.service.TerminalService;
 import org.springframework.stereotype.Service;
@@ -43,6 +45,7 @@ public class TerminalServiceImpl implements TerminalService {
     private final PlaylistItemMapper playlistItemMapper;
     private final LayoutMapper layoutMapper;
     private final MediaAssetMapper mediaAssetMapper;
+    private final ContentItemMapper contentItemMapper;
     private final LayoutAreaPoolMapper layoutAreaPoolMapper;
     private final long offlineSeconds;
 
@@ -52,6 +55,7 @@ public class TerminalServiceImpl implements TerminalService {
                                PlaylistItemMapper playlistItemMapper,
                                LayoutMapper layoutMapper,
                                MediaAssetMapper mediaAssetMapper,
+                               ContentItemMapper contentItemMapper,
                                LayoutAreaPoolMapper layoutAreaPoolMapper,
                                @Value("${app.terminal.offline-seconds:300}") long offlineSeconds) {
         this.terminalMapper = terminalMapper;
@@ -61,6 +65,7 @@ public class TerminalServiceImpl implements TerminalService {
         this.playlistItemMapper = playlistItemMapper;
         this.layoutMapper = layoutMapper;
         this.mediaAssetMapper = mediaAssetMapper;
+        this.contentItemMapper = contentItemMapper;
         this.layoutAreaPoolMapper = layoutAreaPoolMapper;
         this.offlineSeconds = offlineSeconds;
     }
@@ -205,14 +210,12 @@ public class TerminalServiceImpl implements TerminalService {
         if (terminal == null) {
             return List.of();
         }
-        LocalDateTime now = LocalDateTime.now();
+        // 获取所有绑定记录，不过滤时间
         List<TerminalPlaylist> binds = terminalPlaylistMapper.selectList(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TerminalPlaylist>()
                         .eq(TerminalPlaylist::getTerminalId, terminal.getId())
                         .eq(TerminalPlaylist::getActive, true)
-                        .and(w -> w.isNull(TerminalPlaylist::getStartTime).or().le(TerminalPlaylist::getStartTime, now))
-                        .and(w -> w.isNull(TerminalPlaylist::getEndTime).or().ge(TerminalPlaylist::getEndTime, now))
-                        .orderByDesc(TerminalPlaylist::getStartTime)
+                        .orderByAsc(TerminalPlaylist::getStartTime)
         );
         return binds.stream().map(b -> {
             Playlist p = playlistMapper.selectById(b.getPlaylistId());
@@ -227,6 +230,14 @@ public class TerminalServiceImpl implements TerminalService {
                     .distinct()
                     .toList();
             List<MediaAsset> assets = mediaIds.isEmpty() ? List.of() : mediaAssetMapper.selectBatchIds(mediaIds);
+            
+            // 查询内容资源
+            List<Long> contentIds = items.stream().map(PlaylistItem::getContentId)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .toList();
+            List<ContentItem> contentAssets = contentIds.isEmpty() ? List.of() : contentItemMapper.selectBatchIds(contentIds);
+            
             List<LayoutAreaPool> pools = List.of();
             if (layout != null) {
                 pools = layoutAreaPoolMapper.selectList(
@@ -241,7 +252,10 @@ public class TerminalServiceImpl implements TerminalService {
             dto.setItems(items);
             dto.setLayout(layout);
             dto.setMediaAssets(assets);
+            dto.setContentAssets(contentAssets);
             dto.setAreaPools(pools);
+            dto.setStartTime(b.getStartTime());
+            dto.setEndTime(b.getEndTime());
             return dto;
         }).collect(Collectors.toList());
     }

@@ -22,6 +22,7 @@ import com.example.volunteer.entity.ActivitySignup;
 import com.example.volunteer.entity.ActivityReminderLog;
 import com.example.volunteer.entity.User;
 import com.example.volunteer.entity.Volunteer;
+import com.example.volunteer.entity.VolunteerMessage;
 import com.example.volunteer.entity.VolunteerReminderSetting;
 import com.example.volunteer.entity.VolunteerStatusLog;
 import com.example.volunteer.mapper.ActivityMapper;
@@ -30,6 +31,7 @@ import com.example.volunteer.mapper.ActivitySignupMapper;
 import com.example.volunteer.mapper.PortalMessageReadMapper;
 import com.example.volunteer.mapper.UserMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
+import com.example.volunteer.mapper.VolunteerMessageMapper;
 import com.example.volunteer.mapper.VolunteerReminderSettingMapper;
 import com.example.volunteer.mapper.VolunteerStatusLogMapper;
 import com.example.volunteer.security.JwtUtil;
@@ -75,6 +77,7 @@ public class PortalController {
     private final VolunteerReminderSettingMapper reminderSettingMapper;
     private final ActivityReminderLogMapper activityReminderLogMapper;
     private final PortalMessageReadMapper portalMessageReadMapper;
+    private final VolunteerMessageMapper volunteerMessageMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -86,6 +89,7 @@ public class PortalController {
                             VolunteerReminderSettingMapper reminderSettingMapper,
                             ActivityReminderLogMapper activityReminderLogMapper,
                             PortalMessageReadMapper portalMessageReadMapper,
+                            VolunteerMessageMapper volunteerMessageMapper,
                             PasswordEncoder passwordEncoder,
                             JwtUtil jwtUtil) {
         this.userMapper = userMapper;
@@ -96,6 +100,7 @@ public class PortalController {
         this.reminderSettingMapper = reminderSettingMapper;
         this.activityReminderLogMapper = activityReminderLogMapper;
         this.portalMessageReadMapper = portalMessageReadMapper;
+        this.volunteerMessageMapper = volunteerMessageMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -685,14 +690,16 @@ public class PortalController {
     private List<PortalMessageDto> buildPortalMessages(Volunteer volunteer) {
         List<ActivitySignup> signups = activitySignupMapper.selectList(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
-        List<ActivityReminderLog> reminderLogs = activityReminderLogMapper.selectList(
-                new LambdaQueryWrapper<ActivityReminderLog>()
-                        .eq(ActivityReminderLog::getVolunteerId, volunteer.getId())
-                        .orderByDesc(ActivityReminderLog::getCreatedAt)
+        // 获取站内消息（不再从 ActivityReminderLog 读取，避免重复）
+        List<VolunteerMessage> volunteerMessages = volunteerMessageMapper.selectList(
+                new LambdaQueryWrapper<VolunteerMessage>()
+                        .eq(VolunteerMessage::getVolunteerId, volunteer.getId())
+                        .orderByDesc(VolunteerMessage::getCreatedAt)
                         .last("limit 200"));
+        
         Set<Long> activityIds = new HashSet<>();
         signups.forEach(s -> activityIds.add(s.getActivityId()));
-        reminderLogs.forEach(r -> activityIds.add(r.getActivityId()));
+        volunteerMessages.forEach(m -> { if (m.getActivityId() != null) activityIds.add(m.getActivityId()); });
         Map<Long, Activity> activityMap = loadActivities(activityIds);
 
         List<PortalMessageDto> list = new ArrayList<>();
@@ -720,16 +727,15 @@ public class PortalController {
                 list.add(dto);
             }
         }
-        for (ActivityReminderLog log : reminderLogs) {
-            Activity activity = activityMap.get(log.getActivityId());
+        // 添加站内消息
+        for (VolunteerMessage msg : volunteerMessages) {
             PortalMessageDto dto = new PortalMessageDto();
-            dto.setKey("reminder:" + log.getId());
-            dto.setType("reminder");
-            dto.setTitle("提醒推送 · " + (activity != null ? activity.getTitle() : ""));
-            dto.setStatus(log.getStatus());
-            dto.setChannel(log.getChannel());
-            dto.setMessage(log.getMessage());
-            dto.setCreatedAt(log.getCreatedAt());
+            dto.setKey("message:" + msg.getId());
+            dto.setType(msg.getType() != null ? msg.getType() : "reminder");
+            dto.setTitle(msg.getTitle());
+            dto.setStatus(Boolean.TRUE.equals(msg.getIsRead()) ? "read" : "unread");
+            dto.setMessage(msg.getContent());
+            dto.setCreatedAt(msg.getCreatedAt());
             list.add(dto);
         }
         return list.stream()

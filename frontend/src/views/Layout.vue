@@ -72,9 +72,7 @@
         </el-menu-item>
         <el-menu-item index="/ops">
           <el-icon><List /></el-icon>
-          <el-badge :value="pendingAlerts" :hidden="pendingAlerts === 0" class="menu-badge">
-            <span>操作日志</span>
-          </el-badge>
+          <span>操作日志</span>
         </el-menu-item>
         <el-menu-item index="/system">
           <el-icon><Setting /></el-icon>
@@ -84,7 +82,6 @@
     </el-aside>
     <el-container>
       <el-header class="header">
-        <div class="header-title">{{ pageTitle }}</div>
         <div class="user">
           <el-button type="primary" link @click="goPortal">访问门户</el-button>
           <el-avatar :size="32" class="avatar">{{ userStore.username?.charAt(0)?.toUpperCase() || 'U' }}</el-avatar>
@@ -101,9 +98,8 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import { useUserStore } from '../stores/user';
-import { fetchNotificationLogs } from '../api';
 import {
   HomeFilled, Picture, Folder, Document, Grid, VideoPlay, Bell,
   Monitor, View, Calendar, User, UserFilled, List, Setting
@@ -114,39 +110,6 @@ const route = useRoute();
 const userStore = useUserStore();
 
 const active = computed(() => route.path);
-const pendingAlerts = ref(0);
-
-const loadPending = async () => {
-  try {
-    const resp = await fetchNotificationLogs(1, 20);
-    const records = resp.data?.data?.records || [];
-    pendingAlerts.value = records.filter((r: any) => r.status === 'failed' || r.status === 'abandoned').length;
-  } catch {
-    pendingAlerts.value = 0;
-  }
-};
-
-onMounted(loadPending);
-
-const pageTitle = computed(() => {
-  const titles: Record<string, string> = {
-    '/dashboard': '仪表盘',
-    '/media': '媒体资源',
-    '/categories': '分类管理',
-    '/content': '内容管理',
-    '/layouts': '布局管理',
-    '/playlists': '播放列表',
-    '/broadcasts': '插播管理',
-    '/terminals': '终端管理',
-    '/terminal-preview': '终端预览',
-    '/activities': '活动管理',
-    '/volunteer-public': '志愿者管理',
-    '/users': '用户管理',
-    '/ops': '操作日志',
-    '/system': '系统设置'
-  };
-  return titles[route.path] || '志愿者多媒体平台';
-});
 
 const onSelect = (path: string) => {
   router.push(path);
@@ -194,8 +157,8 @@ const goPortal = () => {
 }
 
 .menu-group {
-  padding: 16px 20px 8px;
-  font-size: 12px;
+  padding: 12px 20px 6px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -203,10 +166,10 @@ const goPortal = () => {
 
 :deep(.el-menu-item) {
   color: rgba(255, 255, 255, 0.8);
-  margin: 4px 8px;
+  margin: 2px 8px;
   border-radius: 8px;
-  height: 44px;
-  line-height: 44px;
+  height: 40px;
+  line-height: 40px;
 }
 
 :deep(.el-menu-item:hover) {
@@ -226,17 +189,12 @@ const goPortal = () => {
 
 .header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   padding: 0 24px;
-}
-
-.header-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
+  height: 50px;
 }
 
 .user {
@@ -258,7 +216,7 @@ const goPortal = () => {
 
 .main-content {
   background: #f5f7fa;
-  padding: 24px;
-  min-height: calc(100vh - 60px);
+  padding: 16px 20px;
+  min-height: calc(100vh - 50px);
 }
 </style>

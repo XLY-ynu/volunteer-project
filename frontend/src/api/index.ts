@@ -53,6 +53,8 @@ export const fetchPlaylistPreview = (playlistId: number) => http.get(`/playlists
 export const fetchTerminals = (page = 1, size = 10, groupName?: string) =>
   http.get('/terminals', { params: { page, size, groupName } });
 export const registerTerminal = (payload: any) => http.post('/terminals', payload);
+export const deleteTerminal = (id: number) => http.delete(`/terminals/${id}`);
+export const updateTerminalAttr = (id: number, payload: any) => http.put(`/terminals/${id}/attributes`, payload);
 export const bindPlaylistToTerminals = (payload: { terminalIds: number[]; playlistId: number; startTime?: string; endTime?: string }) =>
   http.post('/terminals/bind-playlist', payload);
 export const fetchTerminalHeartbeats = (id: number, page = 1, size = 20) =>

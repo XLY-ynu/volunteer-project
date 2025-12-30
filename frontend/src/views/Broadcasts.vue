@@ -15,7 +15,7 @@
 
     <!-- 状态统计 -->
     <el-row :gutter="16" class="status-row">
-      <el-col :xs="12" :sm="6">
+      <el-col :span="8">
         <el-card class="status-card active" shadow="hover">
           <div class="status-icon"><el-icon><VideoPlay /></el-icon></div>
           <div class="status-info">
@@ -24,7 +24,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :xs="12" :sm="6">
+      <el-col :span="8">
         <el-card class="status-card pending" shadow="hover">
           <div class="status-icon"><el-icon><Clock /></el-icon></div>
           <div class="status-info">
@@ -33,7 +33,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :xs="12" :sm="6">
+      <el-col :span="8">
         <el-card class="status-card completed" shadow="hover">
           <div class="status-icon"><el-icon><CircleCheck /></el-icon></div>
           <div class="status-info">
@@ -44,52 +44,11 @@
       </el-col>
     </el-row>
 
-    <!-- 插播队列预览 -->
-    <el-card class="content-card" shadow="never">
-      <div class="header-content">
-        <div class="header-left">
-          <h4>插播队列预览</h4>
-          <span class="subtitle">抢占优先 > 优先级 > 开始时间</span>
-        </div>
-        <div class="queue-actions">
-          <el-select v-model="queueTerminal" placeholder="选择终端" filterable style="width: 240px" @change="loadQueuePreview">
-            <el-option v-for="t in terminalList" :key="t.code" :label="`${t.name} (${t.code})`" :value="t.code" />
-          </el-select>
-          <el-button size="small" @click="loadQueuePreview">刷新队列</el-button>
-        </div>
-      </div>
-      <el-table :data="queueList" size="small">
-        <el-table-column prop="job.priority" label="优先级" width="90">
-          <template #default="scope">
-            <el-tag size="small" type="warning">{{ scope.row.job?.priority ?? 0 }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="job.queueMode" label="策略" width="100">
-          <template #default="scope">
-            <el-tag size="small" :type="scope.row.job?.queueMode === 'interrupt' ? 'danger' : 'info'">
-              {{ scope.row.job?.queueMode === 'interrupt' ? '抢占' : '排队' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="内容" min-width="180">
-          <template #default="scope">
-            <span v-if="scope.row.media">媒体：{{ scope.row.media.name }}</span>
-            <span v-else-if="scope.row.content">内容：{{ scope.row.content.title }}</span>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="job.startTime" label="开始时间" width="160">
-          <template #default="scope">{{ formatTime(scope.row.job?.startTime) }}</template>
-        </el-table-column>
-      </el-table>
-      <el-empty v-if="queueTerminal && queueList.length === 0" description="暂无插播队列" />
-    </el-card>
-
     <!-- 插播列表 -->
     <el-card class="content-card" shadow="never">
       <el-table :data="list" stripe>
         <el-table-column prop="title" label="标题" min-width="150" />
-        <el-table-column label="插播内容" min-width="180">
+        <el-table-column label="插播内容" min-width="200">
           <template #default="scope">
             <div class="content-cell">
               <template v-if="scope.row.mediaId">
@@ -104,7 +63,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="目标" width="150">
+        <el-table-column label="目标" width="160">
           <template #default="scope">
             <div v-if="scope.row.targetGroup" class="target-cell">
               <el-icon><Folder /></el-icon>
@@ -114,28 +73,16 @@
               <el-icon><Monitor /></el-icon>
               <span>{{ scope.row.targetTerminalCode }}</span>
             </div>
-            <el-tag v-else type="warning" size="small">全部终端</el-tag>
+            <el-tag v-else size="small">全部终端</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="时间范围" width="200">
+        <el-table-column label="时间" width="180">
           <template #default="scope">
             <div class="time-cell">
-              <div>{{ formatTime(scope.row.startTime) }}</div>
-              <div class="time-to">至</div>
-              <div>{{ formatTime(scope.row.endTime) }}</div>
+              <span>{{ formatTime(scope.row.startTime) }}</span>
+              <span class="time-sep">~</span>
+              <span>{{ formatTime(scope.row.endTime) }}</span>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="90">
-          <template #default="scope">
-            <el-tag size="small" type="warning">{{ scope.row.priority ?? 0 }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="queueMode" label="排队策略" width="120">
-          <template #default="scope">
-            <el-tag size="small" :type="scope.row.queueMode === 'interrupt' ? 'danger' : 'info'">
-              {{ scope.row.queueMode === 'interrupt' ? '抢占' : '排队' }}
-            </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
@@ -145,10 +92,16 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="80" fixed="right">
           <template #default="scope">
-            <el-button size="small" type="danger" @click="cancelBroadcast(scope.row.id)" :disabled="calculateStatus(scope.row) === 'completed'" title="取消">
-              <el-icon><Close /></el-icon>
+            <el-button 
+              size="small" 
+              type="danger" 
+              plain
+              @click="cancelBroadcast(scope.row.id)" 
+              :disabled="calculateStatus(scope.row) === 'completed'"
+            >
+              取消
             </el-button>
           </template>
         </el-table-column>
@@ -160,12 +113,12 @@
     </el-card>
 
     <!-- 新建插播对话框 -->
-    <el-dialog v-model="dialogVisible" title="新建插播" width="600px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" title="新建插播" width="500px" destroy-on-close>
       <el-alert type="warning" :closable="false" class="broadcast-alert">
-        <template #title>插播将打断所有目标终端的正常播放</template>
+        <template #title>插播将立即打断目标终端的正常播放</template>
       </el-alert>
 
-      <el-form :model="form" label-width="100px" class="broadcast-form">
+      <el-form :model="form" label-width="90px" class="broadcast-form">
         <el-form-item label="插播标题" required>
           <el-input v-model="form.title" placeholder="如：紧急通知、活动预告" />
         </el-form-item>
@@ -194,9 +147,7 @@
           </el-select>
         </el-form-item>
 
-        <el-divider content-position="left">目标范围</el-divider>
-
-        <el-form-item label="目标类型">
+        <el-form-item label="目标范围">
           <el-radio-group v-model="targetType">
             <el-radio label="all">全部终端</el-radio>
             <el-radio label="group">指定分组</el-radio>
@@ -216,22 +167,8 @@
           </el-select>
         </el-form-item>
 
-        <el-divider content-position="left">播放时间</el-divider>
-
-        <el-form-item label="时间范围">
-          <el-date-picker v-model="startEnd" type="datetimerange" start-placeholder="开始时间" end-placeholder="结束时间" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
-        </el-form-item>
-
-        <el-divider content-position="left">播放策略</el-divider>
-
-        <el-form-item label="优先级">
-          <el-input-number v-model="form.priority" :min="0" :max="9" />
-        </el-form-item>
-        <el-form-item label="排队策略">
-          <el-radio-group v-model="form.queueMode">
-            <el-radio label="queue">排队</el-radio>
-            <el-radio label="interrupt">抢占</el-radio>
-          </el-radio-group>
+        <el-form-item label="播放时间">
+          <el-date-picker v-model="startEnd" type="datetimerange" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
         </el-form-item>
       </el-form>
 
@@ -246,12 +183,11 @@
   </div>
 </template>
 
-
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { createBroadcast, fetchBroadcasts, deleteBroadcast, fetchBroadcastStatusCount, fetchMedia, fetchContent, fetchTerminals, fetchPublicBroadcasts } from '../api';
-import { Bell, VideoPlay, Clock, CircleCheck, Close, Folder, Monitor } from '@element-plus/icons-vue';
+import { createBroadcast, fetchBroadcasts, deleteBroadcast, fetchBroadcastStatusCount, fetchMedia, fetchContent, fetchTerminals } from '../api';
+import { Bell, VideoPlay, Clock, CircleCheck, Folder, Monitor } from '@element-plus/icons-vue';
 
 const list = ref<any[]>([]);
 const page = ref(1);
@@ -264,20 +200,15 @@ const mediaList = ref<any[]>([]);
 const contentList = ref<any[]>([]);
 const terminalList = ref<any[]>([]);
 const groupList = ref<string[]>([]);
-const queueTerminal = ref('');
-const queueList = ref<any[]>([]);
 
 const form = ref({
   title: '',
   mediaId: undefined as number | undefined,
   contentId: undefined as number | undefined,
   targetGroup: '',
-  targetTerminalCode: '',
-  priority: 0,
-  queueMode: 'queue'
+  targetTerminalCode: ''
 });
 const startEnd = ref<[string, string] | null>(null);
-
 const statusCount = ref({ active: 0, pending: 0, completed: 0 });
 
 const load = async () => {
@@ -290,15 +221,8 @@ const load = async () => {
 const loadStatusCount = async () => {
   try {
     const resp = await fetchBroadcastStatusCount();
-    const data = resp.data?.data || {};
-    statusCount.value = {
-      active: data.active || 0,
-      pending: data.pending || 0,
-      completed: data.completed || 0
-    };
-  } catch (e) {
-    console.error('Failed to load status count', e);
-  }
+    statusCount.value = resp.data?.data || { active: 0, pending: 0, completed: 0 };
+  } catch (e) { /* ignore */ }
 };
 
 const loadMedia = async () => {
@@ -314,115 +238,55 @@ const loadContent = async () => {
 const loadTerminals = async () => {
   const resp = await fetchTerminals(1, 200);
   terminalList.value = resp.data?.data?.records || [];
-  // 提取分组列表
   const groups = new Set<string>();
-  terminalList.value.forEach((t: any) => {
-    if (t.groupName) groups.add(t.groupName);
-  });
+  terminalList.value.forEach((t: any) => { if (t.groupName) groups.add(t.groupName); });
   groupList.value = Array.from(groups);
-  if (!queueTerminal.value && terminalList.value.length) {
-    queueTerminal.value = terminalList.value[0].code;
-    loadQueuePreview();
-  }
-};
-
-const loadQueuePreview = async () => {
-  if (!queueTerminal.value) {
-    queueList.value = [];
-    return;
-  }
-  const resp = await fetchPublicBroadcasts(queueTerminal.value);
-  queueList.value = resp.data?.data || [];
 };
 
 const getMediaName = (id: number) => mediaList.value.find(m => m.id === id)?.name || `媒体#${id}`;
 const getContentTitle = (id: number) => contentList.value.find(c => c.id === id)?.title || `内容#${id}`;
+const formatTime = (t: string) => t ? t.replace('T', ' ').substring(5, 16) : '-';
 
-const formatTime = (t: string) => t ? t.replace('T', ' ').substring(0, 16) : '-';
-
-// 根据时间动态计算状态，与状态统计保持一致
 const calculateStatus = (row: any): string => {
   const now = new Date();
   const start = row.startTime ? new Date(row.startTime) : null;
   const end = row.endTime ? new Date(row.endTime) : null;
-  
-  // 已结束
-  if (end && end < now) {
-    return 'completed';
-  }
-  // 未开始
-  if (start && start > now) {
-    return 'pending';
-  }
-  // 进行中
+  if (end && end < now) return 'completed';
+  if (start && start > now) return 'pending';
   return 'active';
 };
 
 const getStatusType = (row: any) => {
-  const status = calculateStatus(row);
-  switch (status) {
-    case 'active': return 'danger';
-    case 'pending': return 'warning';
-    case 'completed': return 'info';
-    default: return 'info';
-  }
+  const s = calculateStatus(row);
+  return s === 'active' ? 'danger' : s === 'pending' ? 'warning' : 'info';
 };
 
 const getStatusText = (row: any) => {
-  const status = calculateStatus(row);
-  switch (status) {
-    case 'active': return '进行中';
-    case 'pending': return '待执行';
-    case 'completed': return '已完成';
-    default: return status;
-  }
+  const s = calculateStatus(row);
+  return s === 'active' ? '进行中' : s === 'pending' ? '待执行' : '已完成';
 };
 
 const openCreate = () => {
-  form.value = { title: '', mediaId: undefined, contentId: undefined, targetGroup: '', targetTerminalCode: '', priority: 0, queueMode: 'queue' };
+  form.value = { title: '', mediaId: undefined, contentId: undefined, targetGroup: '', targetTerminalCode: '' };
   startEnd.value = null;
   contentType.value = 'media';
   targetType.value = 'all';
   dialogVisible.value = true;
 };
 
-const onPage = (p: number) => {
-  page.value = p;
-  load();
-};
+const onPage = (p: number) => { page.value = p; load(); };
 
 const submit = async () => {
-  if (!form.value.title) {
-    ElMessage.warning('请输入插播标题');
-    return;
-  }
-  if (contentType.value === 'media' && !form.value.mediaId) {
-    ElMessage.warning('请选择要插播的媒体');
-    return;
-  }
-  if (contentType.value === 'content' && !form.value.contentId) {
-    ElMessage.warning('请选择要插播的内容');
-    return;
-  }
+  if (!form.value.title) { ElMessage.warning('请输入插播标题'); return; }
+  if (contentType.value === 'media' && !form.value.mediaId) { ElMessage.warning('请选择要插播的媒体'); return; }
+  if (contentType.value === 'content' && !form.value.contentId) { ElMessage.warning('请选择要插播的内容'); return; }
 
-  const payload: any = { title: form.value.title, priority: form.value.priority, queueMode: form.value.queueMode };
-  
-  if (contentType.value === 'media') {
-    payload.mediaId = form.value.mediaId;
-  } else {
-    payload.contentId = form.value.contentId;
-  }
-
-  if (targetType.value === 'group') {
-    payload.targetGroup = form.value.targetGroup;
-  } else if (targetType.value === 'terminal') {
-    payload.targetTerminalCode = form.value.targetTerminalCode;
-  }
-
-  if (startEnd.value) {
-    payload.startTime = startEnd.value[0];
-    payload.endTime = startEnd.value[1];
-  }
+  const payload: any = { title: form.value.title, queueMode: 'interrupt', priority: 9 };
+  if (contentType.value === 'media') payload.mediaId = form.value.mediaId;
+  else payload.contentId = form.value.contentId;
+  if (targetType.value === 'group') payload.targetGroup = form.value.targetGroup;
+  else if (targetType.value === 'terminal') payload.targetTerminalCode = form.value.targetTerminalCode;
+  if (startEnd.value) { payload.startTime = startEnd.value[0]; payload.endTime = startEnd.value[1]; }
 
   await createBroadcast(payload);
   ElMessage.success('插播已发布');
@@ -453,9 +317,7 @@ onMounted(() => {
 .page-header, .content-card { border-radius: 12px; }
 .header-content { display: flex; justify-content: space-between; align-items: center; }
 .header-left h3 { margin: 0; font-size: 18px; }
-.header-left h4 { margin: 0; font-size: 16px; }
-.subtitle { font-size: 13px; color: #909399; }
-.queue-actions { display: flex; align-items: center; gap: 8px; }
+.subtitle { font-size: 13px; color: #909399; margin-left: 12px; }
 
 .status-row { margin-bottom: 0; }
 .status-card { border-radius: 12px; }
@@ -469,8 +331,8 @@ onMounted(() => {
 
 .content-cell { display: flex; align-items: center; gap: 8px; }
 .target-cell { display: flex; align-items: center; gap: 4px; color: #606266; }
-.time-cell { font-size: 13px; line-height: 1.6; }
-.time-to { color: #c0c4cc; font-size: 12px; }
+.time-cell { font-size: 13px; }
+.time-sep { color: #c0c4cc; margin: 0 4px; }
 .text-muted { color: #c0c4cc; }
 .pagination-wrapper { margin-top: 16px; display: flex; justify-content: flex-end; }
 
@@ -479,6 +341,5 @@ onMounted(() => {
 .content-type-radio { width: 100%; }
 .content-type-radio :deep(.el-radio-button) { width: 50%; }
 .content-type-radio :deep(.el-radio-button__inner) { width: 100%; }
-
 .media-option { display: flex; align-items: center; gap: 8px; }
 </style>

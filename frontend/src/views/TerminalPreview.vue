@@ -4,122 +4,143 @@
       <div class="header-content">
         <div class="header-left">
           <h3>终端播放预览</h3>
-          <span class="subtitle">查看终端当前播放内容和插播</span>
+          <span class="subtitle">查看终端播放计划</span>
         </div>
         <div class="header-actions">
-          <el-select v-model="code" placeholder="选择终端" style="width: 220px" filterable clearable>
-            <el-option v-for="t in terminals" :key="t.code" :label="`${t.name} (${t.code})`" :value="t.code">
+          <el-select v-model="code" placeholder="选择终端" style="width: 220px" filterable>
+            <el-option v-for="t in terminals" :key="t.code" :label="`${t.name || t.code}`" :value="t.code">
               <div class="terminal-option">
-                <span>{{ t.name }}</span>
-                <el-tag :type="t.status === 'online' ? 'success' : 'danger'" size="small">{{ t.status === 'online' ? '在线' : '离线' }}</el-tag>
+                <span>{{ t.name || t.code }}</span>
+                <el-tag :type="t.status === 'online' ? 'success' : 'danger'" size="small">
+                  {{ t.status === 'online' ? '在线' : '离线' }}
+                </el-tag>
               </div>
             </el-option>
           </el-select>
-          <el-button type="primary" @click="load" :disabled="!code">
-            <el-icon><Search /></el-icon>
-            获取播放
-          </el-button>
         </div>
       </div>
     </el-card>
 
-    <!-- 插播提示 -->
-    <el-alert v-if="broadcasts.length > 0" type="error" :closable="false" class="broadcast-alert">
+    <!-- 插播优先级提示 -->
+    <el-alert v-if="code && hasBroadcast" type="warning" :closable="false" class="priority-alert">
       <template #title>
-        <div class="broadcast-alert-title">
-          <el-icon><Bell /></el-icon>
-          <span>该终端有 {{ broadcasts.length }} 个插播正在进行</span>
-        </div>
+        <span>插播内容优先级最高，会打断正常播放列表</span>
       </template>
-      <div class="broadcast-alert-content">
-        插播内容将打断正常播放，优先显示
-      </div>
     </el-alert>
 
-    <!-- 插播列表 -->
-    <el-card v-if="broadcasts.length > 0" class="content-card broadcast-card" shadow="never">
-      <template #header>
-        <div class="card-header">
-          <el-icon><Bell /></el-icon>
-          <span>当前插播</span>
-          <el-tag type="danger" size="small">优先播放</el-tag>
-        </div>
-      </template>
-      <el-table :data="broadcasts" size="small">
-        <el-table-column prop="title" label="标题" min-width="150" />
-        <el-table-column label="内容" width="150">
+    <el-card class="content-card" shadow="never">
+      <el-empty v-if="!code" description="请选择终端查看播放计划" />
+      <el-empty v-else-if="allItems.length === 0" description="该终端暂无播放计划" />
+      
+      <el-table v-else :data="allItems" :row-class-name="getRowClass">
+        <el-table-column label="优先级" width="80" align="center">
           <template #default="scope">
-            <div class="content-cell">
-              <el-tag v-if="scope.row.mediaId" type="success" size="small">媒体</el-tag>
-              <el-tag v-else-if="scope.row.contentId" type="primary" size="small">内容</el-tag>
-              <span>{{ getResourceName(scope.row) }}</span>
-            </div>
+            <el-tag v-if="scope.row.isBroadcast" type="danger" size="small" effect="dark">高</el-tag>
+            <el-tag v-else type="info" size="small">普通</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="时间范围" min-width="180">
+        <el-table-column label="类型" width="100">
+          <template #default="scope">
+            <el-tag v-if="scope.row.isBroadcast" type="danger" size="small">插播</el-tag>
+            <el-tag v-else type="primary" size="small">播放列表</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="名称" min-width="120">
+          <template #default="scope">{{ scope.row.name }}</template>
+        </el-table-column>
+        <el-table-column label="时间范围" min-width="200">
           <template #default="scope">
             <span>{{ formatTime(scope.row.startTime) || '立即' }} ~ {{ formatTime(scope.row.endTime) || '永久' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="90">
+        <el-table-column label="状态" width="90">
           <template #default="scope">
-            <el-tag type="danger" size="small" effect="dark">{{ scope.row.status === 'active' ? '播放中' : '待播放' }}</el-tag>
+            <el-tag :type="getStatusType(scope.row)" size="small">{{ getStatusText(scope.row) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="内容详情" min-width="200">
+          <template #default="scope">
+            <el-button type="primary" link size="small" @click="showDetail(scope.row)">
+              查看详情 ({{ scope.row.itemCount }}项)
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <!-- 正常播放列表 -->
-    <el-card class="content-card" shadow="never">
-      <template #header>
-        <div class="card-header">
-          <el-icon><VideoPlay /></el-icon>
-          <span>播放列表</span>
-          <el-tag v-if="broadcasts.length > 0" type="info" size="small">插播结束后播放</el-tag>
-        </div>
-      </template>
-      
-      <el-empty v-if="!code" description="请选择终端查看播放内容" />
-      <el-empty v-else-if="playbacks.length === 0" description="该终端暂无绑定播放列表" />
-      
-      <el-collapse v-else accordion>
-        <el-collapse-item v-for="p in playbacks" :key="p.playlist?.id">
-          <template #title>
-            <div class="playlist-title">
-              <span class="playlist-name">{{ p.playlist?.name }}</span>
-              <el-tag v-if="p.layout" size="small">{{ p.layout.name }}</el-tag>
-              <span class="playlist-count">{{ p.items?.length || 0 }} 项</span>
-            </div>
+    <!-- 内容详情对话框 -->
+    <el-dialog v-model="detailVisible" :title="detailTitle" width="600px">
+      <el-table :data="detailItems" size="small" max-height="400">
+        <el-table-column label="序号" width="60" type="index" />
+        <el-table-column label="类型" width="80">
+          <template #default="scope">
+            <el-tag v-if="scope.row.type === 'media'" type="success" size="small">媒体</el-tag>
+            <el-tag v-else type="primary" size="small">内容</el-tag>
           </template>
-          <el-table :data="p.items" size="small">
-            <el-table-column prop="sortOrder" label="#" width="60" />
-            <el-table-column label="资源" min-width="200">
-              <template #default="scope">
-                <div class="resource-cell">
-                  <el-tag v-if="scope.row.mediaId" type="success" size="small">媒体#{{ scope.row.mediaId }}</el-tag>
-                  <el-tag v-else-if="scope.row.contentId" type="primary" size="small">内容#{{ scope.row.contentId }}</el-tag>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="displayDuration" label="时长(秒)" width="100" />
-          </el-table>
-        </el-collapse-item>
-      </el-collapse>
-    </el-card>
+        </el-table-column>
+        <el-table-column label="名称" min-width="200">
+          <template #default="scope">{{ scope.row.name }}</template>
+        </el-table-column>
+        <el-table-column label="时长" width="80">
+          <template #default="scope">{{ scope.row.duration ? scope.row.duration + '秒' : '-' }}</template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch, computed } from 'vue';
 import http from '../api/http';
-import { fetchTerminals, fetchActiveBroadcasts } from '../api';
-import { ElMessage } from 'element-plus';
-import { Search, Bell, VideoPlay } from '@element-plus/icons-vue';
+import { fetchTerminals } from '../api';
 
 const code = ref('');
 const terminals = ref<any[]>([]);
 const playbacks = ref<any[]>([]);
 const broadcasts = ref<any[]>([]);
+const detailVisible = ref(false);
+const detailTitle = ref('');
+const detailItems = ref<any[]>([]);
+
+const hasBroadcast = computed(() => broadcasts.value.length > 0);
+
+const allItems = computed(() => {
+  const items: any[] = [];
+  
+  // 播放列表
+  playbacks.value.forEach(p => {
+    items.push({
+      isBroadcast: false,
+      name: p.playlist?.name || '未知列表',
+      startTime: p.startTime,
+      endTime: p.endTime,
+      itemCount: p.items?.length || 0,
+      rawData: p
+    });
+  });
+  
+  // 插播 - 从 job 对象获取时间
+  broadcasts.value.forEach(b => {
+    const job = b.job || b;
+    items.push({
+      isBroadcast: true,
+      name: job.title || '插播',
+      startTime: job.startTime,
+      endTime: job.endTime,
+      itemCount: 1,
+      rawData: b
+    });
+  });
+  
+  // 按开始时间排序
+  items.sort((a, b) => {
+    const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;
+    const timeB = b.startTime ? new Date(b.startTime).getTime() : 0;
+    return timeA - timeB;
+  });
+  
+  return items;
+});
 
 const loadTerminals = async () => {
   const resp = await fetchTerminals(1, 200);
@@ -127,69 +148,79 @@ const loadTerminals = async () => {
 };
 
 const load = async () => {
-  if (!code.value) {
-    ElMessage.warning('请选择终端');
-    return;
-  }
+  if (!code.value) return;
   
-  // 获取正常播放列表
   const resp = await http.get('/public/playback', { params: { terminalCode: code.value } });
   playbacks.value = resp.data?.data || [];
   
-  // 获取当前插播
   const terminal = terminals.value.find(t => t.code === code.value);
-  const groupName = terminal?.groupName || '';
-  const broadcastResp = await fetchActiveBroadcasts(code.value, groupName);
-  broadcasts.value = broadcastResp.data?.data?.records || [];
-  
-  if (!playbacks.value.length && !broadcasts.value.length) {
-    ElMessage.info('该终端暂无有效播放内容');
-  }
+  const broadcastResp = await http.get('/public/broadcasts/active', { 
+    params: { terminalCode: code.value, groupName: terminal?.groupName || '' } 
+  });
+  broadcasts.value = broadcastResp.data?.data || [];
 };
 
 const formatTime = (t: string) => t ? t.replace('T', ' ').substring(0, 16) : '';
 
-const getResourceName = (row: any) => {
-  if (row.mediaId) return `#${row.mediaId}`;
-  if (row.contentId) return `#${row.contentId}`;
-  return '-';
+const getStatusType = (item: any) => {
+  const now = new Date();
+  const start = item.startTime ? new Date(item.startTime) : null;
+  const end = item.endTime ? new Date(item.endTime) : null;
+  if (end && now > end) return 'info';
+  if (start && now < start) return 'warning';
+  return 'success';
 };
 
-// 选择终端后自动加载
-watch(code, (val) => {
-  if (val) load();
-});
+const getStatusText = (item: any) => {
+  const now = new Date();
+  const start = item.startTime ? new Date(item.startTime) : null;
+  const end = item.endTime ? new Date(item.endTime) : null;
+  if (end && now > end) return '已结束';
+  if (start && now < start) return '未开始';
+  return '进行中';
+};
 
-onMounted(() => {
-  loadTerminals();
-});
+const getRowClass = ({ row }: any) => row.isBroadcast ? 'broadcast-row' : '';
+
+const showDetail = (item: any) => {
+  detailTitle.value = item.name + ' - 内容详情';
+  
+  if (item.isBroadcast) {
+    const b = item.rawData;
+    const job = b.job || b;
+    detailItems.value = [{
+      type: job.mediaId ? 'media' : 'content',
+      name: b.media?.originalName || b.media?.name || b.content?.title || (job.mediaId ? `媒体#${job.mediaId}` : `内容#${job.contentId}`),
+      duration: null
+    }];
+  } else {
+    const p = item.rawData;
+    detailItems.value = (p.items || []).map((it: any) => {
+      if (it.mediaId) {
+        const media = (p.mediaAssets || []).find((m: any) => m.id === it.mediaId);
+        return { type: 'media', name: media?.originalName || media?.name || `媒体#${it.mediaId}`, duration: it.displayDuration };
+      }
+      const content = (p.contentAssets || []).find((c: any) => c.id === it.contentId);
+      return { type: 'content', name: content?.title || `内容#${it.contentId}`, duration: it.displayDuration };
+    });
+  }
+  
+  detailVisible.value = true;
+};
+
+watch(code, (val) => { if (val) load(); });
+
+onMounted(() => { loadTerminals(); });
 </script>
 
 <style scoped>
 .page-container { display: flex; flex-direction: column; gap: 16px; }
 .page-header, .content-card { border-radius: 12px; }
-.header-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.header-content { display: flex; justify-content: space-between; align-items: center; }
 .header-left h3 { margin: 0; font-size: 18px; }
-.subtitle { font-size: 13px; color: #909399; }
-.header-actions { display: flex; gap: 8px; align-items: center; }
-
+.subtitle { font-size: 13px; color: #909399; margin-left: 12px; }
 .terminal-option { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-
-.broadcast-alert { border-radius: 12px; }
-.broadcast-alert-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.broadcast-alert-content { margin-top: 4px; font-size: 13px; }
-
-.broadcast-card { border: 2px solid #f56c6c; }
-.broadcast-card :deep(.el-card__header) { background: linear-gradient(135deg, #fef0f0, #fde2e2); }
-
-.card-header { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.card-header .el-icon { font-size: 18px; }
-
-.content-cell { display: flex; align-items: center; gap: 6px; }
-
-.playlist-title { display: flex; align-items: center; gap: 12px; width: 100%; }
-.playlist-name { font-weight: 500; }
-.playlist-count { margin-left: auto; color: #909399; font-size: 13px; }
-
-.resource-cell { display: flex; align-items: center; gap: 8px; }
+.priority-alert { border-radius: 8px; }
+:deep(.broadcast-row) { background-color: #fef0f0 !important; }
+:deep(.broadcast-row:hover > td) { background-color: #fde2e2 !important; }
 </style>

@@ -23,7 +23,11 @@ body {
 /* Element Plus 全局样式覆盖 */
 .el-card {
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
+}
+
+.el-card__body {
+  padding: 16px;
 }
 
 .el-button {
@@ -41,12 +45,18 @@ body {
 .el-table {
   border-radius: 8px;
   overflow: hidden;
+  font-size: 13px;
 }
 
 .el-table th.el-table__cell {
   background: #f5f7fa;
   color: #606266;
   font-weight: 600;
+  padding: 10px 0;
+}
+
+.el-table td.el-table__cell {
+  padding: 8px 0;
 }
 
 .el-dialog {
@@ -96,11 +106,11 @@ body {
 .page-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .page-header {
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .header-content {
@@ -111,21 +121,21 @@ body {
 
 .header-left h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   color: #303133;
 }
 
 .subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: #909399;
 }
 
 .content-card {
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .pagination-wrapper {
-  margin-top: 20px;
+  margin-top: 16px;
   display: flex;
   justify-content: flex-end;
 }
