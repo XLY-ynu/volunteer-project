@@ -961,7 +961,9 @@ const loadContent = async () => {
   contentLoading.value = false;
 };
 
-const loadMedia = async (reset = true) => {
+const loadMedia = async (resetOrEvent: boolean | string = true) => {
+  // @change事件会传递选中的值(字符串)，需要判断是否为布尔值
+  const reset = typeof resetOrEvent === 'boolean' ? resetOrEvent : true;
   try {
     if (reset) {
       mediaPage.value = 1;

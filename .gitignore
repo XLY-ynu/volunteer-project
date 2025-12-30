@@ -1,6 +1,13 @@
 # Java
 backend/target/
 *.log
+*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
 
 # Node
 frontend/node_modules/
@@ -9,3 +16,6 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# 上传文件（可选保留）
+# backend/uploads/
