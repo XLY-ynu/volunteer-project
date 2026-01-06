@@ -59,6 +59,20 @@ CREATE TABLE IF NOT EXISTS content_item (
     published TINYINT(1) DEFAULT 0,
     publish_time DATETIME,
     created_at DATETIME,
+    updated_at DATETIME,
+    headline TINYINT(1) DEFAULT 0,
+    recommended TINYINT(1) DEFAULT 0,
+    recommend_weight INT DEFAULT 0,
+    sort_order INT DEFAULT 0
+);
+
+-- 内容配置表
+CREATE TABLE IF NOT EXISTS content_config (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    recommend_interval_sec INT DEFAULT 6,
+    preview_interval_sec INT DEFAULT 10,
+    recommend_count INT DEFAULT 6,
+    recommend_strategy VARCHAR(16) DEFAULT 'prefer',
     updated_at DATETIME
 );
 
@@ -75,7 +89,9 @@ CREATE TABLE IF NOT EXISTS media_asset (
     width INT,
     height INT,
     checksum VARCHAR(128),
-    created_at DATETIME
+    created_at DATETIME,
+    bitrate_kbps INT,
+    frame_rate DECIMAL(6,2)
 );
 
 -- 播放列表表
@@ -141,7 +157,9 @@ CREATE TABLE IF NOT EXISTS broadcast_job (
     target_terminal_code VARCHAR(64),
     start_time DATETIME,
     end_time DATETIME,
-    status VARCHAR(32) DEFAULT 'scheduled'
+    status VARCHAR(32) DEFAULT 'scheduled',
+    priority INT DEFAULT 0,
+    queue_mode VARCHAR(32) DEFAULT 'queue'
 );
 
 CREATE TABLE IF NOT EXISTS terminal_heartbeat (
@@ -162,13 +180,15 @@ CREATE TABLE IF NOT EXISTS operation_log (
 
 CREATE TABLE IF NOT EXISTS volunteer (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT,
     name VARCHAR(64) NOT NULL,
     phone VARCHAR(32),
     email VARCHAR(128),
     organization VARCHAR(128),
+    id_card VARCHAR(32),
     status VARCHAR(32) DEFAULT 'pending',
-    created_at DATETIME,
-    updated_at DATETIME
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS activity (
@@ -190,7 +210,8 @@ CREATE TABLE IF NOT EXISTS activity_signup (
     volunteer_id BIGINT NOT NULL,
     status VARCHAR(32) DEFAULT 'applied',
     checkin_time DATETIME,
-    created_at DATETIME
+    checked_in TINYINT(1) DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 志愿者站内消息表
@@ -215,4 +236,163 @@ CREATE TABLE IF NOT EXISTS portal_message_read (
     read_at DATETIME,
     INDEX idx_volunteer_id (volunteer_id),
     UNIQUE KEY uk_volunteer_message (volunteer_id, message_key)
+);
+
+-- ============================================
+-- 以下为扩展功能表
+-- ============================================
+
+-- 活动签到日志表
+CREATE TABLE IF NOT EXISTS activity_checkin_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    activity_id BIGINT NOT NULL,
+    volunteer_id BIGINT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 活动提醒日志表
+CREATE TABLE IF NOT EXISTS activity_reminder_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    activity_id BIGINT NOT NULL,
+    reminder_type VARCHAR(32),
+    channel VARCHAR(32),
+    status VARCHAR(32),
+    message VARCHAR(255),
+    created_at DATETIME
+);
+
+-- 告警静默配置表
+CREATE TABLE IF NOT EXISTS alert_silence (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    group_name VARCHAR(64),
+    channel VARCHAR(32),
+    start_time DATETIME,
+    end_time DATETIME,
+    enabled TINYINT(1) DEFAULT 1,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 告警订阅表
+CREATE TABLE IF NOT EXISTS alert_subscription (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    group_name VARCHAR(64),
+    channel VARCHAR(32),
+    target VARCHAR(128),
+    enabled TINYINT(1) DEFAULT 1,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 布局区域内容池表
+CREATE TABLE IF NOT EXISTS layout_area_pool (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    layout_id BIGINT NOT NULL,
+    area_index INT NOT NULL,
+    media_id BIGINT,
+    content_id BIGINT,
+    display_duration INT DEFAULT 10,
+    sort_order INT DEFAULT 0,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 布局模板表
+CREATE TABLE IF NOT EXISTS layout_template (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(128) NOT NULL,
+    description VARCHAR(255),
+    layout_json TEXT,
+    tags VARCHAR(255),
+    cover_url VARCHAR(255),
+    builtin TINYINT(1) DEFAULT 0,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 布局模板历史表
+CREATE TABLE IF NOT EXISTS layout_template_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    template_id BIGINT NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    description VARCHAR(255),
+    layout_json LONGTEXT,
+    tags VARCHAR(255),
+    cover_url VARCHAR(255),
+    version INT DEFAULT 1,
+    created_at DATETIME
+);
+
+-- 通知渠道配置表
+CREATE TABLE IF NOT EXISTS notification_channel_config (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    channel VARCHAR(32) NOT NULL,
+    config_json TEXT,
+    enabled TINYINT(1) DEFAULT 1,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 通知日志表
+CREATE TABLE IF NOT EXISTS notification_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    channel VARCHAR(32),
+    target VARCHAR(128),
+    title VARCHAR(128),
+    content TEXT,
+    status VARCHAR(32),
+    created_at DATETIME,
+    retry_count INT DEFAULT 0,
+    max_retries INT DEFAULT 3,
+    next_retry_at DATETIME,
+    error_message VARCHAR(255),
+    provider_message_id VARCHAR(128),
+    updated_at DATETIME
+);
+
+-- 终端告警历史表
+CREATE TABLE IF NOT EXISTS terminal_alert_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    group_name VARCHAR(64),
+    total INT DEFAULT 0,
+    offline INT DEFAULT 0,
+    rule_threshold INT DEFAULT 0,
+    channel VARCHAR(32),
+    target VARCHAR(128),
+    silenced TINYINT(1) DEFAULT 0,
+    created_at DATETIME
+);
+
+-- 终端分组规则表
+CREATE TABLE IF NOT EXISTS terminal_group_rule (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    group_name VARCHAR(64) NOT NULL,
+    offline_threshold INT DEFAULT 1,
+    enabled TINYINT(1) DEFAULT 1,
+    notify_channel VARCHAR(32),
+    notify_target VARCHAR(128),
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 志愿者提醒设置表
+CREATE TABLE IF NOT EXISTS volunteer_reminder_setting (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    signup_reminder TINYINT(1) DEFAULT 1,
+    checkin_reminder TINYINT(1) DEFAULT 1,
+    channel VARCHAR(32) DEFAULT 'sms',
+    reminder_minutes INT DEFAULT 30,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+
+-- 志愿者状态日志表
+CREATE TABLE IF NOT EXISTS volunteer_status_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    status VARCHAR(32),
+    remark VARCHAR(255),
+    created_at DATETIME
 );

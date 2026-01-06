@@ -94,35 +94,27 @@ CREATE TABLE IF NOT EXISTS activity_checkin_log (
 -- 10) 播放列表增加封面
 -- ALTER TABLE playlist ADD COLUMN cover_url VARCHAR(255) NULL AFTER description;
 
--- 10.1) 志愿者账户关联用户ID
--- ALTER TABLE volunteer ADD COLUMN user_id BIGINT NULL AFTER id;
-
 -- 11) 内容头条/推荐标记
 -- ALTER TABLE content_item ADD COLUMN headline TINYINT(1) DEFAULT 0;
 -- ALTER TABLE content_item ADD COLUMN recommended TINYINT(1) DEFAULT 0;
 -- ALTER TABLE content_item ADD COLUMN sort_order INT DEFAULT 0;
--- ALTER TABLE content_item ADD COLUMN recommend_weight INT DEFAULT 0;
 
 -- 12) 媒体元数据增强
 -- ALTER TABLE media_asset ADD COLUMN bitrate_kbps INT NULL;
 -- ALTER TABLE media_asset ADD COLUMN frame_rate DECIMAL(6,2) NULL;
 
 -- 13) 内容配置表（推荐轮播/预览轮询间隔）
-CREATE TABLE IF NOT EXISTS content_config (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    recommend_interval_sec INT DEFAULT 6,
-    recommend_count INT DEFAULT 6,
-    recommend_strategy VARCHAR(16) DEFAULT 'prefer',
-    preview_interval_sec INT DEFAULT 10,
-    updated_at DATETIME
-);
+-- ALTER TABLE content_config
+-- ADD COLUMN recommend_count INT DEFAULT 6;
 
 -- 14) 推荐轮播数量配置（若字段已存在会报错可忽略）
 -- ALTER TABLE content_config ADD COLUMN recommend_count INT DEFAULT 6 AFTER recommend_interval_sec;
--- 15) 推荐策略配置（若字段已存在会报错可忽略）
--- ALTER TABLE content_config ADD COLUMN recommend_strategy VARCHAR(16) DEFAULT 'prefer' AFTER recommend_count;
 
--- 16) 终端分组告警规则
+ALTER TABLE content_config ADD COLUMN recommend_strategy VARCHAR(16) DEFAULT 'prefer' AFTER recommend_count;
+ALTER TABLE content_item ADD COLUMN recommend_weight INT DEFAULT 0 AFTER recommended;
+
+ALTER TABLE volunteer ADD COLUMN user_id BIGINT NULL AFTER id;
+
 CREATE TABLE IF NOT EXISTS terminal_group_rule (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     group_name VARCHAR(64) NOT NULL,
@@ -132,9 +124,8 @@ CREATE TABLE IF NOT EXISTS terminal_group_rule (
     updated_at DATETIME
 );
 
--- 17) 终端告警通知通道字段（若字段已存在会报错可忽略）
--- ALTER TABLE terminal_group_rule ADD COLUMN notify_channel VARCHAR(32) NULL AFTER enabled;
--- ALTER TABLE terminal_group_rule ADD COLUMN notify_target VARCHAR(128) NULL AFTER notify_channel;
+ALTER TABLE terminal_group_rule ADD COLUMN notify_channel VARCHAR(32) NULL AFTER enabled;
+ALTER TABLE terminal_group_rule ADD COLUMN notify_target VARCHAR(128) NULL AFTER notify_channel;
 
 -- 18) 告警历史与通知日志
 CREATE TABLE IF NOT EXISTS terminal_alert_history (
@@ -189,91 +180,6 @@ CREATE TABLE IF NOT EXISTS volunteer_status_log (
     created_at DATETIME
 );
 
--- 20) 通知通道配置
-CREATE TABLE IF NOT EXISTS notification_channel_config (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    channel VARCHAR(32) NOT NULL,
-    config_json TEXT,
-    enabled TINYINT(1) DEFAULT 1,
-    created_at DATETIME,
-    updated_at DATETIME
-);
-
--- 21) 门户消息已读记录
-CREATE TABLE IF NOT EXISTS portal_message_read (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    volunteer_id BIGINT NOT NULL,
-    message_key VARCHAR(128) NOT NULL,
-    read_at DATETIME,
-    UNIQUE KEY uk_portal_message_read (volunteer_id, message_key)
-);
-
--- 22) 布局模板库
-CREATE TABLE IF NOT EXISTS layout_template (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(128) NOT NULL,
-    description VARCHAR(255),
-    layout_json TEXT NOT NULL,
-    tags VARCHAR(255),
-    cover_url VARCHAR(255),
-    builtin TINYINT(1) DEFAULT 0,
-    created_at DATETIME,
-    updated_at DATETIME
-);
-
--- 23) 播放列表项增加分区绑定
--- ALTER TABLE playlist_item ADD COLUMN area_index INT NULL AFTER sort_order;
-
--- 24) 布局分区素材池
-CREATE TABLE IF NOT EXISTS layout_area_pool (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    layout_id BIGINT NOT NULL,
-    area_index INT NOT NULL,
-    media_id BIGINT NULL,
-    content_id BIGINT NULL,
-    display_duration INT DEFAULT 10,
-    sort_order INT DEFAULT 0,
-    created_at DATETIME,
-    updated_at DATETIME
-);
-
--- 21) 通知日志增强（若字段已存在会报错可忽略）
--- ALTER TABLE notification_log ADD COLUMN retry_count INT DEFAULT 0;
--- ALTER TABLE notification_log ADD COLUMN max_retries INT DEFAULT 3;
--- ALTER TABLE notification_log ADD COLUMN next_retry_at DATETIME NULL;
--- ALTER TABLE notification_log ADD COLUMN error_message VARCHAR(255) NULL;
--- ALTER TABLE notification_log ADD COLUMN provider_message_id VARCHAR(128) NULL;
--- ALTER TABLE notification_log ADD COLUMN updated_at DATETIME NULL;
-
--- 22) 志愿者提醒设置
-CREATE TABLE IF NOT EXISTS volunteer_reminder_setting (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    volunteer_id BIGINT NOT NULL,
-    signup_reminder TINYINT(1) DEFAULT 1,
-    checkin_reminder TINYINT(1) DEFAULT 1,
-    channel VARCHAR(32) DEFAULT 'sms',
-    reminder_minutes INT DEFAULT 30,
-    created_at DATETIME,
-    updated_at DATETIME
-);
-
--- 23) 活动提醒日志
-CREATE TABLE IF NOT EXISTS activity_reminder_log (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    volunteer_id BIGINT NOT NULL,
-    activity_id BIGINT NOT NULL,
-    reminder_type VARCHAR(32),
-    channel VARCHAR(32),
-    status VARCHAR(32),
-    message VARCHAR(255),
-    created_at DATETIME
-);
-
--- 24) 插播优先级与排队策略
--- ALTER TABLE broadcast_job ADD COLUMN priority INT DEFAULT 0;
--- ALTER TABLE broadcast_job ADD COLUMN queue_mode VARCHAR(32) DEFAULT 'queue';
-
--- 25) 布局模板历史表（记录导入/编辑，支持回滚统计）
 CREATE TABLE IF NOT EXISTS layout_template_history (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     template_id BIGINT NOT NULL,
