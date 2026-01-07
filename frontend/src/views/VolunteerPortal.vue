@@ -12,6 +12,7 @@
           <a href="#activities" @click.prevent="scrollTo('activities')">活动报名</a>
           <a href="#content" @click.prevent="scrollTo('content')">资讯中心</a>
           <a href="#videos" @click.prevent="scrollTo('videos')">媒体展示</a>
+          <a href="#orgs" @click.prevent="scrollTo('orgs')">加入组织</a>
         </nav>
       </div>
       <div class="header-right">
@@ -223,6 +224,71 @@
       </div>
       <div class="section-more" v-if="mediaTotal > mediaList.length">
         <el-button @click="loadMoreMedia">加载更多</el-button>
+      </div>
+    </section>
+
+    <!-- 加入组织区域 -->
+    <section class="orgs-section" id="orgs">
+      <div class="section-header">
+        <h2>志愿者组织</h2>
+        <p>加入志愿者组织，参与更多公益活动</p>
+      </div>
+      <div class="orgs-grid">
+        <el-card v-for="org in orgList" :key="org.id" class="org-card" shadow="hover">
+          <div class="org-header">
+            <div class="org-logo">{{ org.name?.charAt(0) || '组' }}</div>
+            <div class="org-info">
+              <h3>{{ org.name }}</h3>
+              <p class="org-contact">{{ org.contactName }} · {{ org.contactPhone }}</p>
+            </div>
+          </div>
+          <p class="org-desc">{{ org.description || '暂无简介' }}</p>
+          <div class="org-footer">
+            <el-button 
+              v-if="getOrgJoinStatus(org.id) === 'approved'"
+              type="success" 
+              size="small"
+              disabled
+            >
+              已加入
+            </el-button>
+            <el-button 
+              v-else-if="getOrgJoinStatus(org.id) === 'pending'"
+              type="warning" 
+              size="small"
+              disabled
+            >
+              审核中
+            </el-button>
+            <el-button 
+              v-else
+              type="primary" 
+              size="small"
+              @click="handleJoinOrg(org)"
+            >
+              申请加入
+            </el-button>
+          </div>
+        </el-card>
+        <el-empty v-if="!orgList.length" description="暂无志愿者组织" />
+      </div>
+      
+      <!-- 我加入的组织 -->
+      <div v-if="isLoggedIn && myOrgs.length > 0" class="my-orgs-section">
+        <h3>我加入的组织</h3>
+        <el-table :data="myOrgs" size="small">
+          <el-table-column prop="orgName" label="组织名称" />
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'approved' ? 'success' : row.status === 'pending' ? 'warning' : 'danger'" size="small">
+                {{ row.status === 'approved' ? '已通过' : row.status === 'pending' ? '审核中' : '已拒绝' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="joinedAt" label="加入时间" width="160">
+            <template #default="{ row }">{{ row.joinedAt ? formatDateTime(row.joinedAt) : '-' }}</template>
+          </el-table-column>
+        </el-table>
       </div>
     </section>
 
@@ -673,6 +739,8 @@ const messages = ref<any[]>([]);
 const mySignups = ref<any[]>([]);
 const myStats = ref({ total: 0, checkedIn: 0, hours: 0 });
 const unreadCount = ref(0);
+const orgList = ref<any[]>([]);
+const myOrgs = ref<any[]>([]);
 
 const currentActivity = ref<any>(null);
 const currentVideo = ref<any>(null);
@@ -988,6 +1056,61 @@ const loadMedia = async (resetOrEvent: boolean | string = true) => {
 const loadMoreMedia = () => {
   mediaPage.value++;
   loadMedia(false);
+};
+
+// 加载志愿者组织列表
+const loadOrgs = async () => {
+  try {
+    const res = await fetch('/api/user-portal/orgs');
+    const data = await res.json();
+    if (data.success) {
+      orgList.value = data.data || [];
+    }
+  } catch (e) { /* ignore */ }
+};
+
+// 加载我加入的组织
+const loadMyOrgs = async () => {
+  if (!isLoggedIn.value) return;
+  try {
+    const res = await fetch('/api/user-portal/my-orgs', {
+      headers: { Authorization: `Bearer ${portalToken.value}` }
+    });
+    const data = await res.json();
+    if (data.success) {
+      myOrgs.value = data.data || [];
+    }
+  } catch (e) { /* ignore */ }
+};
+
+// 获取组织加入状态
+const getOrgJoinStatus = (orgId: number) => {
+  const found = myOrgs.value.find((o: any) => o.orgId === orgId);
+  return found?.status || null;
+};
+
+// 申请加入组织
+const handleJoinOrg = async (org: any) => {
+  if (!isLoggedIn.value) {
+    showLoginDialog.value = true;
+    ElMessage.warning('请先登录');
+    return;
+  }
+  try {
+    const res = await fetch(`/api/user-portal/join-org/${org.id}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${portalToken.value}` }
+    });
+    const data = await res.json();
+    if (data.success) {
+      ElMessage.success('申请已提交，请等待审核');
+      await loadMyOrgs();
+    } else {
+      ElMessage.error(data.message || '申请失败');
+    }
+  } catch (e) {
+    ElMessage.error('申请失败');
+  }
 };
 
 // 打开媒体（视频播放或图片预览）
@@ -1311,10 +1434,11 @@ onMounted(async () => {
     await loadProfile();
     if (isLoggedIn.value) { // 如果loadProfile没有因为账号异常而退出
       await loadMyData();
+      await loadMyOrgs();
       startStatusCheck(); // 开始定时检查
     }
   }
-  await Promise.all([loadActivities(), loadCategories(), loadMedia()]);
+  await Promise.all([loadActivities(), loadCategories(), loadMedia(), loadOrgs()]);
 });
 
 // 组件卸载时清理定时器
@@ -2304,5 +2428,105 @@ onUnmounted(() => {
 .unread-title {
   font-weight: 600;
   color: #303133;
+}
+
+/* 组织列表样式 */
+.orgs-section {
+  padding: 40px 60px;
+  background: #fff;
+}
+
+.orgs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.org-card {
+  border-radius: 12px;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.org-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.org-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.org-logo {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.org-info h4 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: #303133;
+}
+
+.org-info p {
+  margin: 0;
+  font-size: 12px;
+  color: #909399;
+}
+
+.org-desc {
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.org-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid #ebeef5;
+}
+
+.my-orgs-section {
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 1px solid #ebeef5;
+}
+
+.my-orgs-section h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  color: #303133;
+}
+
+@media (max-width: 1200px) {
+  .orgs-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .orgs-section {
+    padding: 30px 16px;
+  }
+  .orgs-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

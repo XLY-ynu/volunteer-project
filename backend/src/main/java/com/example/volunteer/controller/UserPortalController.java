@@ -196,6 +196,30 @@ public class UserPortalController {
     // ========== 成为志愿者 ==========
 
     /**
+     * 获取当前用户的志愿者状态
+     */
+    @GetMapping("/volunteer-status")
+    public ApiResponse<Map<String, Object>> getVolunteerStatus(@RequestHeader("Authorization") String token) {
+        Long userId = getUserId(token);
+        if (userId == null) return ApiResponse.fail("请先登录");
+        
+        Volunteer volunteer = volunteerMapper.selectOne(
+                new LambdaQueryWrapper<Volunteer>().eq(Volunteer::getUserId, userId));
+        
+        if (volunteer == null) {
+            return ApiResponse.ok(null);
+        }
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", volunteer.getId());
+        result.put("name", volunteer.getName());
+        result.put("phone", volunteer.getPhone());
+        result.put("status", volunteer.getStatus());
+        result.put("createdAt", volunteer.getCreatedAt());
+        return ApiResponse.ok(result);
+    }
+
+    /**
      * 申请成为志愿者
      */
     @PostMapping("/become-volunteer")
