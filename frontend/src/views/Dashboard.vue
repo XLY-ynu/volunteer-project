@@ -26,60 +26,54 @@
             </div>
           </template>
           <div class="action-buttons">
-            <el-button type="primary" @click="$router.push('/media')">
-              <el-icon><Upload /></el-icon>
-              上传资源
+            <el-button type="primary" @click="$router.push('/users')">
+              <el-icon><UserFilled /></el-icon>
+              用户管理
             </el-button>
-            <el-button type="success" @click="$router.push('/playlists')">
-              <el-icon><VideoPlay /></el-icon>
-              创建播放列表
+            <el-button type="success" @click="$router.push('/ops')">
+              <el-icon><List /></el-icon>
+              操作日志
             </el-button>
-            <el-button type="warning" @click="$router.push('/terminals')">
-              <el-icon><Monitor /></el-icon>
-              管理终端
-            </el-button>
-            <el-button type="info" @click="$router.push('/activities')">
-              <el-icon><Calendar /></el-icon>
-              创建活动
+            <el-button type="warning" @click="$router.push('/system')">
+              <el-icon><Setting /></el-icon>
+              系统设置
             </el-button>
           </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- 终端状态 -->
+    <!-- 系统状态 -->
     <el-row :gutter="20">
       <el-col :xs="24" :md="12">
         <el-card shadow="hover" class="status-card">
           <template #header>
             <div class="card-header">
-              <span>终端状态</span>
-              <el-button text type="primary" @click="$router.push('/terminals')">查看全部</el-button>
+              <span>用户角色分布</span>
             </div>
           </template>
-          <div class="terminal-status">
-            <div class="status-item online">
-              <div class="status-dot"></div>
-              <span class="status-label">在线</span>
-              <span class="status-count">{{ terminalStatus.online }}</span>
+          <div class="role-stats">
+            <div class="role-item">
+              <div class="role-icon admin">👑</div>
+              <span class="role-label">管理员</span>
+              <span class="role-count">{{ roleStats.admin }}</span>
             </div>
-            <div class="status-item offline">
-              <div class="status-dot"></div>
-              <span class="status-label">离线</span>
-              <span class="status-count">{{ terminalStatus.offline }}</span>
+            <div class="role-item">
+              <div class="role-icon org">🏢</div>
+              <span class="role-label">志愿者组织</span>
+              <span class="role-count">{{ roleStats.org }}</span>
+            </div>
+            <div class="role-item">
+              <div class="role-icon volunteer">🤝</div>
+              <span class="role-label">志愿者</span>
+              <span class="role-count">{{ roleStats.volunteer }}</span>
+            </div>
+            <div class="role-item">
+              <div class="role-icon user">👤</div>
+              <span class="role-label">普通用户</span>
+              <span class="role-count">{{ roleStats.user }}</span>
             </div>
           </div>
-          <el-alert
-            v-if="terminalStatus.offline > 0"
-            type="warning"
-            :closable="false"
-            show-icon
-            style="margin-top: 16px"
-          >
-            <template #title>
-              {{ terminalStatus.offline }} 台终端离线，请检查网络连接
-            </template>
-          </el-alert>
         </el-card>
       </el-col>
       <el-col :xs="24" :md="12">
@@ -99,10 +93,41 @@
               <span class="info-value">{{ userStore.username }}</span>
             </div>
             <div class="info-item">
+              <span class="info-label">用户角色</span>
+              <span class="info-value">系统管理员</span>
+            </div>
+            <div class="info-item">
               <span class="info-label">登录时间</span>
               <span class="info-value">{{ loginTime }}</span>
             </div>
           </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 最近操作日志 -->
+    <el-row :gutter="20" style="margin-top: 20px;">
+      <el-col :span="24">
+        <el-card shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>最近操作日志</span>
+              <el-button text type="primary" @click="$router.push('/ops')">查看全部</el-button>
+            </div>
+          </template>
+          <el-table :data="recentLogs" size="small">
+            <el-table-column prop="username" label="用户" width="120" />
+            <el-table-column prop="method" label="方法" width="80" />
+            <el-table-column prop="path" label="路径" />
+            <el-table-column prop="status" label="状态" width="80">
+              <template #default="{ row }">
+                <el-tag :type="row.status < 400 ? 'success' : 'danger'" size="small">{{ row.status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createdAt" label="时间" width="180">
+              <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+            </el-table-column>
+          </el-table>
         </el-card>
       </el-col>
     </el-row>
@@ -111,37 +136,55 @@
 
 <script setup lang="ts">
 import { onMounted, ref, markRaw } from 'vue';
-import { fetchSummary, fetchTerminalStatus } from '../api';
 import { useUserStore } from '../stores/user';
-import { Monitor, Picture, VideoPlay, Calendar, Upload } from '@element-plus/icons-vue';
+import { UserFilled, List, Setting, User } from '@element-plus/icons-vue';
+import axios from 'axios';
 
 const userStore = useUserStore();
 const loginTime = ref(new Date().toLocaleString());
 
 const cards = ref([
-  { title: '终端数', value: 0, desc: '注册的显示终端', type: 'primary', icon: markRaw(Monitor) },
-  { title: '资源数', value: 0, desc: '媒体资源总数', type: 'success', icon: markRaw(Picture) },
-  { title: '播放列表', value: 0, desc: '可分发的列表', type: 'warning', icon: markRaw(VideoPlay) },
-  { title: '活动数', value: 0, desc: '志愿活动', type: 'info', icon: markRaw(Calendar) }
+  { title: '总用户数', value: 0, desc: '系统注册用户', type: 'primary', icon: markRaw(UserFilled) },
+  { title: '志愿者组织', value: 0, desc: '注册的组织', type: 'success', icon: markRaw(UserFilled) },
+  { title: '志愿者', value: 0, desc: '注册志愿者', type: 'warning', icon: markRaw(User) },
+  { title: '普通用户', value: 0, desc: '普通用户数', type: 'info', icon: markRaw(User) }
 ]);
 
-const terminalStatus = ref({ online: 0, offline: 0, offlineTerminals: [] });
+const roleStats = ref({ admin: 0, org: 0, volunteer: 0, user: 0 });
+const recentLogs = ref<any[]>([]);
+
+const token = localStorage.getItem('token');
+const headers = { Authorization: `Bearer ${token}` };
 
 const load = async () => {
-  const resp = await fetchSummary();
-  // @ts-ignore
-  const d = resp.data?.data || {};
-  cards.value = [
-    { title: '终端数', value: d.terminalTotal || 0, desc: '注册的显示终端', type: 'primary', icon: markRaw(Monitor) },
-    { title: '资源数', value: d.mediaTotal || 0, desc: '媒体资源总数', type: 'success', icon: markRaw(Picture) },
-    { title: '播放列表', value: d.playlistTotal || 0, desc: '可分发的列表', type: 'warning', icon: markRaw(VideoPlay) },
-    { title: '活动数', value: d.activityTotal || 0, desc: '志愿活动', type: 'info', icon: markRaw(Calendar) }
-  ];
-
-  const statusResp = await fetchTerminalStatus();
-  // @ts-ignore
-  terminalStatus.value = statusResp.data?.data || { online: 0, offline: 0, offlineTerminals: [] };
+  try {
+    // 获取用户统计 - API返回分页数据，用户列表在 data.records 中
+    const usersResp = await axios.get('/api/users?page=1&size=1000', { headers });
+    const users = usersResp.data?.data?.records || usersResp.data?.data || [];
+    
+    const adminCount = users.filter((u: any) => u.roleCode === 'ADMIN').length;
+    const orgCount = users.filter((u: any) => u.roleCode === 'ORG').length;
+    const volunteerCount = users.filter((u: any) => u.roleCode === 'VOLUNTEER').length;
+    const userCount = users.filter((u: any) => u.roleCode === 'USER').length;
+    
+    roleStats.value = { admin: adminCount, org: orgCount, volunteer: volunteerCount, user: userCount };
+    
+    cards.value = [
+      { title: '总用户数', value: users.length, desc: '系统注册用户', type: 'primary', icon: markRaw(UserFilled) },
+      { title: '志愿者组织', value: orgCount, desc: '注册的组织', type: 'success', icon: markRaw(UserFilled) },
+      { title: '志愿者', value: volunteerCount, desc: '注册志愿者', type: 'warning', icon: markRaw(User) },
+      { title: '普通用户', value: userCount, desc: '普通用户数', type: 'info', icon: markRaw(User) }
+    ];
+    
+    // 获取最近操作日志
+    const logsResp = await axios.get('/api/ops?size=5', { headers });
+    recentLogs.value = logsResp.data?.data?.records || logsResp.data?.data || [];
+  } catch (e) {
+    console.error(e);
+  }
 };
+
+const formatTime = (t: string) => t ? new Date(t).toLocaleString() : '';
 
 onMounted(load);
 </script>
@@ -252,6 +295,47 @@ onMounted(load);
 .terminal-status {
   display: flex;
   gap: 40px;
+}
+
+.role-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.role-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.role-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.role-icon.admin { background: linear-gradient(135deg, #f56c6c, #f78989); }
+.role-icon.org { background: linear-gradient(135deg, #409eff, #66b1ff); }
+.role-icon.volunteer { background: linear-gradient(135deg, #67c23a, #85ce61); }
+.role-icon.user { background: linear-gradient(135deg, #909399, #a6a9ad); }
+
+.role-label {
+  flex: 1;
+  color: #606266;
+}
+
+.role-count {
+  font-size: 20px;
+  font-weight: 700;
+  color: #303133;
 }
 
 .status-item {

@@ -12,58 +12,6 @@
           <span>仪表盘</span>
         </el-menu-item>
 
-        <!-- 资源管理 -->
-        <div class="menu-group">资源管理</div>
-        <el-menu-item index="/media">
-          <el-icon><Picture /></el-icon>
-          <span>媒体资源</span>
-        </el-menu-item>
-        <el-menu-item index="/categories">
-          <el-icon><Folder /></el-icon>
-          <span>分类管理</span>
-        </el-menu-item>
-        <el-menu-item index="/content">
-          <el-icon><Document /></el-icon>
-          <span>内容管理</span>
-        </el-menu-item>
-
-        <!-- 播放管理 -->
-        <div class="menu-group">播放管理</div>
-        <el-menu-item index="/layouts">
-          <el-icon><Grid /></el-icon>
-          <span>布局管理</span>
-        </el-menu-item>
-        <el-menu-item index="/playlists">
-          <el-icon><VideoPlay /></el-icon>
-          <span>播放列表</span>
-        </el-menu-item>
-        <el-menu-item index="/broadcasts">
-          <el-icon><Bell /></el-icon>
-          <span>插播管理</span>
-        </el-menu-item>
-
-        <!-- 终端管理 -->
-        <div class="menu-group">终端管理</div>
-        <el-menu-item index="/terminals">
-          <el-icon><Monitor /></el-icon>
-          <span>终端列表</span>
-        </el-menu-item>
-        <el-menu-item index="/terminal-preview">
-          <el-icon><View /></el-icon>
-          <span>终端预览</span>
-        </el-menu-item>
-
-        <!-- 活动管理 -->
-        <div class="menu-group">活动管理</div>
-        <el-menu-item index="/activities">
-          <el-icon><Calendar /></el-icon>
-          <span>活动列表</span>
-        </el-menu-item>
-        <el-menu-item index="/volunteer-public">
-          <el-icon><User /></el-icon>
-          <span>志愿者管理</span>
-        </el-menu-item>
-
         <!-- 系统管理 -->
         <div class="menu-group">系统管理</div>
         <el-menu-item index="/users">
@@ -101,8 +49,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { computed } from 'vue';
 import { useUserStore } from '../stores/user';
 import {
-  HomeFilled, Picture, Folder, Document, Grid, VideoPlay, Bell,
-  Monitor, View, Calendar, User, UserFilled, List, Setting
+  HomeFilled, UserFilled, List, Setting
 } from '@element-plus/icons-vue';
 
 const router = useRouter();

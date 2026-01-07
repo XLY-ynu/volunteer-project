@@ -396,3 +396,73 @@ CREATE TABLE IF NOT EXISTS volunteer_status_log (
     remark VARCHAR(255),
     created_at DATETIME
 );
+
+-- ============================================
+-- 四端架构扩展表
+-- ============================================
+
+-- 志愿者组织表
+CREATE TABLE IF NOT EXISTS volunteer_org (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(128) NOT NULL,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    description TEXT,
+    logo_url VARCHAR(255),
+    contact_name VARCHAR(64),
+    contact_phone VARCHAR(32),
+    contact_email VARCHAR(128),
+    address VARCHAR(255),
+    status VARCHAR(32) DEFAULT 'active',
+    user_id BIGINT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status)
+);
+
+-- 志愿者-组织关联表
+CREATE TABLE IF NOT EXISTS volunteer_org_member (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    org_id BIGINT NOT NULL,
+    status VARCHAR(32) DEFAULT 'pending',
+    joined_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_volunteer_org (volunteer_id, org_id),
+    INDEX idx_org_id (org_id)
+);
+
+-- 求助信息表
+CREATE TABLE IF NOT EXISTS help_request (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    org_id BIGINT,
+    title VARCHAR(128) NOT NULL,
+    content TEXT,
+    contact_name VARCHAR(64),
+    contact_phone VARCHAR(32),
+    address VARCHAR(255),
+    status VARCHAR(32) DEFAULT 'pending',
+    reply TEXT,
+    replied_at DATETIME,
+    replied_by BIGINT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_org_id (org_id),
+    INDEX idx_status (status)
+);
+
+-- 志愿服务记录表（统计时长）
+CREATE TABLE IF NOT EXISTS volunteer_service_record (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    volunteer_id BIGINT NOT NULL,
+    activity_id BIGINT NOT NULL,
+    org_id BIGINT,
+    service_hours DECIMAL(5,2) DEFAULT 0,
+    service_date DATE,
+    remark VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_volunteer_id (volunteer_id),
+    INDEX idx_activity_id (activity_id)
+);

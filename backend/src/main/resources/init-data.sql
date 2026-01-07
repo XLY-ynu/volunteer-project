@@ -10,11 +10,13 @@ SET CHARACTER SET utf8mb4;
 USE volunteer;
 
 -- ============================================
--- 1. 基础角色数据
+-- 1. 基础角色数据（四种角色）
 -- ============================================
 INSERT INTO role (code, name, description) VALUES
 ('ADMIN', '管理员', '系统管理员'),
-('VOLUNTEER', '志愿者', '普通志愿者')
+('ORG', '志愿者组织', '志愿者组织管理员'),
+('VOLUNTEER', '志愿者', '注册志愿者'),
+('USER', '普通用户', '普通用户')
 ON DUPLICATE KEY UPDATE name=VALUES(name);
 
 -- ============================================
@@ -23,6 +25,19 @@ ON DUPLICATE KEY UPDATE name=VALUES(name);
 INSERT INTO user (username, password, nickname, role_code, enabled, created_at, updated_at) VALUES
 ('admin', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '系统管理员', 'ADMIN', 1, NOW(), NOW())
 ON DUPLICATE KEY UPDATE nickname=VALUES(nickname);
+
+-- ============================================
+-- 3. 示例志愿者组织账号 (密码: admin123)
+-- ============================================
+INSERT INTO user (username, password, nickname, role_code, enabled, created_at, updated_at) VALUES
+('org1', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '阳光志愿服务队', 'ORG', 1, NOW(), NOW())
+ON DUPLICATE KEY UPDATE nickname=VALUES(nickname);
+
+-- 创建对应的组织信息
+INSERT INTO volunteer_org (name, code, description, contact_name, contact_phone, user_id, created_at) VALUES
+('阳光志愿服务队', 'sunshine', '致力于社区服务和公益活动的志愿者组织', '张队长', '13800138001', 
+ (SELECT id FROM user WHERE username = 'org1'), NOW())
+ON DUPLICATE KEY UPDATE name=VALUES(name);
 
 -- ============================================
 -- 3. 六大主菜单分类

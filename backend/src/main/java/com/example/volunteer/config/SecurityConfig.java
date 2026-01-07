@@ -36,14 +36,26 @@ public class SecurityConfig {
             .httpBasic(basic -> basic.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // 公开接口
                 .requestMatchers("/api/ping", "/api/auth/**").permitAll()
                 .requestMatchers("/api/portal/auth/**").permitAll()
+                .requestMatchers("/api/org/login").permitAll()
+                .requestMatchers("/api/user-portal/register", "/api/user-portal/login", "/api/user-portal/orgs/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
-                .requestMatchers("/api/portal/**").hasAuthority("VOLUNTEER")
+                // 志愿者端（VOLUNTEER 和 USER 都可访问）
+                .requestMatchers("/api/portal/**").hasAnyAuthority("VOLUNTEER", "USER")
+                // 普通用户端
+                .requestMatchers("/api/user-portal/**").hasAnyAuthority("USER", "VOLUNTEER")
+                // 志愿者组织端
+                .requestMatchers("/api/org/**").hasAuthority("ORG")
+                // 管理员端
                 .requestMatchers("/api/monitor/**").hasAuthority("ADMIN")
-                .requestMatchers("/api/broadcasts/**").hasAuthority("ADMIN")
-                .requestMatchers("/api/users/**", "/api/ops/**", "/api/activities/**", "/api/volunteers/**", "/api/layouts/**", "/api/layout-templates/**", "/api/playlists/**").hasAuthority("ADMIN")
+                .requestMatchers("/api/broadcasts/**").hasAnyAuthority("ADMIN", "ORG")
+                .requestMatchers("/api/users/**", "/api/ops/**").hasAuthority("ADMIN")
+                .requestMatchers("/api/activities/**", "/api/volunteers/**").hasAnyAuthority("ADMIN", "ORG")
+                .requestMatchers("/api/layouts/**", "/api/layout-templates/**", "/api/playlists/**").hasAnyAuthority("ADMIN", "ORG")
+                .requestMatchers("/api/media/**", "/api/categories/**", "/api/content/**", "/api/terminals/**").hasAnyAuthority("ADMIN", "ORG")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
