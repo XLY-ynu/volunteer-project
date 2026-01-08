@@ -37,8 +37,12 @@ import com.example.volunteer.mapper.PortalMessageReadMapper;
 import com.example.volunteer.mapper.UserMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
 import com.example.volunteer.mapper.VolunteerMessageMapper;
+import com.example.volunteer.mapper.VolunteerOrgMapper;
+import com.example.volunteer.mapper.VolunteerOrgMemberMapper;
 import com.example.volunteer.mapper.VolunteerReminderSettingMapper;
 import com.example.volunteer.mapper.VolunteerStatusLogMapper;
+import com.example.volunteer.entity.VolunteerOrg;
+import com.example.volunteer.entity.VolunteerOrgMember;
 import com.example.volunteer.security.JwtUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.validation.Valid;
@@ -83,6 +87,8 @@ public class PortalController {
     private final ActivityReminderLogMapper activityReminderLogMapper;
     private final PortalMessageReadMapper portalMessageReadMapper;
     private final VolunteerMessageMapper volunteerMessageMapper;
+    private final VolunteerOrgMapper volunteerOrgMapper;
+    private final VolunteerOrgMemberMapper volunteerOrgMemberMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -95,6 +101,8 @@ public class PortalController {
                             ActivityReminderLogMapper activityReminderLogMapper,
                             PortalMessageReadMapper portalMessageReadMapper,
                             VolunteerMessageMapper volunteerMessageMapper,
+                            VolunteerOrgMapper volunteerOrgMapper,
+                            VolunteerOrgMemberMapper volunteerOrgMemberMapper,
                             PasswordEncoder passwordEncoder,
                             JwtUtil jwtUtil) {
         this.userMapper = userMapper;
@@ -106,6 +114,8 @@ public class PortalController {
         this.activityReminderLogMapper = activityReminderLogMapper;
         this.portalMessageReadMapper = portalMessageReadMapper;
         this.volunteerMessageMapper = volunteerMessageMapper;
+        this.volunteerOrgMapper = volunteerOrgMapper;
+        this.volunteerOrgMemberMapper = volunteerOrgMemberMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -174,24 +184,55 @@ public class PortalController {
 
     @PostMapping("/auth/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody PortalLoginRequest request) {
-        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+        User user = null;
+        Volunteer volunteer = null;
+        
+        // 方式1: 先尝试用手机号作为用户名查找（志愿者端直接注册的用户）
+        user = userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getUsername, request.getPhone()));
-        Assert.notNull(user, "用户不存在");
-        Assert.isTrue(passwordEncoder.matches(request.getPassword(), user.getPassword()), "密码错误");
-        Assert.isTrue("VOLUNTEER".equals(user.getRoleCode()), "该账号无法登录志愿者端");
-        Volunteer volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
-                .eq(Volunteer::getUserId, user.getId()));
+        
+        // 方式2: 如果没找到，尝试通过手机号查找志愿者记录，再找关联的用户（普通用户申请成为志愿者的情况）
+        if (user == null) {
+            volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                    .eq(Volunteer::getPhone, request.getPhone()));
+            if (volunteer != null && volunteer.getUserId() != null) {
+                user = userMapper.selectById(volunteer.getUserId());
+            }
+        }
+        
+        if (user == null) {
+            return ApiResponse.fail("用户不存在，请检查手机号是否正确");
+        }
+        
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            return ApiResponse.fail("密码错误");
+        }
+        
+        // 查找志愿者记录（如果还没查过）
         if (volunteer == null) {
             volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
-                    .eq(Volunteer::getPhone, user.getUsername()));
+                    .eq(Volunteer::getUserId, user.getId()));
+            if (volunteer == null) {
+                volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                        .eq(Volunteer::getPhone, user.getUsername()));
+            }
         }
-        if (volunteer != null && "rejected".equals(volunteer.getStatus())) {
+        
+        // 检查志愿者状态
+        if (volunteer == null) {
+            return ApiResponse.fail("您还不是志愿者，请先申请成为志愿者");
+        }
+        if ("rejected".equals(volunteer.getStatus())) {
             return ApiResponse.fail("审核未通过，无法登录");
         }
-        if (volunteer != null && "pending".equals(volunteer.getStatus())) {
+        if ("pending".equals(volunteer.getStatus())) {
             return ApiResponse.fail("账号审核中，请稍后再试");
         }
-        Assert.isTrue(Boolean.TRUE.equals(user.getEnabled()), "账号已禁用");
+        
+        if (!Boolean.TRUE.equals(user.getEnabled())) {
+            return ApiResponse.fail("账号已禁用");
+        }
+        
         String token = jwtUtil.generateToken(user.getUsername(), user.getRoleCode());
         return ApiResponse.ok(new LoginResponse(token, user.getUsername(), user.getRoleCode()));
     }
@@ -524,6 +565,19 @@ public class PortalController {
         if (!"approved".equals(volunteer.getStatus())) {
             return ApiResponse.fail("账号未审核通过，无法报名");
         }
+        
+        // 检查是否仅限组织成员
+        if (Boolean.TRUE.equals(activity.getMembersOnly()) && activity.getOrgId() != null) {
+            VolunteerOrgMember member = volunteerOrgMemberMapper.selectOne(
+                    new LambdaQueryWrapper<VolunteerOrgMember>()
+                            .eq(VolunteerOrgMember::getVolunteerId, volunteer.getId())
+                            .eq(VolunteerOrgMember::getOrgId, activity.getOrgId())
+                            .eq(VolunteerOrgMember::getStatus, "approved"));
+            if (member == null) {
+                return ApiResponse.fail("该活动仅限组织成员参与，请先加入对应组织");
+            }
+        }
+        
         ActivitySignup existing = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getActivityId, request.getActivityId())
                 .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
@@ -604,6 +658,88 @@ public class PortalController {
         
         // 删除报名记录
         activitySignupMapper.deleteById(signup.getId());
+        return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/my-orgs")
+    public ApiResponse<List<Map<String, Object>>> getMyOrgs() {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        
+        List<VolunteerOrgMember> members = volunteerOrgMemberMapper.selectList(
+                new LambdaQueryWrapper<VolunteerOrgMember>()
+                        .eq(VolunteerOrgMember::getVolunteerId, volunteer.getId()));
+        
+        List<Map<String, Object>> result = members.stream().map(m -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("memberId", m.getId());
+            map.put("status", m.getStatus());
+            map.put("joinedAt", m.getJoinedAt());
+            VolunteerOrg org = volunteerOrgMapper.selectById(m.getOrgId());
+            if (org != null) {
+                map.put("orgId", org.getId());
+                map.put("orgName", org.getName());
+                map.put("orgLogo", org.getLogoUrl());
+            }
+            return map;
+        }).collect(Collectors.toList());
+        
+        return ApiResponse.ok(result);
+    }
+
+    @PostMapping("/join-org/{orgId}")
+    public ApiResponse<Void> joinOrg(@PathVariable Long orgId) {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        
+        // 检查志愿者状态
+        if (!"approved".equals(volunteer.getStatus())) {
+            return ApiResponse.fail("账号未审核通过，无法申请加入组织");
+        }
+        
+        // 检查组织是否存在
+        VolunteerOrg org = volunteerOrgMapper.selectById(orgId);
+        if (org == null) {
+            return ApiResponse.fail("组织不存在");
+        }
+        
+        // 检查是否已申请
+        VolunteerOrgMember existing = volunteerOrgMemberMapper.selectOne(
+                new LambdaQueryWrapper<VolunteerOrgMember>()
+                        .eq(VolunteerOrgMember::getVolunteerId, volunteer.getId())
+                        .eq(VolunteerOrgMember::getOrgId, orgId));
+        if (existing != null) {
+            return ApiResponse.fail("您已申请加入该组织");
+        }
+        
+        // 创建申请记录
+        VolunteerOrgMember member = new VolunteerOrgMember();
+        member.setVolunteerId(volunteer.getId());
+        member.setOrgId(orgId);
+        member.setStatus("pending");
+        member.setCreatedAt(LocalDateTime.now());
+        volunteerOrgMemberMapper.insert(member);
+        
+        return ApiResponse.ok(null);
+    }
+
+    @DeleteMapping("/leave-org/{orgId}")
+    public ApiResponse<Void> leaveOrg(@PathVariable Long orgId) {
+        User user = requirePortalUser();
+        Volunteer volunteer = ensureVolunteer(user);
+        
+        // 查找成员记录
+        VolunteerOrgMember member = volunteerOrgMemberMapper.selectOne(
+                new LambdaQueryWrapper<VolunteerOrgMember>()
+                        .eq(VolunteerOrgMember::getVolunteerId, volunteer.getId())
+                        .eq(VolunteerOrgMember::getOrgId, orgId));
+        
+        if (member == null) {
+            return ApiResponse.fail("您未加入该组织");
+        }
+        
+        // 删除成员记录
+        volunteerOrgMemberMapper.deleteById(member.getId());
         return ApiResponse.ok(null);
     }
 

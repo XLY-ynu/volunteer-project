@@ -23,6 +23,12 @@
         <template #default="{ row }">{{ row.signupCount || 0 }}</template>
       </el-table-column>
       <el-table-column prop="checkinCode" label="签到码" width="100" />
+      <el-table-column label="仅限成员" width="90">
+        <template #default="{ row }">
+          <el-tag v-if="row.membersOnly" type="warning" size="small">是</el-tag>
+          <el-tag v-else type="info" size="small">否</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="280">
         <template #default="{ row }">
           <el-button size="small" @click="showSignups(row)">名单</el-button>
@@ -57,6 +63,10 @@
         <el-form-item label="签到码">
           <el-input v-model="form.checkinCode" placeholder="6位数字签到码" />
           <el-button @click="generateCode" style="margin-left: 10px;">随机生成</el-button>
+        </el-form-item>
+        <el-form-item label="仅限成员">
+          <el-switch v-model="form.membersOnly" active-text="是" inactive-text="否" />
+          <span style="margin-left: 10px; color: #909399; font-size: 12px;">开启后仅本组织成员可报名</span>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -118,7 +128,7 @@ const loading = ref(false);
 const activities = ref<any[]>([]);
 const formVisible = ref(false);
 const editingId = ref<number | null>(null);
-const form = ref({ title: '', description: '', location: '', startTime: '', endTime: '', capacity: 50, checkinCode: '' });
+const form = ref({ title: '', description: '', location: '', startTime: '', endTime: '', capacity: 50, checkinCode: '', membersOnly: false });
 
 const signupVisible = ref(false);
 const signups = ref<any[]>([]);
@@ -136,7 +146,7 @@ const getHeaders = () => {
 const loadActivities = async () => {
   loading.value = true;
   try {
-    const resp = await axios.get('/api/activities', { headers: getHeaders() });
+    const resp = await axios.get('/api/org/activities', { headers: getHeaders() });
     // API 返回分页数据，需要取 records 字段
     activities.value = resp.data.data?.records || resp.data.data || [];
   } catch (e) {
@@ -148,7 +158,7 @@ const loadActivities = async () => {
 
 const showCreate = () => {
   editingId.value = null;
-  form.value = { title: '', description: '', location: '', startTime: '', endTime: '', capacity: 50, checkinCode: '' };
+  form.value = { title: '', description: '', location: '', startTime: '', endTime: '', capacity: 50, checkinCode: '', membersOnly: false };
   generateCode();
   formVisible.value = true;
 };
@@ -170,9 +180,9 @@ const saveActivity = async () => {
   }
   try {
     if (editingId.value) {
-      await axios.put(`/api/activities/${editingId.value}`, form.value, { headers: getHeaders() });
+      await axios.put(`/api/org/activities/${editingId.value}`, form.value, { headers: getHeaders() });
     } else {
-      await axios.post('/api/activities', form.value, { headers: getHeaders() });
+      await axios.post('/api/org/activities', form.value, { headers: getHeaders() });
     }
     ElMessage.success('保存成功');
     formVisible.value = false;
@@ -185,7 +195,7 @@ const saveActivity = async () => {
 const deleteActivity = async (id: number) => {
   try {
     await ElMessageBox.confirm('确定删除该活动？', '提示', { type: 'warning' });
-    await axios.delete(`/api/activities/${id}`, { headers: getHeaders() });
+    await axios.delete(`/api/org/activities/${id}`, { headers: getHeaders() });
     ElMessage.success('删除成功');
     loadActivities();
   } catch (e) {
@@ -196,7 +206,7 @@ const deleteActivity = async (id: number) => {
 const showSignups = async (row: any) => {
   currentActivity.value = row;
   try {
-    const resp = await axios.get(`/api/activities/${row.id}/signups`, { headers: getHeaders() });
+    const resp = await axios.get(`/api/org/activities/${row.id}/signups`, { headers: getHeaders() });
     // API 返回分页数据 { records: [...] }
     signups.value = resp.data.data?.records || resp.data.data || [];
     signupVisible.value = true;
@@ -220,7 +230,7 @@ const exportSignups = () => {
 
 const showCheckins = async (row: any) => {
   try {
-    const resp = await axios.get(`/api/activities/${row.id}/signups`, { headers: getHeaders() });
+    const resp = await axios.get(`/api/org/activities/${row.id}/signups`, { headers: getHeaders() });
     // API 返回分页数据 { records: [...] }
     const list = resp.data.data?.records || resp.data.data || [];
     const total = list.length;

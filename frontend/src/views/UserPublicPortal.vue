@@ -180,6 +180,24 @@
           <el-icon :size="48" color="#67c23a"><CircleCheck /></el-icon>
           <h3>您已经是志愿者了！</h3>
           <p>您可以前往志愿者端参与更多活动</p>
+          
+          <!-- 志愿者端登录信息 -->
+          <div class="volunteer-login-info">
+            <div class="info-title">
+              <el-icon><InfoFilled /></el-icon>
+              志愿者端登录信息
+            </div>
+            <div class="info-item">
+              <span class="label">登录账号：</span>
+              <span class="value">{{ volunteerPhone }}</span>
+              <el-tag size="small" type="info">手机号</el-tag>
+            </div>
+            <div class="info-item">
+              <span class="label">登录密码：</span>
+              <span class="value">与当前账号密码相同</span>
+            </div>
+          </div>
+          
           <el-button type="primary" @click="goToVolunteerPortal">进入志愿者端</el-button>
         </div>
         
@@ -272,7 +290,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { User, CircleCheck, Clock, Plus, SwitchButton } from '@element-plus/icons-vue';
+import { User, CircleCheck, Clock, Plus, SwitchButton, InfoFilled } from '@element-plus/icons-vue';
 import axios from 'axios';
 
 const tab = ref('home');
@@ -289,6 +307,7 @@ const registerForm = ref({ username: '', password: '', nickname: '' });
 
 // 志愿者申请
 const volunteerStatus = ref<string | null>(null);
+const volunteerPhone = ref<string>('');
 const volunteerForm = ref({ name: '', phone: '', email: '', organization: '' });
 const applyLoading = ref(false);
 
@@ -436,13 +455,16 @@ const statusType = (s: string) => ({ pending: 'warning', processing: 'primary', 
 const checkVolunteerStatus = async () => {
   if (!isLoggedIn.value) {
     volunteerStatus.value = null;
+    volunteerPhone.value = '';
     return;
   }
   try {
     const resp = await axios.get('/api/user-portal/volunteer-status', { headers: getHeaders() });
     volunteerStatus.value = resp.data.data?.status || null;
+    volunteerPhone.value = resp.data.data?.phone || '';
   } catch (e) {
     volunteerStatus.value = null;
+    volunteerPhone.value = '';
   }
 };
 
@@ -593,6 +615,46 @@ onMounted(() => {
 .volunteer-status p { color: #909399; margin-bottom: 20px; }
 .volunteer-status.success { background: #f0f9eb; border-radius: 12px; }
 .volunteer-status.pending { background: #fdf6ec; border-radius: 12px; }
+
+/* 志愿者登录信息样式 */
+.volunteer-login-info {
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 20px auto;
+  max-width: 360px;
+  text-align: left;
+}
+.volunteer-login-info .info-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #409eff;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.volunteer-login-info .info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #ebeef5;
+}
+.volunteer-login-info .info-item:last-child {
+  border-bottom: none;
+}
+.volunteer-login-info .label {
+  color: #909399;
+  font-size: 13px;
+  min-width: 70px;
+}
+.volunteer-login-info .value {
+  color: #303133;
+  font-weight: 500;
+  font-size: 14px;
+}
 
 .volunteer-form-section { padding: 20px 0; }
 .volunteer-form-section h3 { text-align: center; margin-bottom: 30px; color: #303133; }

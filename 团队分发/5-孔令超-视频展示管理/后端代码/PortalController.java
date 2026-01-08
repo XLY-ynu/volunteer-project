@@ -95,21 +95,54 @@ public class PortalController {
 
     @PostMapping("/auth/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody PortalLoginRequest request) {
-        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
-                .eq(User::getUsername, request.getPhone()));
-        Assert.notNull(user, "用户不存在");
-        Assert.isTrue(passwordEncoder.matches(request.getPassword(), user.getPassword()), "密码错误");
-        Assert.isTrue("VOLUNTEER".equals(user.getRoleCode()), "该账号无法登录志愿者端");
+        User user = null;
+        Volunteer volunteer = null;
         
-        Volunteer volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
-                .eq(Volunteer::getUserId, user.getId()));
-        if (volunteer != null && "rejected".equals(volunteer.getStatus())) {
+        // 方式1: 先尝试用手机号作为用户名查找（志愿者端直接注册的用户）
+        user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, request.getPhone()));
+        
+        // 方式2: 如果没找到，尝试通过手机号查找志愿者记录，再找关联的用户（普通用户申请成为志愿者的情况）
+        if (user == null) {
+            volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                    .eq(Volunteer::getPhone, request.getPhone()));
+            if (volunteer != null && volunteer.getUserId() != null) {
+                user = userMapper.selectById(volunteer.getUserId());
+            }
+        }
+        
+        if (user == null) {
+            return ApiResponse.fail("用户不存在，请检查手机号是否正确");
+        }
+        
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            return ApiResponse.fail("密码错误");
+        }
+        
+        // 查找志愿者记录（如果还没查过）
+        if (volunteer == null) {
+            volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                    .eq(Volunteer::getUserId, user.getId()));
+            if (volunteer == null) {
+                volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                        .eq(Volunteer::getPhone, user.getUsername()));
+            }
+        }
+        
+        // 检查志愿者状态
+        if (volunteer == null) {
+            return ApiResponse.fail("您还不是志愿者，请先申请成为志愿者");
+        }
+        if ("rejected".equals(volunteer.getStatus())) {
             return ApiResponse.fail("审核未通过，无法登录");
         }
-        if (volunteer != null && "pending".equals(volunteer.getStatus())) {
+        if ("pending".equals(volunteer.getStatus())) {
             return ApiResponse.fail("账号审核中，请稍后再试");
         }
-        Assert.isTrue(Boolean.TRUE.equals(user.getEnabled()), "账号已禁用");
+        
+        if (!Boolean.TRUE.equals(user.getEnabled())) {
+            return ApiResponse.fail("账号已禁用");
+        }
         
         String token = jwtUtil.generateToken(user.getUsername(), user.getRoleCode());
         return ApiResponse.ok(new LoginResponse(token, user.getUsername(), user.getRoleCode()));

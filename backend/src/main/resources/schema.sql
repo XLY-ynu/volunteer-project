@@ -200,8 +200,11 @@ CREATE TABLE IF NOT EXISTS activity (
     end_time DATETIME,
     capacity INT,
     checkin_code VARCHAR(32),
+    org_id BIGINT,
+    members_only TINYINT(1) DEFAULT 0,
     created_at DATETIME,
-    updated_at DATETIME
+    updated_at DATETIME,
+    INDEX idx_org_id (org_id)
 );
 
 CREATE TABLE IF NOT EXISTS activity_signup (

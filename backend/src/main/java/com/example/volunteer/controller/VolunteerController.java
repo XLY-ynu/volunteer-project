@@ -93,6 +93,40 @@ public class VolunteerController {
         return ApiResponse.ok(null);
     }
 
+    /**
+     * 审核志愿者申请
+     */
+    @PutMapping("/{id}/audit")
+    public ApiResponse<Volunteer> audit(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+        Volunteer volunteer = volunteerMapper.selectById(id);
+        if (volunteer == null) {
+            return ApiResponse.fail("志愿者不存在");
+        }
+        
+        String status = body.get("status");
+        if (status == null || (!status.equals("approved") && !status.equals("rejected"))) {
+            return ApiResponse.fail("无效的状态");
+        }
+        
+        String previousStatus = volunteer.getStatus();
+        volunteer.setStatus(status);
+        volunteer.setUpdatedAt(LocalDateTime.now());
+        volunteerMapper.updateById(volunteer);
+        
+        // 同步用户角色
+        if ("approved".equals(status) && volunteer.getUserId() != null) {
+            User user = userMapper.selectById(volunteer.getUserId());
+            if (user != null && "USER".equals(user.getRoleCode())) {
+                user.setRoleCode("VOLUNTEER");
+                user.setUpdatedAt(LocalDateTime.now());
+                userMapper.updateById(user);
+            }
+        }
+        
+        logStatus(id, status, "管理员审核: " + (status.equals("approved") ? "通过" : "拒绝"));
+        return ApiResponse.ok(volunteer);
+    }
+
     private void syncUserStatus(Volunteer volunteer) {
         if (volunteer.getUserId() == null) {
             return;

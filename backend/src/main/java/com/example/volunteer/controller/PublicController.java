@@ -215,6 +215,8 @@ public class PublicController {
         if (keyword != null && !keyword.isEmpty()) {
             w.like(Activity::getTitle, keyword).or().like(Activity::getDescription, keyword);
         }
+        // 按开始时间升序排列（即将开始的活动排在前面），未设置时间的排在最后
+        w.orderByAsc(Activity::getStartTime);
         Page<Activity> p = new Page<>(page, size);
         activityMapper.selectPage(p, w);
         

@@ -19,6 +19,8 @@ public class Activity {
     private LocalDateTime endTime;
     private Integer capacity;
     private String checkinCode;
+    private Long orgId;
+    private Boolean membersOnly;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -23,6 +23,10 @@
           <el-icon><UserFilled /></el-icon>
           <span>用户管理</span>
         </el-menu-item>
+        <el-menu-item index="/volunteers">
+          <el-icon><Avatar /></el-icon>
+          <span>志愿者审核</span>
+        </el-menu-item>
         <el-menu-item index="/ops">
           <el-icon><List /></el-icon>
           <span>操作日志</span>
@@ -54,7 +58,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { computed } from 'vue';
 import { useUserStore } from '../stores/user';
 import {
-  HomeFilled, UserFilled, List, Setting
+  HomeFilled, UserFilled, List, Setting, Avatar
 } from '@element-plus/icons-vue';
 
 const router = useRouter();

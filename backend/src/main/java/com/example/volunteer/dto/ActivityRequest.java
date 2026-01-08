@@ -15,4 +15,6 @@ public class ActivityRequest {
     private LocalDateTime endTime;
     private Integer capacity;
     private String checkinCode;
+    private Long orgId;
+    private Boolean membersOnly;
 }

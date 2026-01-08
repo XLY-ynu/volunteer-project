@@ -78,6 +78,8 @@ public class ActivityController {
         // 如果签到码为空或空字符串，自动生成
         String code = request.getCheckinCode();
         a.setCheckinCode((code != null && !code.trim().isEmpty()) ? code : generateCode());
+        a.setOrgId(request.getOrgId());
+        a.setMembersOnly(request.getMembersOnly() != null ? request.getMembersOnly() : false);
         a.setCreatedAt(LocalDateTime.now());
         a.setUpdatedAt(LocalDateTime.now());
         activityMapper.insert(a);
@@ -102,6 +104,8 @@ public class ActivityController {
             // 如果原来也没有签到码，生成一个
             a.setCheckinCode(generateCode());
         }
+        a.setOrgId(request.getOrgId());
+        a.setMembersOnly(request.getMembersOnly() != null ? request.getMembersOnly() : false);
         a.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(a);
         return ApiResponse.ok(a);

@@ -191,3 +191,19 @@ CREATE TABLE IF NOT EXISTS layout_template_history (
     version INT DEFAULT 1,
     created_at DATETIME
 );
+
+
+-- 20) 活动增加组织ID和仅限成员字段
+-- ALTER TABLE activity ADD COLUMN org_id BIGINT NULL AFTER checkin_code;
+-- ALTER TABLE activity ADD COLUMN members_only TINYINT(1) DEFAULT 0 AFTER org_id;
+-- ALTER TABLE activity ADD INDEX idx_org_id (org_id);
+
+ALTER TABLE activity ADD COLUMN org_id BIGINT NULL AFTER checkin_code;
+ALTER TABLE activity ADD COLUMN members_only TINYINT(1) DEFAULT 0 AFTER org_id;
+ALTER TABLE activity ADD INDEX idx_org_id (org_id);
+
+-- 21) 删除没有关联组织的旧活动数据（org_id 为 NULL）
+-- 先删除相关的报名记录
+DELETE FROM activity_signup WHERE activity_id IN (SELECT id FROM activity WHERE org_id IS NULL);
+-- 再删除活动
+DELETE FROM activity WHERE org_id IS NULL;

@@ -239,6 +239,159 @@ public class OrgController {
         return ApiResponse.ok(null);
     }
 
+    // ========== 活动管理 ==========
+
+    /**
+     * 获取组织的活动列表（包含报名人数）
+     */
+    @GetMapping("/activities")
+    public ApiResponse<Map<String, Object>> getOrgActivities(@RequestHeader("Authorization") String token,
+                                                        @RequestParam(defaultValue = "1") int page,
+                                                        @RequestParam(defaultValue = "20") int size) {
+        Long orgId = getOrgId(token);
+        if (orgId == null) return ApiResponse.fail("组织不存在");
+        
+        Page<Activity> p = new Page<>(page, size);
+        // 按开始时间升序排列（即将开始的活动排在前面）
+        activityMapper.selectPage(p, new LambdaQueryWrapper<Activity>()
+                .eq(Activity::getOrgId, orgId)
+                .orderByAsc(Activity::getStartTime));
+        
+        // 转换为包含报名人数的结果
+        List<Map<String, Object>> records = p.getRecords().stream().map(act -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", act.getId());
+            map.put("title", act.getTitle());
+            map.put("description", act.getDescription());
+            map.put("location", act.getLocation());
+            map.put("startTime", act.getStartTime());
+            map.put("endTime", act.getEndTime());
+            map.put("capacity", act.getCapacity());
+            map.put("checkinCode", act.getCheckinCode());
+            map.put("orgId", act.getOrgId());
+            map.put("membersOnly", act.getMembersOnly());
+            map.put("createdAt", act.getCreatedAt());
+            map.put("updatedAt", act.getUpdatedAt());
+            // 计算报名人数
+            Long count = signupMapper.selectCount(new LambdaQueryWrapper<ActivitySignup>()
+                    .eq(ActivitySignup::getActivityId, act.getId()));
+            map.put("signupCount", count != null ? count.intValue() : 0);
+            return map;
+        }).toList();
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", records);
+        result.put("total", p.getTotal());
+        result.put("current", p.getCurrent());
+        result.put("size", p.getSize());
+        return ApiResponse.ok(result);
+    }
+
+    /**
+     * 创建活动（自动关联组织）
+     */
+    @PostMapping("/activities")
+    public ApiResponse<Activity> createActivity(@RequestHeader("Authorization") String token,
+                                                @RequestBody Activity activity) {
+        Long orgId = getOrgId(token);
+        if (orgId == null) return ApiResponse.fail("组织不存在");
+        
+        activity.setOrgId(orgId);
+        if (activity.getCheckinCode() == null || activity.getCheckinCode().trim().isEmpty()) {
+            activity.setCheckinCode(String.valueOf(100000 + new java.util.Random().nextInt(900000)));
+        }
+        activity.setCreatedAt(LocalDateTime.now());
+        activity.setUpdatedAt(LocalDateTime.now());
+        activityMapper.insert(activity);
+        return ApiResponse.ok(activity);
+    }
+
+    /**
+     * 更新活动
+     */
+    @PutMapping("/activities/{id}")
+    public ApiResponse<Activity> updateActivity(@RequestHeader("Authorization") String token,
+                                                @PathVariable Long id,
+                                                @RequestBody Activity activity) {
+        Long orgId = getOrgId(token);
+        if (orgId == null) return ApiResponse.fail("组织不存在");
+        
+        Activity existing = activityMapper.selectById(id);
+        if (existing == null || !orgId.equals(existing.getOrgId())) {
+            return ApiResponse.fail("活动不存在或无权限");
+        }
+        
+        existing.setTitle(activity.getTitle());
+        existing.setDescription(activity.getDescription());
+        existing.setLocation(activity.getLocation());
+        existing.setStartTime(activity.getStartTime());
+        existing.setEndTime(activity.getEndTime());
+        existing.setCapacity(activity.getCapacity());
+        existing.setMembersOnly(activity.getMembersOnly());
+        if (activity.getCheckinCode() != null && !activity.getCheckinCode().trim().isEmpty()) {
+            existing.setCheckinCode(activity.getCheckinCode());
+        }
+        existing.setUpdatedAt(LocalDateTime.now());
+        activityMapper.updateById(existing);
+        return ApiResponse.ok(existing);
+    }
+
+    /**
+     * 删除活动
+     */
+    @DeleteMapping("/activities/{id}")
+    public ApiResponse<Void> deleteActivity(@RequestHeader("Authorization") String token,
+                                            @PathVariable Long id) {
+        Long orgId = getOrgId(token);
+        if (orgId == null) return ApiResponse.fail("组织不存在");
+        
+        Activity existing = activityMapper.selectById(id);
+        if (existing == null || !orgId.equals(existing.getOrgId())) {
+            return ApiResponse.fail("活动不存在或无权限");
+        }
+        
+        activityMapper.deleteById(id);
+        return ApiResponse.ok(null);
+    }
+
+    /**
+     * 获取活动报名列表
+     */
+    @GetMapping("/activities/{id}/signups")
+    public ApiResponse<?> getActivitySignups(@RequestHeader("Authorization") String token,
+                                             @PathVariable Long id) {
+        Long orgId = getOrgId(token);
+        if (orgId == null) return ApiResponse.fail("组织不存在");
+        
+        Activity activity = activityMapper.selectById(id);
+        if (activity == null || !orgId.equals(activity.getOrgId())) {
+            return ApiResponse.fail("活动不存在或无权限");
+        }
+        
+        List<ActivitySignup> signups = signupMapper.selectList(
+                new LambdaQueryWrapper<ActivitySignup>().eq(ActivitySignup::getActivityId, id));
+        
+        List<Map<String, Object>> result = signups.stream().map(s -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", s.getId());
+            map.put("volunteerId", s.getVolunteerId());
+            map.put("status", s.getStatus());
+            map.put("createdAt", s.getCreatedAt());
+            map.put("checkinTime", s.getCheckinTime());
+            Volunteer v = volunteerMapper.selectById(s.getVolunteerId());
+            if (v != null) {
+                map.put("volunteerName", v.getName());
+                map.put("volunteerPhone", v.getPhone());
+            }
+            return map;
+        }).toList();
+        
+        Map<String, Object> pageResult = new HashMap<>();
+        pageResult.put("records", result);
+        pageResult.put("total", result.size());
+        return ApiResponse.ok(pageResult);
+    }
+
     // ========== 统计 ==========
 
     /**

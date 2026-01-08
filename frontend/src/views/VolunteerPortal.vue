@@ -101,7 +101,10 @@
             </div>
           </div>
           <div class="activity-info">
-            <h3 class="activity-title" @click="openActivityDetail(act)">{{ act.title }}</h3>
+            <h3 class="activity-title" @click="openActivityDetail(act)">
+              {{ act.title }}
+              <el-tag v-if="act.membersOnly" type="warning" size="small" style="margin-left: 6px;">仅限成员</el-tag>
+            </h3>
             <div class="activity-meta">
               <span><el-icon><Location /></el-icon>{{ act.location || '待定' }}</span>
               <span><el-icon><Clock /></el-icon>{{ formatDate(act.startTime) }}</span>
@@ -287,6 +290,11 @@
           </el-table-column>
           <el-table-column prop="joinedAt" label="加入时间" width="160">
             <template #default="{ row }">{{ row.joinedAt ? formatDateTime(row.joinedAt) : '-' }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="100">
+            <template #default="{ row }">
+              <el-button type="danger" size="small" plain @click="handleLeaveOrg(row)">退出</el-button>
+            </template>
           </el-table-column>
         </el-table>
       </div>
@@ -1073,7 +1081,7 @@ const loadOrgs = async () => {
 const loadMyOrgs = async () => {
   if (!isLoggedIn.value) return;
   try {
-    const res = await fetch('/api/user-portal/my-orgs', {
+    const res = await fetch('/api/portal/my-orgs', {
       headers: { Authorization: `Bearer ${portalToken.value}` }
     });
     const data = await res.json();
@@ -1097,7 +1105,7 @@ const handleJoinOrg = async (org: any) => {
     return;
   }
   try {
-    const res = await fetch(`/api/user-portal/join-org/${org.id}`, {
+    const res = await fetch(`/api/portal/join-org/${org.id}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${portalToken.value}` }
     });
@@ -1110,6 +1118,32 @@ const handleJoinOrg = async (org: any) => {
     }
   } catch (e) {
     ElMessage.error('申请失败');
+  }
+};
+
+// 退出组织
+const handleLeaveOrg = async (org: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要退出「${org.orgName}」吗？`,
+      '退出组织',
+      { confirmButtonText: '确定退出', cancelButtonText: '取消', type: 'warning' }
+    );
+    const res = await fetch(`/api/portal/leave-org/${org.orgId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${portalToken.value}` }
+    });
+    const data = await res.json();
+    if (data.success) {
+      ElMessage.success('已退出组织');
+      await loadMyOrgs();
+    } else {
+      ElMessage.error(data.message || '退出失败');
+    }
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error('退出失败');
+    }
   }
 };
 
@@ -1303,7 +1337,18 @@ const canSignup = (act: any) => {
   }
   const now = Date.now();
   const start = new Date(act.startTime).getTime();
-  return now < start;
+  if (now >= start) return false;
+  
+  // 检查是否仅限组织成员
+  if (act.membersOnly && act.orgId) {
+    if (!isLoggedIn.value) return false;
+    const isMember = myOrgs.value.some(
+      (m: any) => m.orgId === act.orgId && m.status === 'approved'
+    );
+    if (!isMember) return false;
+  }
+  
+  return true;
 };
 
 const getSignupButtonText = (act: any) => {
@@ -1316,6 +1361,16 @@ const getSignupButtonText = (act: any) => {
   const end = new Date(act.endTime).getTime();
   if (now >= end) return '已结束';
   if (now >= start && now < end) return '进行中';
+  
+  // 检查是否仅限组织成员
+  if (act.membersOnly && act.orgId) {
+    if (!isLoggedIn.value) return '仅限成员';
+    const isMember = myOrgs.value.some(
+      (m: any) => m.orgId === act.orgId && m.status === 'approved'
+    );
+    if (!isMember) return '仅限成员';
+  }
+  
   return '立即报名';
 };
 

@@ -16,6 +16,7 @@ import PublicContent from '../views/PublicContent.vue';
 import TerminalPreview from '../views/TerminalPreview.vue';
 import Activities from '../views/Activities.vue';
 import VolunteerPublic from '../views/VolunteerPublic.vue';
+import VolunteerAudit from '../views/VolunteerAudit.vue';
 import PublicActivities from '../views/PublicActivities.vue';
 import Checkin from '../views/Checkin.vue';
 import UserPortal from '../views/UserPortal.vue';
@@ -52,6 +53,7 @@ const routes: RouteRecordRaw[] = [
       { path: '', redirect: '/dashboard' },
       { path: '/dashboard', component: Dashboard },
       { path: '/users', component: Users },
+      { path: '/volunteers', component: VolunteerAudit },
       { path: '/ops', component: OperationLogs },
       { path: '/system', component: System }
     ]
