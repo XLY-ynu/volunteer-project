@@ -1,3 +1,8 @@
+/**
+ * @Author: 陈力宏
+ * @Module: 系统管理 - 操作日志
+ * @Description: 操作日志控制器，支持日志查询、筛选、清理
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

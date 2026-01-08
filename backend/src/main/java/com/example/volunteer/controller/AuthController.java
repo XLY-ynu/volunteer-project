@@ -1,3 +1,8 @@
+/**
+ * @Author: 陈力宏
+ * @Module: 系统管理 - 认证控制器
+ * @Description: 管理员登录/登出认证接口
+ */
 package com.example.volunteer.controller;
 
 import com.example.volunteer.common.ApiResponse;

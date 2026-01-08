@@ -1,3 +1,8 @@
+<!--
+ * @Author: 陈力宏
+ * @Module: 系统管理 - 管理员登录
+ * @Description: 管理员端登录页面，支持用户名密码登录
+-->
 <template>
   <div class="login-page">
     <div class="login-container">

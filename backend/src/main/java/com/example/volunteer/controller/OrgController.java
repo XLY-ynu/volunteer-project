@@ -1,3 +1,8 @@
+/**
+ * @Author: 曹宇涵 + 梁玉杰
+ * @Module: 求助处理 + 志愿者管理
+ * @Description: 志愿者组织端控制器，曹宇涵负责求助处理，梁玉杰负责志愿者审核
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

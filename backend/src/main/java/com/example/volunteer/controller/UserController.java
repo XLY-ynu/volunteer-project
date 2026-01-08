@@ -1,3 +1,8 @@
+/**
+ * @Author: 陈力宏
+ * @Module: 系统管理 - 用户管理
+ * @Description: 用户管理控制器，支持用户的增删改查、角色分配
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

@@ -1,3 +1,8 @@
+<!--
+ * @Author: 陈力宏
+ * @Module: 系统管理 - 仪表盘
+ * @Description: 管理员仪表盘，展示系统统计数据、用户角色分布、最近操作日志
+-->
 <template>
   <div class="dashboard">
     <!-- 统计卡片 -->
@@ -177,7 +182,7 @@ const load = async () => {
     ];
     
     // 获取最近操作日志
-    const logsResp = await axios.get('/api/ops?size=5', { headers });
+    const logsResp = await axios.get('/api/ops/logs?size=5', { headers });
     recentLogs.value = logsResp.data?.data?.records || logsResp.data?.data || [];
   } catch (e) {
     console.error(e);

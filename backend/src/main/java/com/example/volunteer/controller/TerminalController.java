@@ -1,3 +1,8 @@
+/**
+ * @Author: 谢龙洋
+ * @Module: 多媒体发布 - 终端管理
+ * @Description: 终端控制器，监控终端设备的状态/心跳
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;

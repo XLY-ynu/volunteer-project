@@ -1,3 +1,8 @@
+/**
+ * @Author: 孔令超
+ * @Module: 视频展示管理 - 播放列表
+ * @Description: 播放列表控制器，支持内容与媒体视频混合编排，设置播放时长
+ */
 package com.example.volunteer.controller;
 
 import com.example.volunteer.common.ApiResponse;

@@ -1,3 +1,8 @@
+<!--
+ * @Author: 陈力宏
+ * @Module: 系统管理 - 系统设置
+ * @Description: 系统信息展示与数据备份功能
+-->
 <template>
   <div class="page-container">
     <el-card class="page-header" shadow="never">

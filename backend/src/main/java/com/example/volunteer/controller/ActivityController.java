@@ -1,3 +1,8 @@
+/**
+ * @Author: 曹宇涵
+ * @Module: 活动管理
+ * @Description: 活动控制器，支持活动发布、报名管理、签到统计
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

@@ -1,3 +1,8 @@
+/**
+ * @Author: 张昊然
+ * @Module: 内容浏览模块
+ * @Description: 公开接口控制器，提供分类导航、内容详情、图片浏览、视频播放等功能
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

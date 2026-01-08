@@ -1,3 +1,8 @@
+/**
+ * @Author: 梁玉杰
+ * @Module: 内容展示管理 - 内容管理
+ * @Description: 内容控制器，用于发布和编辑新闻/资讯
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;

@@ -1,3 +1,8 @@
+/**
+ * @Author: 谢龙洋
+ * @Module: 加入组织 + 成为志愿者
+ * @Description: 普通用户端控制器，支持用户登录、加入志愿者组织、申请成为志愿者
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

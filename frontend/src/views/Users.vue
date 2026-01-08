@@ -1,3 +1,8 @@
+<!--
+ * @Author: 陈力宏
+ * @Module: 系统管理 - 用户管理
+ * @Description: 管理系统用户账号，支持添加/删除/编辑用户信息，分配用户角色
+-->
 <template>
   <div class="page-container">
     <el-card class="page-header" shadow="never">

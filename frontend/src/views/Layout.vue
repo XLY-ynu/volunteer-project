@@ -1,3 +1,8 @@
+<!--
+ * @Author: 陈力宏
+ * @Module: 系统管理 - 管理员端布局
+ * @Description: 管理员端布局框架，包含侧边栏导航和顶部用户信息
+-->
 <template>
   <el-container style="min-height: 100vh">
     <el-aside width="240px" class="aside">

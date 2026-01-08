@@ -1,3 +1,8 @@
+<!--
+ * @Author: 梁玉杰
+ * @Module: 组织端登录
+ * @Description: 志愿者组织端登录页面
+-->
 <template>
   <div class="login-page">
     <div class="login-container">

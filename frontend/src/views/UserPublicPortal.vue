@@ -12,12 +12,24 @@
       </nav>
       <div class="user-area">
         <template v-if="isLoggedIn">
-          <span>{{ userInfo?.nickname || userInfo?.username }}</span>
-          <el-button size="small" @click="logout">退出</el-button>
+          <div class="user-info-box">
+            <el-icon class="user-avatar"><User /></el-icon>
+            <span class="user-name">{{ userInfo?.nickname || userInfo?.username }}</span>
+          </div>
+          <el-button class="logout-btn" size="small" @click="logout">
+            <el-icon><SwitchButton /></el-icon>
+            退出
+          </el-button>
         </template>
         <template v-else>
-          <el-button size="small" type="primary" @click="showLogin = true">登录</el-button>
-          <el-button size="small" @click="showRegister = true">注册</el-button>
+          <el-button class="login-btn" size="small" @click="showLogin = true">
+            <el-icon><User /></el-icon>
+            登录
+          </el-button>
+          <el-button class="register-btn" size="small" @click="showRegister = true">
+            <el-icon><Plus /></el-icon>
+            注册
+          </el-button>
         </template>
       </div>
     </header>
@@ -127,14 +139,20 @@
         <div v-if="isLoggedIn && myHelpRequests.length > 0" style="margin-top: 40px;">
           <h3>我的求助记录</h3>
           <el-table :data="myHelpRequests">
-            <el-table-column prop="title" label="标题" />
-            <el-table-column prop="status" label="状态">
+            <el-table-column prop="title" label="标题" min-width="150" />
+            <el-table-column prop="orgName" label="求助组织" width="120" />
+            <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }">
                 <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="reply" label="回复" />
-            <el-table-column prop="createdAt" label="提交时间">
+            <el-table-column prop="reply" label="组织回复" min-width="200">
+              <template #default="{ row }">
+                <span v-if="row.reply" class="reply-text">{{ row.reply }}</span>
+                <span v-else style="color: #999;">暂无回复</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createdAt" label="提交时间" width="170">
               <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
             </el-table-column>
           </el-table>
@@ -254,14 +272,15 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { User, CircleCheck, Clock } from '@element-plus/icons-vue';
+import { User, CircleCheck, Clock, Plus, SwitchButton } from '@element-plus/icons-vue';
 import axios from 'axios';
 
 const tab = ref('home');
 const mediaTab = ref('image');
 
 // 用户状态
-const isLoggedIn = computed(() => !!localStorage.getItem('userToken'));
+const userToken = ref(localStorage.getItem('userToken'));
+const isLoggedIn = computed(() => !!userToken.value);
 const userInfo = ref<any>(null);
 const showLogin = ref(false);
 const showRegister = ref(false);
@@ -339,14 +358,16 @@ const loadMyHelpRequests = async () => {
   if (!isLoggedIn.value) return;
   try {
     const resp = await axios.get('/api/user-portal/help-requests', { headers: getHeaders() });
-    myHelpRequests.value = resp.data.data || [];
+    myHelpRequests.value = resp.data.data?.records || resp.data.data || [];
   } catch (e) { console.error(e); }
 };
 
 const doLogin = async () => {
   try {
     const resp = await axios.post('/api/user-portal/login', loginForm.value);
-    localStorage.setItem('userToken', resp.data.data.token);
+    const token = resp.data.data.token;
+    localStorage.setItem('userToken', token);
+    userToken.value = token;
     userInfo.value = resp.data.data;
     showLogin.value = false;
     ElMessage.success('登录成功');
@@ -370,7 +391,10 @@ const doRegister = async () => {
 
 const logout = () => {
   localStorage.removeItem('userToken');
+  userToken.value = null;
   userInfo.value = null;
+  volunteerStatus.value = null;
+  myHelpRequests.value = [];
   ElMessage.success('已退出');
 };
 
@@ -464,7 +488,62 @@ onMounted(() => {
 .logo { font-size: 20px; font-weight: bold; }
 .nav a { color: rgba(255,255,255,0.8); margin: 0 15px; cursor: pointer; text-decoration: none; }
 .nav a.active { color: #fff; font-weight: bold; }
-.user-area { display: flex; align-items: center; gap: 10px; }
+.user-area { display: flex; align-items: center; gap: 12px; }
+.user-info-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 20px;
+}
+.user-avatar {
+  font-size: 18px;
+  color: #fff;
+}
+.user-name { color: #fff; font-weight: 500; font-size: 14px; }
+.logout-btn { 
+  background: rgba(255,100,100,0.2); 
+  border: 1px solid rgba(255,150,150,0.4); 
+  color: #fff; 
+  border-radius: 20px;
+  padding: 8px 16px;
+  transition: all 0.3s;
+}
+.logout-btn:hover { 
+  background: rgba(255,80,80,0.4); 
+  border-color: rgba(255,150,150,0.6);
+  transform: translateY(-2px);
+}
+.login-btn {
+  background: rgba(255,255,255,0.95);
+  border: none;
+  color: #2c5282;
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: all 0.3s;
+}
+.login-btn:hover {
+  background: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.register-btn {
+  background: transparent;
+  border: 2px solid rgba(255,255,255,0.8);
+  color: #fff;
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+.register-btn:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: #fff;
+  transform: translateY(-2px);
+}
 
 .content-area { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
 .content-area h3 { color: #2c5282; margin: 20px 0 15px; }
@@ -498,6 +577,7 @@ onMounted(() => {
 .play-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 50px; height: 50px; background: rgba(0,0,0,0.6); border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; }
 
 .help-section { background: #fff; padding: 30px; border-radius: 12px; }
+.reply-text { color: #67c23a; font-weight: 500; }
 
 /* 成为志愿者样式 */
 .volunteer-section { background: #fff; padding: 30px; border-radius: 12px; }

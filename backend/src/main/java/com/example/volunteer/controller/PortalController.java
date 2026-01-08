@@ -1,3 +1,8 @@
+/**
+ * @Author: 贺嘉伟
+ * @Module: 活动参与模块
+ * @Description: 志愿者端控制器，支持登录/注册、个人信息、参与记录、活动报名与签到
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

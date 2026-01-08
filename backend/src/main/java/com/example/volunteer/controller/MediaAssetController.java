@@ -1,3 +1,8 @@
+/**
+ * @Author: 孔令超
+ * @Module: 视频展示管理 - 媒体资源库
+ * @Description: 媒体资源控制器，提供视频、图片资源的上传/存储功能
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;

@@ -1,3 +1,8 @@
+<!--
+ * @Author: 陈力宏
+ * @Module: 系统管理 - 操作日志
+ * @Description: 记录管理员的所有操作行为，支持日志查询/审计/清理
+-->
 <template>
   <div class="page-container">
     <el-card class="page-header" shadow="never">

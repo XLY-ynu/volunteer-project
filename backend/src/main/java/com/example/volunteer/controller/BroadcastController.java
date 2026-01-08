@@ -1,3 +1,8 @@
+/**
+ * @Author: 谢龙洋
+ * @Module: 多媒体发布 - 广播推送
+ * @Description: 广播控制器，负责内容下发和广播任务管理
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;

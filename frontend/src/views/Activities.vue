@@ -1,3 +1,8 @@
+<!--
+ * @Author: 曹宇涵
+ * @Module: 活动管理（管理员端）
+ * @Description: 活动管理页面，创建和管理志愿者活动
+-->
 <template>
   <div class="page-container">
     <!-- 页面头部 -->

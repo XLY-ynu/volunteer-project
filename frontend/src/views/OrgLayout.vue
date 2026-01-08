@@ -1,3 +1,8 @@
+<!--
+ * @Author: 梁玉杰
+ * @Module: 组织端布局框架
+ * @Description: 组织端布局框架，包含侧边栏导航和顶部用户信息
+-->
 <template>
   <el-container style="min-height: 100vh">
     <el-aside width="220px" class="aside">

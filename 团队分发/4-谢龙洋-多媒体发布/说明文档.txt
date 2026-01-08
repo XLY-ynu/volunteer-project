@@ -1,0 +1,459 @@
+================================================================================
+                    志愿者服务管理系统 - 多媒体发布模块
+                         开发者：谢龙洋
+================================================================================
+
+一、项目运行方式
+================================================================================
+
+1. 环境要求
+-----------
+   - Node.js 18.x 或更高版本
+   - npm 9.x 或更高版本
+   - 现代浏览器（Chrome、Firefox、Edge等）
+
+2. 安装依赖
+-----------
+   打开命令行，进入 frontend 目录，执行：
+   cd frontend
+   npm install
+
+3. 启动开发服务器
+-----------------
+   npm run dev
+   
+   启动后访问：http://localhost:5173
+
+4. 构建生产版本
+---------------
+   npm run build
+   
+   构建产物位于 frontend/dist 目录
+
+5. 后端服务
+-----------
+   本模块需要配合后端服务运行，后端服务地址配置在 vite.config.ts 中
+   默认代理到 http://localhost:8080/api
+
+6. 登录账号
+-----------
+   志愿者组织账号登录
+   测试账号：org1 / org123
+
+
+二、需求分析
+================================================================================
+
+1. 模块概述
+-----------
+   多媒体发布模块是志愿者服务管理系统的信息发布模块，面向志愿者组织管理员
+   和普通用户。该模块包含两个子模块：
+   (1) 志愿者组织端：多媒体信息发布（模拟发布至实体终端）
+   (2) 普通用户端：发布求助功能
+   
+   通过本模块，志愿者组织可以管理信息发布终端，普通用户可以向组织发起求助。
+
+2. 用户角色
+-----------
+   目标用户：
+   (1) 志愿者组织管理员
+       - 负责管理信息发布终端
+       - 负责内容下发和广播推送
+       - 监控终端设备状态
+   
+   (2) 普通用户
+       - 需要向志愿者组织求助
+       - 查看求助处理进度
+
+3. 功能需求
+-----------
+
+   3.1 志愿者组织端 - 布局模板管理
+   -------------------------------
+   功能描述：定义信息发布终端的屏幕布局
+   
+   具体功能：
+   (1) 模板列表
+       - 显示所有布局模板
+       - 显示模板名称、预览图、创建时间
+       - 支持按名称搜索
+   
+   (2) 创建模板
+       - 设置模板名称
+       - 选择屏幕分辨率（1920x1080、1080x1920等）
+       - 划分屏幕区域
+       - 设置各区域内容类型（视频/图片/文字/网页）
+   
+   (3) 编辑模板
+       - 修改模板名称
+       - 调整区域划分
+       - 修改区域内容类型
+   
+   (4) 删除模板
+       - 删除未使用的模板
+       - 已绑定终端的模板不可删除
+
+   3.2 志愿者组织端 - 广播推送
+   ---------------------------
+   功能描述：负责内容下发到终端设备
+   
+   具体功能：
+   (1) 广播列表
+       - 显示所有广播任务
+       - 显示广播标题、目标终端、状态、创建时间
+       - 支持按状态筛选（待发送/发送中/已完成/已取消）
+   
+   (2) 创建广播
+       - 设置广播标题
+       - 选择广播类型（紧急通知/普通通知/滚动字幕）
+       - 输入广播内容
+       - 选择目标终端（单个/分组/全部）
+       - 设置播放时间（立即/定时）
+       - 设置播放时长
+   
+   (3) 广播管理
+       - 取消待发送的广播
+       - 查看广播发送状态
+       - 查看终端接收情况
+
+   3.3 志愿者组织端 - 终端管理
+   ---------------------------
+   功能描述：监控终端设备的状态和心跳
+   
+   具体功能：
+   (1) 终端列表
+       - 显示所有终端设备
+       - 显示终端编码、名称、分组、状态
+       - 显示最后心跳时间
+       - 支持按分组筛选
+       - 支持按状态筛选（在线/离线）
+   
+   (2) 注册终端
+       - 输入终端编码（唯一）
+       - 设置终端名称
+       - 选择所属分组
+       - 设置终端位置描述
+   
+   (3) 终端配置
+       - 修改终端名称
+       - 修改所属分组
+       - 绑定播放列表
+       - 设置播放时间段
+   
+   (4) 终端监控
+       - 查看终端心跳历史
+       - 查看终端当前播放内容
+       - 远程重启终端（模拟）
+
+   3.4 普通用户端 - 发布求助
+   -------------------------
+   功能描述：普通用户向志愿者组织发起求助请求
+   
+   具体功能：
+   (1) 选择组织
+       - 显示所有志愿者组织列表
+       - 显示组织名称、简介、服务范围
+       - 支持按名称搜索
+   
+   (2) 填写求助信息
+       - 求助标题（必填）
+       - 详细内容（必填，描述具体情况）
+       - 联系人姓名（必填）
+       - 联系电话（必填）
+       - 地址（选填）
+   
+   (3) 提交求助
+       - 确认求助信息
+       - 提交到指定组织
+       - 获取求助编号
+   
+   (4) 我的求助
+       - 查看已提交的求助记录
+       - 显示求助状态（待处理/处理中/已完成）
+       - 查看组织回复内容
+
+4. 业务流程
+-----------
+
+   4.1 广播推送流程
+   ----------------
+   创建广播 -> 选择终端 -> 设置内容 -> 发送广播 -> 终端接收 -> 播放内容
+
+   4.2 求助处理流程
+   ----------------
+   用户发起求助 -> 组织收到通知 -> 开始处理 -> 回复用户 -> 完成求助
+
+5. 非功能需求
+-------------
+   (1) 实时性
+       - 终端状态实时更新
+       - 广播即时推送
+   
+   (2) 可靠性
+       - 广播发送失败重试
+       - 终端离线消息缓存
+   
+   (3) 易用性
+       - 拖拽式布局设计
+       - 可视化终端监控
+
+
+三、详细设计
+================================================================================
+
+1. 系统架构设计
+---------------
+   本模块采用前后端分离架构：
+   
+   前端技术栈：
+   - Vue 3 - 渐进式JavaScript框架
+   - TypeScript - 类型安全的JavaScript超集
+   - Element Plus - Vue 3 UI组件库
+   - Pinia - Vue 3 状态管理
+   - Vue Router - 路由管理
+   - Axios - HTTP请求库
+   - Vite - 构建工具
+
+2. 数据库设计
+-------------
+
+   2.1 布局模板表（layout_templates）
+   ----------------------------------
+   字段名          类型            说明
+   ----------------------------------------------------------------
+   id              BIGINT          主键，自增
+   name            VARCHAR(100)    模板名称
+   width           INT             屏幕宽度
+   height          INT             屏幕高度
+   areas           JSON            区域配置（JSON格式）
+   cover_image     VARCHAR(255)    预览图URL
+   org_id          BIGINT          所属组织ID
+   created_at      DATETIME        创建时间
+   updated_at      DATETIME        更新时间
+   
+   索引：
+   - PRIMARY KEY (id)
+   - KEY idx_org_id (org_id)
+
+   2.2 广播表（broadcasts）
+   ------------------------
+   字段名          类型            说明
+   ----------------------------------------------------------------
+   id              BIGINT          主键，自增
+   title           VARCHAR(200)    广播标题
+   content         TEXT            广播内容
+   type            VARCHAR(20)     类型（URGENT/NORMAL/SCROLL）
+   target_type     VARCHAR(20)     目标类型（ALL/GROUP/SINGLE）
+   target_group    VARCHAR(50)     目标分组
+   target_terminal VARCHAR(50)     目标终端编码
+   status          VARCHAR(20)     状态（PENDING/SENDING/COMPLETED/CANCELLED）
+   start_time      DATETIME        开始时间
+   end_time        DATETIME        结束时间
+   duration        INT             播放时长（秒）
+   org_id          BIGINT          所属组织ID
+   created_at      DATETIME        创建时间
+   
+   索引：
+   - PRIMARY KEY (id)
+   - KEY idx_org_id (org_id)
+   - KEY idx_status (status)
+   - KEY idx_target_group (target_group)
+
+   2.3 终端表（terminals）
+   -----------------------
+   字段名          类型            说明
+   ----------------------------------------------------------------
+   id              BIGINT          主键，自增
+   code            VARCHAR(50)     终端编码（唯一）
+   name            VARCHAR(100)    终端名称
+   group_name      VARCHAR(50)     所属分组
+   location        VARCHAR(255)    位置描述
+   status          VARCHAR(20)     状态（ONLINE/OFFLINE）
+   last_heartbeat  DATETIME        最后心跳时间
+   playlist_id     BIGINT          绑定的播放列表ID
+   layout_id       BIGINT          绑定的布局模板ID
+   org_id          BIGINT          所属组织ID
+   created_at      DATETIME        创建时间
+   
+   索引：
+   - PRIMARY KEY (id)
+   - UNIQUE KEY uk_code (code)
+   - KEY idx_org_id (org_id)
+   - KEY idx_group_name (group_name)
+   - KEY idx_status (status)
+
+   2.4 终端心跳表（terminal_heartbeats）
+   -------------------------------------
+   字段名          类型            说明
+   ----------------------------------------------------------------
+   id              BIGINT          主键，自增
+   terminal_id     BIGINT          终端ID
+   status          VARCHAR(20)     状态
+   ip_address      VARCHAR(50)     IP地址
+   cpu_usage       DECIMAL(5,2)    CPU使用率
+   memory_usage    DECIMAL(5,2)    内存使用率
+   created_at      DATETIME        心跳时间
+   
+   索引：
+   - PRIMARY KEY (id)
+   - KEY idx_terminal_id (terminal_id)
+   - KEY idx_created_at (created_at)
+
+   2.5 求助请求表（help_requests）
+   -------------------------------
+   字段名          类型            说明
+   ----------------------------------------------------------------
+   id              BIGINT          主键，自增
+   org_id          BIGINT          目标组织ID
+   title           VARCHAR(200)    求助标题
+   content         TEXT            求助内容
+   contact_name    VARCHAR(50)     联系人姓名
+   contact_phone   VARCHAR(20)     联系电话
+   address         VARCHAR(255)    地址
+   status          VARCHAR(20)     状态（PENDING/PROCESSING/COMPLETED）
+   reply           TEXT            回复内容
+   replied_at      DATETIME        回复时间
+   created_at      DATETIME        创建时间
+   
+   索引：
+   - PRIMARY KEY (id)
+   - KEY idx_org_id (org_id)
+   - KEY idx_status (status)
+   - KEY idx_contact_phone (contact_phone)
+
+3. 功能模块设计
+---------------
+
+   3.1 广播管理模块
+   ----------------
+   
+   (1) 组件结构
+       Broadcasts.vue - 广播管理主页面
+       ├── 广播列表表格
+       ├── 状态筛选区域
+       ├── 创建广播对话框
+       │   ├── 基本信息表单
+       │   ├── 目标选择器
+       │   └── 时间设置
+       └── 广播详情对话框
+   
+   (2) API接口设计
+       GET    /api/broadcasts              获取广播列表
+       POST   /api/broadcasts              创建广播
+       DELETE /api/broadcasts/:id          删除广播
+       GET    /api/broadcasts/status-count 获取状态统计
+
+   3.2 终端管理模块
+   ----------------
+   
+   (1) 组件结构
+       Terminals.vue - 终端管理主页面
+       ├── 终端列表表格
+       ├── 分组筛选区域
+       ├── 注册终端对话框
+       ├── 终端配置对话框
+       └── 心跳历史对话框
+       
+       TerminalPreview.vue - 终端预览页面
+       ├── 终端信息展示
+       ├── 当前播放内容
+       └── 实时状态监控
+   
+   (2) API接口设计
+       GET    /api/terminals               获取终端列表
+       POST   /api/terminals               注册终端
+       DELETE /api/terminals/:id           删除终端
+       PUT    /api/terminals/:id/attributes 更新终端属性
+       POST   /api/terminals/bind-playlist 绑定播放列表
+       GET    /api/terminals/:id/heartbeats 获取心跳历史
+       GET    /api/terminals/:id/playlists 获取终端播放列表
+
+   3.3 用户求助模块
+   ----------------
+   
+   (1) 组件结构
+       UserPublicPortal.vue - 用户门户（求助部分）
+       ├── 组织选择区域
+       ├── 求助表单
+       │   ├── 标题输入
+       │   ├── 内容输入
+       │   ├── 联系信息
+       │   └── 提交按钮
+       └── 我的求助列表
+   
+   (2) API接口设计
+       GET    /api/public/orgs             获取组织列表
+       POST   /api/public/help-requests    提交求助
+       GET    /api/public/help-requests/my 查询我的求助
+
+4. 前端路由设计
+---------------
+   路径              组件                  说明
+   ----------------------------------------------------------------
+   /login            Login.vue             登录页面
+   /                 Layout.vue            主布局
+   /broadcasts       Broadcasts.vue        广播管理
+   /terminals        Terminals.vue         终端管理
+   /terminal-preview TerminalPreview.vue   终端预览
+   /user-portal      UserPublicPortal.vue  用户门户（求助）
+
+5. 状态管理设计
+---------------
+   使用Pinia管理全局状态：
+   
+   userStore:
+   - token: string      登录令牌（组织）
+   - username: string   当前用户名
+   - role: string       当前用户角色
+   
+   方法：
+   - setToken()         设置令牌
+   - logout()           退出登录
+
+6. 终端通信设计
+---------------
+   (1) 心跳机制
+       - 终端每30秒发送一次心跳
+       - 超过90秒未收到心跳标记为离线
+   
+   (2) 广播推送
+       - 使用轮询方式获取新广播
+       - 终端定期查询待播放内容
+
+
+四、文件结构说明
+================================================================================
+
+frontend/
+├── src/
+│   ├── api/
+│   │   ├── http.ts              HTTP请求封装
+│   │   └── index.ts             API接口定义
+│   ├── router/
+│   │   └── index.ts             路由配置
+│   ├── stores/
+│   │   └── user.ts              用户状态管理
+│   ├── views/
+│   │   ├── Login.vue            登录页面
+│   │   ├── Layout.vue           主布局
+│   │   ├── Broadcasts.vue       广播管理
+│   │   ├── Terminals.vue        终端管理
+│   │   ├── TerminalPreview.vue  终端预览
+│   │   └── UserPublicPortal.vue 用户门户
+│   ├── App.vue                  根组件
+│   └── main.ts                  入口文件
+├── index.html                   HTML模板
+├── package.json                 项目配置
+├── tsconfig.json                TypeScript配置
+└── vite.config.ts               Vite配置
+
+前端代码/                         独立前端代码片段
+└── UserPublicPortal-发布求助.vue
+
+后端代码/                         独立后端代码片段
+└── HelpRequestController.java
+
+
+================================================================================
+                              文档结束
+================================================================================

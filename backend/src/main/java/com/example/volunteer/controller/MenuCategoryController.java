@@ -1,3 +1,8 @@
+/**
+ * @Author: 梁玉杰
+ * @Module: 内容展示管理 - 分类管理
+ * @Description: 分类控制器，管理系统的六大主菜单
+ */
 package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
