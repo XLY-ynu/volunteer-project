@@ -1,7 +1,7 @@
 -- ============================================
 -- 志愿者服务活动中心多媒体展示系统
 -- 完整数据库初始化脚本（一键执行版）
--- 更新日期：2026-01-08
+-- 更新日期：2026-01-09
 -- ============================================
 -- 使用方法:
 --   方式1: mysql -u root -p < volunteer_complete.sql
@@ -131,7 +131,8 @@ CREATE TABLE playlist_item (
     media_id BIGINT,
     content_id BIGINT,
     display_duration INT DEFAULT 10,
-    sort_order INT DEFAULT 0
+    sort_order INT DEFAULT 0,
+    area_index INT DEFAULT 0
 );
 
 -- 布局表
@@ -621,6 +622,112 @@ INSERT INTO activity (id, title, description, location, start_time, end_time, ca
 (3, '组织内部培训', '仅限阳光志愿服务队成员参与的内部培训活动。', 
 '组织会议室', '2026-02-15 14:00:00', '2026-02-15 17:00:00', 20, '888888', 1, 1, NOW(), NOW());
 
+-- 9. 示例志愿者账号和数据 (密码: admin123)
+-- 志愿者用户账号
+INSERT INTO user (id, username, password, nickname, role_code, enabled, created_at, updated_at) VALUES
+(3, '13800001111', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '张三', 'VOLUNTEER', 1, NOW(), NOW()),
+(4, '13800002222', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '李四', 'VOLUNTEER', 1, NOW(), NOW()),
+(5, '13800003333', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '王五', 'VOLUNTEER', 1, NOW(), NOW());
+
+-- 志愿者详细信息
+INSERT INTO volunteer (id, user_id, name, phone, email, organization, id_card, status, created_at) VALUES
+(1, 3, '张三', '13800001111', 'zhangsan@example.com', '阳光志愿服务队', '430102199001011234', 'approved', NOW()),
+(2, 4, '李四', '13800002222', 'lisi@example.com', '阳光志愿服务队', '430102199002022345', 'approved', NOW()),
+(3, 5, '王五', '13800003333', 'wangwu@example.com', NULL, '430102199003033456', 'pending', NOW());
+
+-- 志愿者加入组织
+INSERT INTO volunteer_org_member (volunteer_id, org_id, status, joined_at, created_at) VALUES
+(1, 1, 'approved', NOW(), NOW()),
+(2, 1, 'approved', NOW(), NOW());
+
+-- 活动报名记录
+INSERT INTO activity_signup (activity_id, volunteer_id, status, created_at) VALUES
+(1, 1, 'applied', NOW()),
+(1, 2, 'applied', NOW()),
+(2, 1, 'applied', NOW());
+
+-- 10. 示例普通用户账号 (密码: admin123)
+INSERT INTO user (id, username, password, nickname, role_code, enabled, created_at, updated_at) VALUES
+(6, 'user1', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小明', 'USER', 1, NOW(), NOW());
+
+-- 示例求助信息
+INSERT INTO help_request (user_id, org_id, title, content, contact_name, contact_phone, address, status, created_at) VALUES
+(6, 1, '需要帮助搬运物资', '社区有一批捐赠物资需要搬运到仓库，希望能有志愿者帮忙。', '小明', '13900001111', '幸福社区3栋1单元', 'pending', NOW()),
+(6, 1, '独居老人需要陪伴', '我家邻居是一位独居老人，希望能有志愿者定期上门陪伴聊天。', '小明', '13900001111', '幸福社区5栋2单元', 'replied', NOW());
+
+-- 11. 示例终端数据
+INSERT INTO terminal (id, code, name, group_name, status, last_heartbeat, created_at, updated_at) VALUES
+(1, 'T001', '一楼大厅展示屏', '大厅组', 'online', NOW(), NOW(), NOW()),
+(2, 'T002', '二楼走廊展示屏', '走廊组', 'online', NOW(), NOW(), NOW()),
+(3, 'T003', '会议室展示屏', '会议室组', 'offline', DATE_SUB(NOW(), INTERVAL 1 HOUR), NOW(), NOW());
+
+-- 12. 示例志愿服务记录（时长统计）
+INSERT INTO volunteer_service_record (volunteer_id, activity_id, org_id, service_hours, service_date, remark, created_at) VALUES
+(1, 1, 1, 4.5, '2026-01-10', '参与敬老院慰问活动', NOW()),
+(1, 2, 1, 3.0, '2026-01-08', '参与环保宣传活动', NOW()),
+(2, 1, 1, 4.5, '2026-01-10', '参与敬老院慰问活动', NOW());
+
+-- 13. 示例播放列表
+INSERT INTO playlist (id, name, description, cover_url, layout_id, created_at, updated_at) VALUES
+(1, '大厅宣传轮播', '一楼大厅展示屏播放列表', 'https://picsum.photos/seed/playlist1/400/300', 1, NOW(), NOW()),
+(2, '志愿活动展示', '志愿活动相关内容轮播', 'https://picsum.photos/seed/playlist2/400/300', 2, NOW(), NOW());
+
+-- 14. 播放列表项（关联内容）
+INSERT INTO playlist_item (playlist_id, media_id, content_id, display_duration, sort_order, area_index) VALUES
+(1, NULL, 1, 10, 1, 0),
+(1, NULL, 2, 10, 2, 0),
+(1, NULL, 3, 10, 3, 0),
+(2, NULL, 13, 15, 1, 0),
+(2, NULL, 14, 15, 2, 0),
+(2, NULL, 15, 15, 3, 1);
+
+-- 15. 终端播放列表关联
+INSERT INTO terminal_playlist (terminal_id, playlist_id, start_time, end_time, active) VALUES
+(1, 1, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 1),
+(2, 2, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 1);
+
+-- 16. 示例广播任务
+INSERT INTO broadcast_job (id, title, media_id, content_id, target_group, target_terminal_code, start_time, end_time, status, priority, queue_mode) VALUES
+(1, '紧急通知：志愿者大会', NULL, 1, '大厅组', NULL, NOW(), DATE_ADD(NOW(), INTERVAL 2 HOUR), 'scheduled', 10, 'interrupt'),
+(2, '公益广告轮播', NULL, 16, NULL, 'T001', DATE_ADD(NOW(), INTERVAL 1 DAY), DATE_ADD(NOW(), INTERVAL 7 DAY), 'scheduled', 5, 'queue');
+
+-- 17. 示例布局模板
+INSERT INTO layout_template (id, name, description, layout_json, tags, cover_url, builtin, created_at, updated_at) VALUES
+(1, '经典单屏', '适用于单一内容全屏展示', '{"areas":[{"x":0,"y":0,"w":100,"h":100}]}', '单屏,全屏,简洁', 'https://picsum.photos/seed/tpl1/400/300', 1, NOW(), NOW()),
+(2, '左右双栏', '左侧主内容，右侧辅助信息', '{"areas":[{"x":0,"y":0,"w":70,"h":100},{"x":70,"y":0,"w":30,"h":100}]}', '双栏,左右,信息展示', 'https://picsum.photos/seed/tpl2/400/300', 1, NOW(), NOW()),
+(3, '上下分屏', '上方标题区，下方内容区', '{"areas":[{"x":0,"y":0,"w":100,"h":30},{"x":0,"y":30,"w":100,"h":70}]}', '上下,标题,内容', 'https://picsum.photos/seed/tpl3/400/300', 1, NOW(), NOW()),
+(4, '三分屏', '适用于多内容同时展示', '{"areas":[{"x":0,"y":0,"w":50,"h":100},{"x":50,"y":0,"w":50,"h":50},{"x":50,"y":50,"w":50,"h":50}]}', '三分,多内容,复杂', 'https://picsum.photos/seed/tpl4/400/300', 1, NOW(), NOW());
+
+-- 18. 示例志愿者站内消息
+INSERT INTO volunteer_message (volunteer_id, activity_id, title, content, type, is_read, created_at) VALUES
+(1, 1, '活动报名成功', '您已成功报名"情暖三湘·志愿同行"活动，请准时参加。', 'signup', 1, NOW()),
+(1, 1, '活动即将开始', '"情暖三湘·志愿同行"活动将于明天上午9点开始，请做好准备。', 'reminder', 0, NOW()),
+(2, 1, '活动报名成功', '您已成功报名"情暖三湘·志愿同行"活动，请准时参加。', 'signup', 1, NOW()),
+(1, 2, '活动报名成功', '您已成功报名"环保志愿行动"活动。', 'signup', 0, NOW());
+
+-- 19. 示例活动签到记录
+INSERT INTO activity_checkin_log (activity_id, volunteer_id, created_at) VALUES
+(1, 1, '2026-01-15 08:55:00'),
+(1, 2, '2026-01-15 08:58:00');
+
+-- 更新活动报名表的签到状态
+UPDATE activity_signup SET checked_in = 1, checkin_time = '2026-01-15 08:55:00' WHERE activity_id = 1 AND volunteer_id = 1;
+UPDATE activity_signup SET checked_in = 1, checkin_time = '2026-01-15 08:58:00' WHERE activity_id = 1 AND volunteer_id = 2;
+
+-- 20. 示例志愿者提醒设置
+INSERT INTO volunteer_reminder_setting (volunteer_id, signup_reminder, checkin_reminder, channel, reminder_minutes, created_at, updated_at) VALUES
+(1, 1, 1, 'sms', 30, NOW(), NOW()),
+(2, 1, 1, 'sms', 60, NOW(), NOW());
+
+-- 21. 示例操作日志（最近操作记录）
+INSERT INTO operation_log (username, method, path, status, created_at) VALUES
+('admin', 'POST', '/api/auth/login', 200, DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+('admin', 'GET', '/api/activities', 200, DATE_SUB(NOW(), INTERVAL 1 HOUR)),
+('admin', 'POST', '/api/activities', 200, DATE_SUB(NOW(), INTERVAL 50 MINUTE)),
+('admin', 'GET', '/api/terminals', 200, DATE_SUB(NOW(), INTERVAL 30 MINUTE)),
+('org1', 'POST', '/api/org/login', 200, DATE_SUB(NOW(), INTERVAL 20 MINUTE)),
+('org1', 'GET', '/api/org/activities', 200, DATE_SUB(NOW(), INTERVAL 15 MINUTE));
+
 -- ============================================
 -- 第四部分：验证数据
 -- ============================================
@@ -631,15 +738,27 @@ SELECT '========================================' AS '';
 SELECT CONCAT('角色数量: ', COUNT(*)) AS result FROM role;
 SELECT CONCAT('用户数量: ', COUNT(*)) AS result FROM user;
 SELECT CONCAT('组织数量: ', COUNT(*)) AS result FROM volunteer_org;
+SELECT CONCAT('志愿者数量: ', COUNT(*)) AS result FROM volunteer;
+SELECT CONCAT('终端数量: ', COUNT(*)) AS result FROM terminal;
 SELECT CONCAT('分类数量: ', COUNT(*)) AS result FROM menu_category;
 SELECT CONCAT('内容数量: ', COUNT(*)) AS result FROM content_item;
 SELECT CONCAT('活动数量: ', COUNT(*)) AS result FROM activity;
+SELECT CONCAT('活动报名数: ', COUNT(*)) AS result FROM activity_signup;
+SELECT CONCAT('求助信息数: ', COUNT(*)) AS result FROM help_request;
+SELECT CONCAT('服务记录数: ', COUNT(*)) AS result FROM volunteer_service_record;
 SELECT CONCAT('布局数量: ', COUNT(*)) AS result FROM layout;
+SELECT CONCAT('播放列表数: ', COUNT(*)) AS result FROM playlist;
+SELECT CONCAT('广播任务数: ', COUNT(*)) AS result FROM broadcast_job;
+SELECT CONCAT('布局模板数: ', COUNT(*)) AS result FROM layout_template;
+SELECT CONCAT('站内消息数: ', COUNT(*)) AS result FROM volunteer_message;
+SELECT CONCAT('操作日志数: ', COUNT(*)) AS result FROM operation_log;
 SELECT '========================================' AS '';
 SELECT '默认账号信息：' AS message;
-SELECT '管理员: admin / admin123' AS account;
-SELECT '组织端: org1 / admin123' AS account;
-SELECT '========================================' AS '';
-SELECT '新增功能说明：' AS message;
-SELECT '活动现已关联组织，支持仅限成员参与' AS feature;
+SELECT '----------------------------------------' AS '';
+SELECT '管理员端 (/login): admin / admin123' AS account;
+SELECT '组织端 (/org/login): org1 / admin123' AS account;
+SELECT '志愿者端 (/portal): 13800001111 / admin123' AS account;
+SELECT '志愿者端 (/portal): 13800002222 / admin123' AS account;
+SELECT '志愿者端 (/portal): 13800003333 / admin123 (待审核)' AS account;
+SELECT '用户端 (/user-portal): user1 / admin123' AS account;
 SELECT '========================================' AS '';
