@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    include: local
   application:
     name: volunteer-platform
   servlet:

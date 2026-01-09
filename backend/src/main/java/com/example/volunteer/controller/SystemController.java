@@ -147,10 +147,10 @@ public class SystemController {
             String jsonData = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(dbData);
             addStringToZip(zos, jsonData, "data/database.json");
             
-            // 2. 添加schema.sql
-            Path schemaPath = Paths.get("src/main/resources/schema.sql");
+            // 2. 添加volunteer_complete.sql
+            Path schemaPath = Paths.get("src/main/resources/volunteer_complete.sql");
             if (Files.exists(schemaPath)) {
-                addFileToZip(zos, schemaPath, "data/schema.sql");
+                addFileToZip(zos, schemaPath, "data/volunteer_complete.sql");
             }
             
             // 3. 备份上传的媒体文件（包括子目录）

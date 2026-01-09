@@ -1,0 +1,7 @@
+# 本地配置模板
+# 复制此文件为 application-local.yml，修改为你的本地配置
+# application-local.yml 不会被 git 追踪
+
+spring:
+  datasource:
+    password: 你的MySQL密码
