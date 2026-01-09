@@ -710,9 +710,9 @@ INSERT INTO activity_checkin_log (activity_id, volunteer_id, created_at) VALUES
 (1, 1, '2026-01-15 08:55:00'),
 (1, 2, '2026-01-15 08:58:00');
 
--- 更新活动报名表的签到状态
-UPDATE activity_signup SET checked_in = 1, checkin_time = '2026-01-15 08:55:00' WHERE activity_id = 1 AND volunteer_id = 1;
-UPDATE activity_signup SET checked_in = 1, checkin_time = '2026-01-15 08:58:00' WHERE activity_id = 1 AND volunteer_id = 2;
+-- 更新活动报名表的签到状态（使用主键id）
+UPDATE activity_signup SET checked_in = 1, checkin_time = '2026-01-15 08:55:00' WHERE id = 1;
+UPDATE activity_signup SET checked_in = 1, checkin_time = '2026-01-15 08:58:00' WHERE id = 2;
 
 -- 20. 示例志愿者提醒设置
 INSERT INTO volunteer_reminder_setting (volunteer_id, signup_reminder, checkin_reminder, channel, reminder_minutes, created_at, updated_at) VALUES
