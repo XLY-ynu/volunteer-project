@@ -113,11 +113,20 @@ public class VolunteerController {
         volunteer.setUpdatedAt(LocalDateTime.now());
         volunteerMapper.updateById(volunteer);
         
-        // 同步用户角色
-        if ("approved".equals(status) && volunteer.getUserId() != null) {
+        // 同步用户状态和角色
+        if (volunteer.getUserId() != null) {
             User user = userMapper.selectById(volunteer.getUserId());
-            if (user != null && "USER".equals(user.getRoleCode())) {
-                user.setRoleCode("VOLUNTEER");
+            if (user != null) {
+                if ("approved".equals(status)) {
+                    // 审核通过：启用账号 + 设置角色为VOLUNTEER
+                    user.setEnabled(true);
+                    if ("USER".equals(user.getRoleCode())) {
+                        user.setRoleCode("VOLUNTEER");
+                    }
+                } else {
+                    // 审核拒绝：禁用账号
+                    user.setEnabled(false);
+                }
                 user.setUpdatedAt(LocalDateTime.now());
                 userMapper.updateById(user);
             }

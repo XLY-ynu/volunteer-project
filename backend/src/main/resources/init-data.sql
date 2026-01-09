@@ -147,17 +147,19 @@ INSERT INTO content_item (id, category_id, title, summary, body, cover_url, publ
 'https://picsum.photos/seed/children1/400/300', 1, NOW(), NOW(), NOW());
 
 -- ============================================
--- 7. 示例志愿活动 (2个示例活动)
+-- 7. 示例志愿活动 (3个示例活动，关联组织)
 -- ============================================
 
 -- 先清理可能存在的示例活动，避免重复
-DELETE FROM activity WHERE id BETWEEN 1 AND 2;
+DELETE FROM activity WHERE id BETWEEN 1 AND 3;
 
-INSERT INTO activity (id, title, description, location, start_time, end_time, capacity, checkin_code, created_at, updated_at) VALUES
+INSERT INTO activity (id, title, description, location, start_time, end_time, capacity, checkin_code, org_id, members_only, created_at, updated_at) VALUES
 (1, '情暖三湘·志愿同行', '聚焦老年人尤其是空巢、独居老人的急难愁盼问题，开展慰问陪护、清洁卫生等志愿服务。', 
-'敬老院、养老院等', '2026-01-15 09:00:00', '2026-01-15 17:00:00', 50, '382388', NOW(), NOW()),
+'敬老院、养老院等', '2026-01-15 09:00:00', '2026-01-15 17:00:00', 50, '382388', 1, 0, NOW(), NOW()),
 (2, '环保志愿行动', '组织志愿者参与城市环境清洁、垃圾分类宣传等活动。', 
-'市民广场', '2026-02-01 08:30:00', '2026-02-01 12:00:00', 30, '123456', NOW(), NOW());
+'市民广场', '2026-02-01 08:30:00', '2026-02-01 12:00:00', 30, '123456', 1, 0, NOW(), NOW()),
+(3, '组织内部培训', '仅限阳光志愿服务队成员参与的内部培训活动。', 
+'组织会议室', '2026-02-15 14:00:00', '2026-02-15 17:00:00', 20, '888888', 1, 1, NOW(), NOW());
 
 -- ============================================
 -- 完成提示
@@ -165,3 +167,4 @@ INSERT INTO activity (id, title, description, location, start_time, end_time, ca
 SELECT '数据初始化完成！' AS message;
 SELECT COUNT(*) AS content_count FROM content_item;
 SELECT COUNT(*) AS activity_count FROM activity;
+SELECT '新增功能：活动已关联组织，支持仅限成员参与(members_only)' AS feature;

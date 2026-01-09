@@ -1,6 +1,7 @@
 -- ============================================
 -- 志愿者服务活动中心多媒体展示系统
 -- 完整数据库初始化脚本（一键执行版）
+-- 更新日期：2026-01-08
 -- ============================================
 -- 使用方法:
 --   方式1: mysql -u root -p < volunteer_complete.sql
@@ -212,7 +213,7 @@ CREATE TABLE volunteer (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 活动表
+-- 活动表（新增 org_id 和 members_only 字段）
 CREATE TABLE activity (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(128) NOT NULL,
@@ -222,8 +223,11 @@ CREATE TABLE activity (
     end_time DATETIME,
     capacity INT,
     checkin_code VARCHAR(32),
+    org_id BIGINT,
+    members_only TINYINT(1) DEFAULT 0,
     created_at DATETIME,
-    updated_at DATETIME
+    updated_at DATETIME,
+    INDEX idx_org_id (org_id)
 );
 
 -- 活动报名表
@@ -511,9 +515,9 @@ INSERT INTO user (username, password, nickname, role_code, enabled, created_at, 
 INSERT INTO user (username, password, nickname, role_code, enabled, created_at, updated_at) VALUES
 ('org1', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '阳光志愿服务队', 'ORG', 1, NOW(), NOW());
 
--- 创建对应的组织信息
-INSERT INTO volunteer_org (name, code, description, contact_name, contact_phone, user_id, created_at) VALUES
-('阳光志愿服务队', 'sunshine', '致力于社区服务和公益活动的志愿者组织', '张队长', '13800138001', 2, NOW());
+-- 创建对应的组织信息（org1 的 user_id = 2）
+INSERT INTO volunteer_org (id, name, code, description, contact_name, contact_phone, user_id, created_at) VALUES
+(1, '阳光志愿服务队', 'sunshine', '致力于社区服务和公益活动的志愿者组织', '张队长', '13800138001', 2, NOW());
 
 -- 4. 六大主菜单分类
 INSERT INTO menu_category (id, name, code, parent_id, sort_order) VALUES
@@ -608,12 +612,14 @@ INSERT INTO content_item (id, category_id, title, summary, body, cover_url, publ
 '未成年人是祖国的花朵，让我们共同关爱未成年人健康成长。',
 'https://picsum.photos/seed/children1/400/300', 1, NOW(), NOW(), NOW());
 
--- 8. 示例志愿活动 (2个示例活动)
-INSERT INTO activity (id, title, description, location, start_time, end_time, capacity, checkin_code, created_at, updated_at) VALUES
+-- 8. 示例志愿活动 (3个示例活动，关联组织)
+INSERT INTO activity (id, title, description, location, start_time, end_time, capacity, checkin_code, org_id, members_only, created_at, updated_at) VALUES
 (1, '情暖三湘·志愿同行', '聚焦老年人尤其是空巢、独居老人的急难愁盼问题，开展慰问陪护、清洁卫生等志愿服务。', 
-'敬老院、养老院等', '2026-01-15 09:00:00', '2026-01-15 17:00:00', 50, '382388', NOW(), NOW()),
+'敬老院、养老院等', '2026-01-15 09:00:00', '2026-01-15 17:00:00', 50, '382388', 1, 0, NOW(), NOW()),
 (2, '环保志愿行动', '组织志愿者参与城市环境清洁、垃圾分类宣传等活动。', 
-'市民广场', '2026-02-01 08:30:00', '2026-02-01 12:00:00', 30, '123456', NOW(), NOW());
+'市民广场', '2026-02-01 08:30:00', '2026-02-01 12:00:00', 30, '123456', 1, 0, NOW(), NOW()),
+(3, '组织内部培训', '仅限阳光志愿服务队成员参与的内部培训活动。', 
+'组织会议室', '2026-02-15 14:00:00', '2026-02-15 17:00:00', 20, '888888', 1, 1, NOW(), NOW());
 
 -- ============================================
 -- 第四部分：验证数据
@@ -633,4 +639,7 @@ SELECT '========================================' AS '';
 SELECT '默认账号信息：' AS message;
 SELECT '管理员: admin / admin123' AS account;
 SELECT '组织端: org1 / admin123' AS account;
+SELECT '========================================' AS '';
+SELECT '新增功能说明：' AS message;
+SELECT '活动现已关联组织，支持仅限成员参与' AS feature;
 SELECT '========================================' AS '';
