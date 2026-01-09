@@ -55,24 +55,18 @@ CREATE DATABASE IF NOT EXISTS volunteer
     DEFAULT COLLATE utf8mb4_unicode_ci;
 ```
 
-### 3.2 初始化表结构
+### 3.2 初始化表结构和数据
 
-执行项目中的 SQL 文件：
+执行项目中的 SQL 文件（包含表结构和初始数据）：
 
 ```bash
 # 方式1: 命令行
-mysql -u root -p volunteer < backend/src/main/resources/schema.sql
+mysql -u root -p volunteer < backend/src/main/resources/volunteer_complete.sql
 
-# 方式2: 在 MySQL Workbench 中打开 schema.sql 执行
+# 方式2: 在 MySQL Workbench 或 Navicat 中打开 volunteer_complete.sql 执行
 ```
 
-### 3.3 插入示例数据（可选）
-
-```bash
-mysql -u root -p volunteer < backend/src/main/resources/seed-content.sql
-```
-
-### 3.4 修改数据库连接配置
+### 3.3 修改数据库连接配置
 
 编辑 `backend/src/main/resources/application.yml`：
 
@@ -154,11 +148,11 @@ npm run dev
 
 ### 访问地址
 
-| 页面 | 地址 | 账号 |
-|-----|------|------|
+| 端 | 地址 | 默认账号 |
+|---|------|---------|
 | 管理员后台 | http://localhost:5173/login | admin / admin123 |
 | 组织管理端 | http://localhost:5173/org/login | org1 / admin123 |
-| 志愿者门户 | http://localhost:5173/portal | 注册后登录 |
+| 志愿者门户 | http://localhost:5173/portal | 手机号注册后登录 |
 | 普通用户门户 | http://localhost:5173/user-portal | 注册后登录 |
 
 ### 角色说明
@@ -217,20 +211,33 @@ npm install
 
 ## 八、项目结构
 
-```
+```text
 volunteer-project/
-├── backend/                    # 后端 SpringBoot 项目
-│   ├── src/main/java/         # Java 源码
-│   ├── src/main/resources/    # 配置文件
-│   │   ├── application.yml    # 主配置文件
-│   │   ├── schema.sql         # 数据库表结构
-│   │   └── seed-content.sql   # 示例数据
-│   └── pom.xml                # Maven 配置
-├── frontend/                   # 前端 Vue3 项目
-│   ├── src/                   # 源码
-│   ├── package.json           # npm 配置
-│   └── vite.config.ts         # Vite 配置
-└── SETUP_GUIDE.md             # 本手册
+├── backend/                          # 后端 SpringBoot 项目
+│   ├── src/main/java/               # Java 源码
+│   │   └── com/example/volunteer/
+│   │       ├── controller/          # 控制器
+│   │       ├── service/             # 服务层
+│   │       ├── mapper/              # 数据访问层
+│   │       ├── entity/              # 实体类
+│   │       ├── dto/                 # 数据传输对象
+│   │       ├── config/              # 配置类
+│   │       └── security/            # 安全相关
+│   ├── src/main/resources/          # 配置文件
+│   │   ├── application.yml          # 主配置文件
+│   │   └── volunteer_complete.sql   # 数据库完整脚本
+│   └── pom.xml                      # Maven 配置
+├── frontend/                         # 前端 Vue3 项目
+│   ├── src/
+│   │   ├── views/                   # 页面组件
+│   │   ├── components/              # 公共组件
+│   │   ├── api/                     # API 接口
+│   │   ├── router/                  # 路由配置
+│   │   └── stores/                  # 状态管理
+│   ├── package.json                 # npm 配置
+│   └── vite.config.ts               # Vite 配置
+├── README.md                         # 项目说明
+└── SETUP_GUIDE.md                    # 本手册
 ```
 
 ---
