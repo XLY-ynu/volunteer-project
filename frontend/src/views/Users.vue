@@ -127,7 +127,16 @@
     <!-- 新增/编辑弹窗 -->
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑用户' : '新增用户'" width="500px">
       <el-form :model="form" label-width="80px" class="user-form">
-        <el-form-item label="用户名" required>
+        <el-form-item label="角色" required>
+          <el-select v-model="form.roleCode" placeholder="选择角色" style="width: 100%" @change="onRoleChange">
+            <el-option v-for="r in roles" :key="r.code" :label="r.name || r.code" :value="r.code" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="form.roleCode === 'VOLUNTEER'" label="手机号" required>
+          <el-input v-model="form.username" placeholder="请输入手机号（作为登录账号）" :disabled="!!editingId" maxlength="11" />
+          <div class="form-tip">志愿者端使用手机号登录</div>
+        </el-form-item>
+        <el-form-item v-else label="用户名" required>
           <el-input v-model="form.username" placeholder="请输入用户名" :disabled="!!editingId" />
         </el-form-item>
         <el-form-item label="密码" :required="!editingId">
@@ -136,11 +145,6 @@
         </el-form-item>
         <el-form-item label="昵称">
           <el-input v-model="form.nickname" placeholder="请输入昵称" />
-        </el-form-item>
-        <el-form-item label="角色" required>
-          <el-select v-model="form.roleCode" placeholder="选择角色" style="width: 100%">
-            <el-option v-for="r in roles" :key="r.code" :label="r.name || r.code" :value="r.code" />
-          </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-switch v-model="form.enabled" active-text="启用" inactive-text="禁用"
@@ -216,13 +220,28 @@ const edit = (row: any) => {
   dialogVisible.value = true;
 };
 
-const submit = async () => {
-  if (!form.value.username) {
-    ElMessage.warning('请输入用户名');
-    return;
+// 手机号格式验证
+const isValidPhone = (phone: string) => /^1[3-9]\d{9}$/.test(phone);
+
+// 角色变更时清空用户名
+const onRoleChange = () => {
+  if (!editingId.value) {
+    form.value.username = '';
   }
+};
+
+const submit = async () => {
   if (!form.value.roleCode) {
     ElMessage.warning('请选择角色');
+    return;
+  }
+  if (!form.value.username) {
+    ElMessage.warning(form.value.roleCode === 'VOLUNTEER' ? '请输入手机号' : '请输入用户名');
+    return;
+  }
+  // 志愿者角色必须使用手机号格式
+  if (form.value.roleCode === 'VOLUNTEER' && !isValidPhone(form.value.username)) {
+    ElMessage.warning('手机号格式不正确，请输入11位手机号');
     return;
   }
   if (!editingId.value && !form.value.password) {
@@ -305,4 +324,5 @@ onMounted(() => {
 
 .user-form { padding: 0 20px; }
 .switch-tip { margin-left: 12px; font-size: 12px; color: #e6a23c; }
+.form-tip { font-size: 12px; color: #909399; margin-top: 4px; }
 </style>

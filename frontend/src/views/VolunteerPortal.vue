@@ -421,7 +421,7 @@
     <el-dialog v-model="showLoginDialog" title="志愿者登录" width="400px" :close-on-click-modal="false">
       <el-form :model="loginForm" label-width="80px">
         <el-form-item label="手机号">
-          <el-input v-model="loginForm.phone" placeholder="请输入手机号" />
+          <el-input v-model="loginForm.phone" placeholder="请输入手机号" maxlength="11" />
         </el-form-item>
         <el-form-item label="密码">
           <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password />
@@ -794,9 +794,10 @@ const handleLogin = async () => {
     ElMessage.warning('请输入手机号和密码');
     return;
   }
-  // 验证手机号格式
-  if (!/^1[3-9]\d{9}$/.test(loginForm.value.phone)) {
-    ElMessage.warning('请输入正确的手机号格式');
+  // 手机号格式验证
+  const phoneRegex = /^1[3-9]\d{9}$/;
+  if (!phoneRegex.test(loginForm.value.phone)) {
+    ElMessage.warning('手机号格式不正确，请输入11位手机号');
     return;
   }
   loginLoading.value = true;
@@ -820,7 +821,7 @@ const handleLogin = async () => {
     // 解析错误信息，提供友好提示
     const errMsg = e?.response?.data?.message || e?.response?.data?.error || '';
     if (errMsg.includes('用户不存在')) {
-      ElMessage.error('该手机号未注册，请先注册');
+      ElMessage.error('账号不存在，请检查输入');
     } else if (errMsg.includes('密码错误') || errMsg.includes('密码不正确')) {
       ElMessage.error('密码错误，请重新输入');
     } else if (errMsg.includes('审核中')) {
@@ -829,12 +830,10 @@ const handleLogin = async () => {
       ElMessage.error('账号审核未通过，请联系管理员');
     } else if (errMsg.includes('禁用')) {
       ElMessage.error('账号已被禁用，请联系管理员');
-    } else if (errMsg.includes('无法登录志愿者端')) {
+    } else if (errMsg.includes('不是志愿者')) {
       ElMessage.error('该账号不是志愿者账号');
-    } else if (errMsg.includes('手机号格式')) {
-      ElMessage.warning('手机号格式不正确');
     } else {
-      ElMessage.error(errMsg || '登录失败，请检查手机号和密码');
+      ElMessage.error(errMsg || '登录失败，请检查账号和密码');
     }
   } finally {
     loginLoading.value = false;

@@ -75,4 +75,10 @@ public class TerminalController {
     public ApiResponse<Terminal> updateAttributes(@PathVariable Long id, @RequestBody String attributes) {
         return ApiResponse.ok(terminalService.updateAttributes(id, attributes));
     }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        terminalService.delete(id);
+        return ApiResponse.ok(null);
+    }
 }

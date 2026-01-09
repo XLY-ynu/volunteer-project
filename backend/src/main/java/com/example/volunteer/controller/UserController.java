@@ -10,8 +10,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.entity.Role;
 import com.example.volunteer.entity.User;
+import com.example.volunteer.entity.Volunteer;
 import com.example.volunteer.mapper.RoleMapper;
 import com.example.volunteer.mapper.UserMapper;
+import com.example.volunteer.mapper.VolunteerMapper;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,11 +29,13 @@ public class UserController {
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
     private final PasswordEncoder passwordEncoder;
+    private final VolunteerMapper volunteerMapper;
 
-    public UserController(UserMapper userMapper, RoleMapper roleMapper, PasswordEncoder passwordEncoder) {
+    public UserController(UserMapper userMapper, RoleMapper roleMapper, PasswordEncoder passwordEncoder, VolunteerMapper volunteerMapper) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.passwordEncoder = passwordEncoder;
+        this.volunteerMapper = volunteerMapper;
     }
 
     @GetMapping
@@ -64,6 +68,32 @@ public class UserController {
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.insert(user);
+        
+        // 如果创建的是志愿者角色，自动创建对应的Volunteer记录
+        if ("VOLUNTEER".equals(user.getRoleCode())) {
+            // 检查是否已有Volunteer记录（通过手机号）
+            Volunteer existingVolunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
+                    .eq(Volunteer::getPhone, user.getUsername()));
+            
+            if (existingVolunteer == null) {
+                // 创建新的Volunteer记录
+                Volunteer volunteer = new Volunteer();
+                volunteer.setUserId(user.getId());
+                volunteer.setPhone(user.getUsername());
+                volunteer.setName(user.getNickname() != null ? user.getNickname() : user.getUsername());
+                volunteer.setStatus("approved"); // 管理员创建的直接设为approved
+                volunteer.setCreatedAt(LocalDateTime.now());
+                volunteer.setUpdatedAt(LocalDateTime.now());
+                volunteerMapper.insert(volunteer);
+            } else if (existingVolunteer.getUserId() == null) {
+                // 如果Volunteer记录存在但未关联用户，则关联
+                existingVolunteer.setUserId(user.getId());
+                existingVolunteer.setStatus("approved");
+                existingVolunteer.setUpdatedAt(LocalDateTime.now());
+                volunteerMapper.updateById(existingVolunteer);
+            }
+        }
+        
         user.setPassword(null);
         return ApiResponse.ok(user);
     }

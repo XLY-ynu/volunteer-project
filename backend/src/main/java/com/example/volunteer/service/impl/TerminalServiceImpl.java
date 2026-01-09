@@ -205,6 +205,19 @@ public class TerminalServiceImpl implements TerminalService {
     }
 
     @Override
+    @Transactional
+    public void delete(Long id) {
+        // 删除终端相关的播放列表绑定
+        terminalPlaylistMapper.delete(new LambdaQueryWrapper<TerminalPlaylist>()
+                .eq(TerminalPlaylist::getTerminalId, id));
+        // 删除终端心跳记录
+        terminalHeartbeatMapper.delete(new LambdaQueryWrapper<TerminalHeartbeat>()
+                .eq(TerminalHeartbeat::getTerminalId, id));
+        // 删除终端
+        terminalMapper.deleteById(id);
+    }
+
+    @Override
     public List<TerminalPlaybackDto> playbackForTerminal(String code) {
         Terminal terminal = terminalMapper.selectOne(new LambdaQueryWrapper<Terminal>().eq(Terminal::getCode, code));
         if (terminal == null) {

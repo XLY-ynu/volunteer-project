@@ -20,4 +20,5 @@ public interface TerminalService {
     Page<TerminalHeartbeat> heartbeatLogs(Long terminalId, int page, int size);
     java.util.List<TerminalPlaybackDto> playbackForTerminal(String code);
     Terminal updateAttributes(Long id, String attributes);
+    void delete(Long id);
 }

@@ -186,22 +186,28 @@ public class PortalController {
     public ApiResponse<LoginResponse> login(@Valid @RequestBody PortalLoginRequest request) {
         User user = null;
         Volunteer volunteer = null;
+        String loginId = request.getPhone(); // 可以是手机号或用户名
         
-        // 方式1: 先尝试用手机号作为用户名查找（志愿者端直接注册的用户）
+        // 方式1: 先尝试用输入作为用户名查找
         user = userMapper.selectOne(new LambdaQueryWrapper<User>()
-                .eq(User::getUsername, request.getPhone()));
+                .eq(User::getUsername, loginId));
         
-        // 方式2: 如果没找到，尝试通过手机号查找志愿者记录，再找关联的用户（普通用户申请成为志愿者的情况）
+        // 方式2: 如果没找到，尝试通过手机号查找志愿者记录，再找关联的用户
         if (user == null) {
             volunteer = volunteerMapper.selectOne(new LambdaQueryWrapper<Volunteer>()
-                    .eq(Volunteer::getPhone, request.getPhone()));
+                    .eq(Volunteer::getPhone, loginId));
             if (volunteer != null && volunteer.getUserId() != null) {
                 user = userMapper.selectById(volunteer.getUserId());
             }
         }
         
         if (user == null) {
-            return ApiResponse.fail("用户不存在，请检查手机号是否正确");
+            return ApiResponse.fail("用户不存在，请检查账号是否正确");
+        }
+        
+        // 检查角色是否为志愿者
+        if (!"VOLUNTEER".equals(user.getRoleCode())) {
+            return ApiResponse.fail("该账号不是志愿者账号");
         }
         
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {

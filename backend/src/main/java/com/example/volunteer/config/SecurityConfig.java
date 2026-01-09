@@ -50,6 +50,7 @@ public class SecurityConfig {
                 // 志愿者组织端
                 .requestMatchers("/api/org/**").hasAuthority("ORG")
                 // 管理员端
+                .requestMatchers("/api/monitor/terminal-status").hasAnyAuthority("ADMIN", "ORG")
                 .requestMatchers("/api/monitor/**").hasAuthority("ADMIN")
                 .requestMatchers("/api/broadcasts/**").hasAnyAuthority("ADMIN", "ORG")
                 .requestMatchers("/api/users/**", "/api/ops/**").hasAuthority("ADMIN")
