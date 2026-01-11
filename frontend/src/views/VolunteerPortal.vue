@@ -1291,17 +1291,18 @@ const getActivityStatus = (act: any) => {
 
 // 检查是否已报名某活动
 const isSignedUp = (activityId: number) => {
-  return mySignups.value.some((s: any) => s.activityId === activityId);
+  return mySignups.value.some((s: any) => Number(s.activityId) === Number(activityId));
 };
 
 // 检查是否已签到某活动
 const isCheckedIn = (activityId: number) => {
-  const signup = mySignups.value.find((s: any) => s.activityId === activityId);
+  const signup = mySignups.value.find((s: any) => Number(s.activityId) === Number(activityId));
   return signup && signup.status === 'checked_in';
 };
 
 // 检查是否可以取消报名
 const canCancelSignup = (act: any) => {
+  if (!act || !act.id) return false;
   if (!isLoggedIn.value) return false;
   if (!isSignedUp(act.id)) return false;
   if (isCheckedIn(act.id)) return false; // 已签到不能取消
@@ -1330,6 +1331,7 @@ const handleCancelSignup = async (act: any) => {
 };
 
 const canSignup = (act: any) => {
+  if (!act || !act.id) return false;
   // 已报名则不能再报名
   if (isLoggedIn.value && isSignedUp(act.id)) {
     return false;
@@ -1351,6 +1353,7 @@ const canSignup = (act: any) => {
 };
 
 const getSignupButtonText = (act: any) => {
+  if (!act || !act.id) return '立即报名';
   // 已报名显示"已报名"
   if (isLoggedIn.value && isSignedUp(act.id)) {
     return '已报名';

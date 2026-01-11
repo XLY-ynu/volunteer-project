@@ -315,6 +315,15 @@ public class PublicController {
             return ApiResponse.fail("签到码无效，请检查后重试");
         }
         
+        // 检查活动时间范围
+        LocalDateTime now = LocalDateTime.now();
+        if (activity.getStartTime() != null && now.isBefore(activity.getStartTime())) {
+            return ApiResponse.fail("活动尚未开始，无法签到");
+        }
+        if (activity.getEndTime() != null && now.isAfter(activity.getEndTime())) {
+            return ApiResponse.fail("活动已结束，无法签到");
+        }
+        
         // 必须通过姓名+手机号匹配已注册的志愿者
         if (request.getName() == null || request.getName().trim().isEmpty()) {
             return ApiResponse.fail("请输入姓名");

@@ -613,6 +613,16 @@ public class PortalController {
         if (activity == null) {
             return ApiResponse.fail("签到码无效");
         }
+        
+        // 检查活动时间范围
+        LocalDateTime now = LocalDateTime.now();
+        if (activity.getStartTime() != null && now.isBefore(activity.getStartTime())) {
+            return ApiResponse.fail("活动尚未开始，无法签到");
+        }
+        if (activity.getEndTime() != null && now.isAfter(activity.getEndTime())) {
+            return ApiResponse.fail("活动已结束，无法签到");
+        }
+        
         // 查找报名记录
         ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getActivityId, activity.getId())
