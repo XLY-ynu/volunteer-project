@@ -100,19 +100,78 @@
     </el-dialog>
     
     <!-- 签到统计弹窗 -->
-    <el-dialog v-model="checkinVisible" title="签到统计" width="500px">
-      <div class="stats-grid" v-if="checkinStats">
-        <div class="stat-card">
-          <div class="stat-value">{{ checkinStats.total }}</div>
-          <div class="stat-label">报名人数</div>
+    <el-dialog v-model="checkinVisible" title="签到统计" width="600px">
+      <div class="checkin-stats-container" v-if="checkinStats">
+        <!-- 环形图表区域 -->
+        <div class="chart-section">
+          <div class="ring-chart">
+            <svg viewBox="0 0 100 100" class="progress-ring">
+              <circle class="ring-bg" cx="50" cy="50" r="40" />
+              <circle 
+                class="ring-progress" 
+                cx="50" cy="50" r="40"
+                :style="{ strokeDasharray: `${checkinStats.rate * 2.51} 251` }"
+              />
+            </svg>
+            <div class="ring-center">
+              <div class="ring-value">{{ checkinStats.rate }}%</div>
+              <div class="ring-label">签到率</div>
+            </div>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item">
+              <span class="legend-dot checked"></span>
+              <span class="legend-text">已签到 {{ checkinStats.checkedIn }} 人</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot unchecked"></span>
+              <span class="legend-text">未签到 {{ checkinStats.total - checkinStats.checkedIn }} 人</span>
+            </div>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ checkinStats.checkedIn }}</div>
-          <div class="stat-label">已签到</div>
+        
+        <!-- 统计卡片区域 -->
+        <div class="stats-grid">
+          <div class="stat-card signup-card">
+            <div class="stat-icon">
+              <el-icon :size="28" color="#409EFF"><User /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ checkinStats.total }}</div>
+              <div class="stat-label">报名人数</div>
+            </div>
+          </div>
+          <div class="stat-card checkin-card">
+            <div class="stat-icon">
+              <el-icon :size="28" color="#67C23A"><CircleCheck /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ checkinStats.checkedIn }}</div>
+              <div class="stat-label">已签到</div>
+            </div>
+          </div>
+          <div class="stat-card rate-card">
+            <div class="stat-icon">
+              <el-icon :size="28" color="#E6A23C"><TrendCharts /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ checkinStats.rate }}%</div>
+              <div class="stat-label">签到率</div>
+            </div>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ checkinStats.rate }}%</div>
-          <div class="stat-label">签到率</div>
+        
+        <!-- 进度条 -->
+        <div class="progress-section">
+          <div class="progress-header">
+            <span>签到进度</span>
+            <span>{{ checkinStats.checkedIn }} / {{ checkinStats.total }}</span>
+          </div>
+          <el-progress 
+            :percentage="checkinStats.rate" 
+            :stroke-width="12"
+            :color="getProgressColor(checkinStats.rate)"
+          />
         </div>
       </div>
     </el-dialog>
@@ -122,6 +181,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { User, CircleCheck, TrendCharts } from '@element-plus/icons-vue';
 import axios from 'axios';
 
 const loading = ref(false);
@@ -244,6 +304,13 @@ const showCheckins = async (row: any) => {
   }
 };
 
+// 根据签到率返回进度条颜色
+const getProgressColor = (rate: number) => {
+  if (rate >= 80) return '#67C23A';
+  if (rate >= 50) return '#E6A23C';
+  return '#F56C6C';
+};
+
 const formatDate = (d: string) => d ? new Date(d).toLocaleString() : '';
 
 onMounted(loadActivities);
@@ -253,8 +320,135 @@ onMounted(loadActivities);
 .page h2 { margin: 0; color: #2c5282; }
 .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .action-buttons { display: flex; gap: 4px; flex-wrap: nowrap; }
-.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.stat-card { text-align: center; padding: 20px; background: #f5f7fa; border-radius: 8px; }
-.stat-value { font-size: 32px; font-weight: bold; color: #409eff; }
-.stat-label { color: #666; margin-top: 8px; }
+
+/* 签到统计容器 */
+.checkin-stats-container {
+  padding: 10px 0;
+}
+
+/* 图表区域 */
+.chart-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #fff 100%);
+  border-radius: 16px;
+}
+
+/* 环形图 */
+.ring-chart {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+.progress-ring {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+.ring-bg {
+  fill: none;
+  stroke: #e8e8e8;
+  stroke-width: 8;
+}
+.ring-progress {
+  fill: none;
+  stroke: #67C23A;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s ease;
+}
+.ring-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.ring-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: #67C23A;
+}
+.ring-label {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+/* 图例 */
+.chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.legend-dot.checked { background: #67C23A; }
+.legend-dot.unchecked { background: #e8e8e8; }
+.legend-text {
+  font-size: 14px;
+  color: #606266;
+}
+
+/* 统计卡片 */
+.stats-grid { 
+  display: grid; 
+  grid-template-columns: repeat(3, 1fr); 
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.stat-card { 
+  display: flex; 
+  align-items: center; 
+  padding: 16px; 
+  background: linear-gradient(135deg, #f5f7fa 0%, #fff 100%); 
+  border-radius: 12px; 
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+}
+.signup-card .stat-icon { background: rgba(64, 158, 255, 0.1); }
+.checkin-card .stat-icon { background: rgba(103, 194, 58, 0.1); }
+.rate-card .stat-icon { background: rgba(230, 162, 60, 0.1); }
+.stat-content { text-align: left; }
+.stat-value { font-size: 24px; font-weight: bold; color: #303133; line-height: 1.2; }
+.stat-label { color: #909399; margin-top: 2px; font-size: 13px; }
+
+/* 进度条区域 */
+.progress-section {
+  background: #f8fafc;
+  padding: 16px 20px;
+  border-radius: 12px;
+}
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #606266;
+}
 </style>

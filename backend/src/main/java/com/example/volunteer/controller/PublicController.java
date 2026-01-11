@@ -349,14 +349,8 @@ public class PublicController {
                 .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
         
         if (signup == null) {
-            // 自动报名并签到
-            signup = new ActivitySignup();
-            signup.setActivityId(activity.getId());
-            signup.setVolunteerId(volunteer.getId());
-            signup.setCreatedAt(LocalDateTime.now());
-            signup.setStatus("checked_in");
-            signup.setCheckinTime(LocalDateTime.now());
-            activitySignupMapper.insert(signup);
+            // 未报名，不允许签到
+            return ApiResponse.fail("您尚未报名此活动，请先报名后再签到");
         } else if ("checked_in".equals(signup.getStatus())) {
             return ApiResponse.fail("您已签到，无需重复签到");
         } else {
