@@ -11,7 +11,7 @@
           <h3>媒体资源</h3>
           <span class="subtitle">管理图片、视频等媒体文件</span>
         </div>
-        <el-upload :headers="uploadHeaders" action="/api/media/upload" :show-file-list="false" :on-success="onUploaded" :before-upload="beforeUpload">
+        <el-upload :headers="uploadHeaders" action="/api/media/upload" :show-file-list="false" :on-success="onUploaded" :before-upload="beforeUpload" accept="image/*,video/*">
           <el-button type="primary"><el-icon><Upload /></el-icon>上传资源</el-button>
         </el-upload>
       </div>
@@ -114,6 +114,13 @@ const load = async () => {
 };
 
 const beforeUpload = (file: File) => {
+  // 验证文件类型：只允许图片和视频
+  const isImage = file.type.startsWith('image/');
+  const isVideo = file.type.startsWith('video/');
+  if (!isImage && !isVideo) {
+    ElMessage.error('只能上传图片或视频文件');
+    return false;
+  }
   if (file.size / 1024 / 1024 > 500) { ElMessage.error('文件不能超过500MB'); return false; }
   return true;
 };

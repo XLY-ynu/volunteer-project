@@ -79,6 +79,11 @@ public class MediaAssetServiceImpl implements MediaAssetService {
 
     @Override
     public MediaAsset upload(MultipartFile file, String type) {
+        // 验证文件类型：只允许图片和视频
+        String contentType = file.getContentType();
+        if (contentType == null || (!contentType.startsWith("image/") && !contentType.startsWith("video/"))) {
+            throw new IllegalArgumentException("只能上传图片或视频文件");
+        }
         try {
             String original = file.getOriginalFilename();
             String ext = (original != null && original.contains(".")) ? original.substring(original.lastIndexOf('.')) : "";
