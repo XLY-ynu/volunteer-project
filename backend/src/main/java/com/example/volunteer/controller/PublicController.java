@@ -315,15 +315,6 @@ public class PublicController {
             return ApiResponse.fail("签到码无效，请检查后重试");
         }
         
-        // 检查活动时间范围
-        LocalDateTime now = LocalDateTime.now();
-        if (activity.getStartTime() != null && now.isBefore(activity.getStartTime())) {
-            return ApiResponse.fail("活动尚未开始，无法签到");
-        }
-        if (activity.getEndTime() != null && now.isAfter(activity.getEndTime())) {
-            return ApiResponse.fail("活动已结束，无法签到");
-        }
-        
         // 必须通过姓名+手机号匹配已注册的志愿者
         if (request.getName() == null || request.getName().trim().isEmpty()) {
             return ApiResponse.fail("请输入姓名");
@@ -352,21 +343,31 @@ public class PublicController {
             }
         }
         
-        // 检查是否已报名/签到
+        // 先检查是否已报名
         ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getActivityId, activity.getId())
                 .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
         
         if (signup == null) {
-            // 未报名，不允许签到
             return ApiResponse.fail("您尚未报名此活动，请先报名后再签到");
-        } else if ("checked_in".equals(signup.getStatus())) {
-            return ApiResponse.fail("您已签到，无需重复签到");
-        } else {
-            signup.setStatus("checked_in");
-            signup.setCheckinTime(LocalDateTime.now());
-            activitySignupMapper.updateById(signup);
         }
+        if ("checked_in".equals(signup.getStatus())) {
+            return ApiResponse.fail("您已签到，无需重复签到");
+        }
+        
+        // 再检查活动时间范围
+        LocalDateTime now = LocalDateTime.now();
+        if (activity.getStartTime() != null && now.isBefore(activity.getStartTime())) {
+            return ApiResponse.fail("活动尚未开始，无法签到");
+        }
+        if (activity.getEndTime() != null && now.isAfter(activity.getEndTime())) {
+            return ApiResponse.fail("活动已结束，无法签到");
+        }
+        
+        // 签到
+        signup.setStatus("checked_in");
+        signup.setCheckinTime(LocalDateTime.now());
+        activitySignupMapper.updateById(signup);
         return ApiResponse.ok(signup);
     }
 

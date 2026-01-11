@@ -3,8 +3,10 @@ package com.example.volunteer.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
+import com.example.volunteer.entity.Activity;
 import com.example.volunteer.entity.ActivityCheckinLog;
 import com.example.volunteer.entity.ActivitySignup;
+import com.example.volunteer.mapper.ActivityMapper;
 import com.example.volunteer.mapper.ActivityCheckinLogMapper;
 import com.example.volunteer.mapper.ActivitySignupMapper;
 import org.springframework.web.bind.annotation.*;
@@ -15,22 +17,43 @@ import java.time.LocalDateTime;
 @RequestMapping("/api/activities")
 public class ActivityCheckinController {
 
+    private final ActivityMapper activityMapper;
     private final ActivitySignupMapper activitySignupMapper;
     private final ActivityCheckinLogMapper activityCheckinLogMapper;
 
-    public ActivityCheckinController(ActivitySignupMapper activitySignupMapper, ActivityCheckinLogMapper activityCheckinLogMapper) {
+    public ActivityCheckinController(ActivityMapper activityMapper, ActivitySignupMapper activitySignupMapper, ActivityCheckinLogMapper activityCheckinLogMapper) {
+        this.activityMapper = activityMapper;
         this.activitySignupMapper = activitySignupMapper;
         this.activityCheckinLogMapper = activityCheckinLogMapper;
     }
 
     @PostMapping("/{id}/checkin")
     public ApiResponse<ActivitySignup> checkin(@PathVariable Long id, @RequestParam Long volunteerId) {
+        // 先检查是否已报名
         ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getActivityId, id)
                 .eq(ActivitySignup::getVolunteerId, volunteerId));
         if (signup == null) {
-            return ApiResponse.fail("未报名");
+            return ApiResponse.fail("未报名此活动");
         }
+        if ("checked_in".equals(signup.getStatus())) {
+            return ApiResponse.fail("已签到，无需重复签到");
+        }
+        
+        // 再检查活动时间范围
+        Activity activity = activityMapper.selectById(id);
+        if (activity == null) {
+            return ApiResponse.fail("活动不存在");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (activity.getStartTime() != null && now.isBefore(activity.getStartTime())) {
+            return ApiResponse.fail("活动尚未开始，无法签到");
+        }
+        if (activity.getEndTime() != null && now.isAfter(activity.getEndTime())) {
+            return ApiResponse.fail("活动已结束，无法签到");
+        }
+        
+        // 签到
         signup.setStatus("checked_in");
         signup.setCheckinTime(LocalDateTime.now());
         activitySignupMapper.updateById(signup);

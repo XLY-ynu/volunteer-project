@@ -614,7 +614,18 @@ public class PortalController {
             return ApiResponse.fail("签到码无效");
         }
         
-        // 检查活动时间范围
+        // 先检查是否已报名
+        ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
+                .eq(ActivitySignup::getActivityId, activity.getId())
+                .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
+        if (signup == null) {
+            return ApiResponse.fail("您尚未报名此活动，请先报名后再签到");
+        }
+        if ("checked_in".equals(signup.getStatus())) {
+            return ApiResponse.fail("您已签到过此活动");
+        }
+        
+        // 再检查活动时间范围
         LocalDateTime now = LocalDateTime.now();
         if (activity.getStartTime() != null && now.isBefore(activity.getStartTime())) {
             return ApiResponse.fail("活动尚未开始，无法签到");
@@ -623,20 +634,10 @@ public class PortalController {
             return ApiResponse.fail("活动已结束，无法签到");
         }
         
-        // 查找报名记录
-        ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
-                .eq(ActivitySignup::getActivityId, activity.getId())
-                .eq(ActivitySignup::getVolunteerId, volunteer.getId()));
-        if (signup == null) {
-            // 未报名，不允许签到
-            return ApiResponse.fail("您尚未报名此活动，请先报名后再签到");
-        } else if ("checked_in".equals(signup.getStatus())) {
-            return ApiResponse.fail("您已签到过此活动");
-        } else {
-            signup.setStatus("checked_in");
-            signup.setCheckinTime(LocalDateTime.now());
-            activitySignupMapper.updateById(signup);
-        }
+        // 签到
+        signup.setStatus("checked_in");
+        signup.setCheckinTime(LocalDateTime.now());
+        activitySignupMapper.updateById(signup);
         return ApiResponse.ok(signup);
     }
 

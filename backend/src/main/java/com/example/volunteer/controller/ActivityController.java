@@ -167,8 +167,29 @@ public class ActivityController {
 
     @PostMapping("/signup/checkin/{id}")
     public ApiResponse<ActivitySignup> checkin(@PathVariable Long id) {
+        // 先检查报名记录
         ActivitySignup signup = activitySignupMapper.selectById(id);
-        if (signup == null) return ApiResponse.fail("报名不存在");
+        if (signup == null) {
+            return ApiResponse.fail("报名记录不存在");
+        }
+        if ("checked_in".equals(signup.getStatus())) {
+            return ApiResponse.fail("已签到，无需重复签到");
+        }
+        
+        // 再检查活动时间范围
+        Activity activity = activityMapper.selectById(signup.getActivityId());
+        if (activity == null) {
+            return ApiResponse.fail("活动不存在");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (activity.getStartTime() != null && now.isBefore(activity.getStartTime())) {
+            return ApiResponse.fail("活动尚未开始，无法签到");
+        }
+        if (activity.getEndTime() != null && now.isAfter(activity.getEndTime())) {
+            return ApiResponse.fail("活动已结束，无法签到");
+        }
+        
+        // 签到
         signup.setStatus("checked_in");
         signup.setCheckinTime(LocalDateTime.now());
         activitySignupMapper.updateById(signup);
