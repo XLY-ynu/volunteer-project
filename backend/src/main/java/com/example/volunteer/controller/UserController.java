@@ -11,9 +11,11 @@ import com.example.volunteer.common.ApiResponse;
 import com.example.volunteer.entity.Role;
 import com.example.volunteer.entity.User;
 import com.example.volunteer.entity.Volunteer;
+import com.example.volunteer.entity.VolunteerOrg;
 import com.example.volunteer.mapper.RoleMapper;
 import com.example.volunteer.mapper.UserMapper;
 import com.example.volunteer.mapper.VolunteerMapper;
+import com.example.volunteer.mapper.VolunteerOrgMapper;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,12 +32,15 @@ public class UserController {
     private final RoleMapper roleMapper;
     private final PasswordEncoder passwordEncoder;
     private final VolunteerMapper volunteerMapper;
+    private final VolunteerOrgMapper volunteerOrgMapper;
 
-    public UserController(UserMapper userMapper, RoleMapper roleMapper, PasswordEncoder passwordEncoder, VolunteerMapper volunteerMapper) {
+    public UserController(UserMapper userMapper, RoleMapper roleMapper, PasswordEncoder passwordEncoder, 
+                          VolunteerMapper volunteerMapper, VolunteerOrgMapper volunteerOrgMapper) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.passwordEncoder = passwordEncoder;
         this.volunteerMapper = volunteerMapper;
+        this.volunteerOrgMapper = volunteerOrgMapper;
     }
 
     @GetMapping
@@ -91,6 +96,25 @@ public class UserController {
                 existingVolunteer.setStatus("approved");
                 existingVolunteer.setUpdatedAt(LocalDateTime.now());
                 volunteerMapper.updateById(existingVolunteer);
+            }
+        }
+        
+        // 如果创建的是志愿者组织角色，自动创建对应的VolunteerOrg记录
+        if ("ORG".equals(user.getRoleCode())) {
+            // 检查是否已有组织记录
+            VolunteerOrg existingOrg = volunteerOrgMapper.selectOne(new LambdaQueryWrapper<VolunteerOrg>()
+                    .eq(VolunteerOrg::getUserId, user.getId()));
+            
+            if (existingOrg == null) {
+                // 创建新的组织记录
+                VolunteerOrg org = new VolunteerOrg();
+                org.setUserId(user.getId());
+                org.setName(user.getNickname() != null ? user.getNickname() : user.getUsername());
+                org.setCode(user.getUsername()); // 使用用户名作为组织代码
+                org.setStatus("active");
+                org.setCreatedAt(LocalDateTime.now());
+                org.setUpdatedAt(LocalDateTime.now());
+                volunteerOrgMapper.insert(org);
             }
         }
         
