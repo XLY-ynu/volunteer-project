@@ -82,6 +82,27 @@ body {
   justify-content: flex-end;
 }
 
+/* Element Plus 图片预览层级修复 */
+.el-image-viewer__wrapper {
+  z-index: 9999 !important;
+}
+
+.el-image-viewer__mask {
+  z-index: 9998 !important;
+}
+
+.el-image-viewer__btn {
+  z-index: 10000 !important;
+}
+
+.el-image-viewer__actions {
+  z-index: 10000 !important;
+}
+
+.el-image-viewer__close {
+  z-index: 10000 !important;
+}
+
 /* 滚动条美化 */
 ::-webkit-scrollbar {
   width: 8px;

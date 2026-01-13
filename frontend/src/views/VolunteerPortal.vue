@@ -516,6 +516,7 @@
         <el-image 
           :src="currentImage.url" 
           :preview-src-list="[currentImage.url]"
+          preview-teleported
           fit="contain"
           class="preview-image"
         />
@@ -535,6 +536,7 @@
           <el-image 
             :src="currentContent.coverUrl" 
             :preview-src-list="[currentContent.coverUrl]"
+            preview-teleported
             fit="cover"
             class="detail-cover-img"
           >
@@ -558,6 +560,7 @@
           <el-image 
             :src="currentActivityDetail.coverUrl" 
             :preview-src-list="[currentActivityDetail.coverUrl]"
+            preview-teleported
             fit="cover"
             :alt="currentActivityDetail.title"
             class="activity-cover-img"

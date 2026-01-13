@@ -42,7 +42,7 @@
         <el-table-column label="封面" width="90">
           <template #default="scope">
             <div class="cover-cell">
-              <el-image v-if="scope.row.coverUrl" :src="scope.row.coverUrl" fit="cover" class="cover-img" :preview-src-list="[scope.row.coverUrl]" />
+              <el-image v-if="scope.row.coverUrl" :src="scope.row.coverUrl" fit="cover" class="cover-img" :preview-src-list="[scope.row.coverUrl]" preview-teleported />
               <div v-else class="cover-empty"><el-icon><Picture /></el-icon></div>
             </div>
           </template>
