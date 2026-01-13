@@ -145,8 +145,9 @@
           </div>
         </el-card>
       </div>
-      <div class="section-more" v-if="activityTotal > activities.length">
-        <el-button @click="loadMoreActivities">加载更多</el-button>
+      <div class="section-more">
+        <el-button v-if="activityTotal > activities.length" @click="loadMoreActivities">加载更多</el-button>
+        <el-button v-if="activityPage > 1" @click="collapseActivities">收起</el-button>
       </div>
     </section>
 
@@ -225,8 +226,9 @@
           </div>
         </div>
       </div>
-      <div class="section-more" v-if="mediaTotal > mediaList.length">
-        <el-button @click="loadMoreMedia">加载更多</el-button>
+      <div class="section-more">
+        <el-button v-if="mediaTotal > mediaList.length" @click="loadMoreMedia">加载更多</el-button>
+        <el-button v-if="mediaPage > 1" @click="collapseMedia">收起</el-button>
       </div>
     </section>
 
@@ -995,11 +997,16 @@ const markAllRead = async () => {
   } catch (e) { /* ignore */ }
 };
 
-const loadActivities = async () => {
+const loadActivities = async (append: boolean = false) => {
   try {
     const res: any = await getPublicActivities({ page: activityPage.value, size: 6 });
     if (res.data?.success) {
-      activities.value = res.data.data?.records || res.data.data || [];
+      const records = res.data.data?.records || res.data.data || [];
+      if (append) {
+        activities.value = [...activities.value, ...records];
+      } else {
+        activities.value = records;
+      }
       activityTotal.value = res.data.data?.total || activities.value.length;
     }
   } catch (e) { /* ignore */ }
@@ -1007,7 +1014,12 @@ const loadActivities = async () => {
 
 const loadMoreActivities = () => {
   activityPage.value++;
-  loadActivities();
+  loadActivities(true);
+};
+
+const collapseActivities = () => {
+  activityPage.value = 1;
+  loadActivities(false);
 };
 
 const loadCategories = async () => {
@@ -1066,6 +1078,11 @@ const loadMedia = async (resetOrEvent: boolean | string = true) => {
 const loadMoreMedia = () => {
   mediaPage.value++;
   loadMedia(false);
+};
+
+const collapseMedia = () => {
+  mediaPage.value = 1;
+  loadMedia(true);
 };
 
 // 加载志愿者组织列表
