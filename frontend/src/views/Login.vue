@@ -73,11 +73,9 @@ import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { loginApi } from '../api';
-import { useUserStore } from '../stores/user';
 import { Monitor, VideoPlay, Calendar } from '@element-plus/icons-vue';
 
 const router = useRouter();
-const userStore = useUserStore();
 const form = reactive({ username: 'admin', password: 'admin123' });
 const loading = ref(false);
 
@@ -91,9 +89,10 @@ const onSubmit = async () => {
     const resp = await loginApi(form.username, form.password);
     // @ts-ignore
     const data = resp.data.data;
-    userStore.setToken(data.token);
-    userStore.setUsername(data.username);
-    if (data.role) userStore.setRole(data.role);
+    // 管理员端使用 admin_token
+    localStorage.setItem('admin_token', data.token);
+    localStorage.setItem('admin_username', data.username);
+    if (data.role) localStorage.setItem('admin_role', data.role);
     ElMessage.success('登录成功');
     router.push('/dashboard');
   } catch (e: any) {

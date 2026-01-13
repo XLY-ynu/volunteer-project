@@ -91,7 +91,6 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
 import { deleteMedia, downloadMedia, fetchMedia } from '../api';
-import { useUserStore } from '../stores/user';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Upload, VideoPlay, Document, View, Download, Delete, PictureFilled } from '@element-plus/icons-vue';
 
@@ -99,8 +98,7 @@ const list = ref<any[]>([]);
 const page = ref(1);
 const size = ref(10);
 const total = ref(0);
-const user = useUserStore();
-const uploadHeaders = computed(() => ({ Authorization: `Bearer ${user.token}` }));
+const uploadHeaders = computed(() => ({ Authorization: `Bearer ${localStorage.getItem('org_token') || ''}` }));
 const previewVisible = ref(false);
 const previewItem = ref<any>(null);
 const thumbDialogVisible = ref(false);

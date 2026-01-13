@@ -93,7 +93,7 @@ import axios from 'axios';
 
 const router = useRouter();
 const route = useRoute();
-const username = ref(localStorage.getItem('username') || '');
+const username = ref(localStorage.getItem('org_username') || '');
 const orgName = ref('');
 
 const active = computed(() => route.path);
@@ -103,15 +103,15 @@ const onSelect = (path: string) => {
 };
 
 const logout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('username');
-  localStorage.removeItem('role');
+  localStorage.removeItem('org_token');
+  localStorage.removeItem('org_username');
+  localStorage.removeItem('org_role');
   router.push('/org/login');
 };
 
 onMounted(async () => {
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('org_token');
     const resp = await axios.get('/api/org/info', {
       headers: { Authorization: `Bearer ${token}` }
     });

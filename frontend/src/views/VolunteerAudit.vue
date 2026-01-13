@@ -92,7 +92,7 @@ const size = ref(10);
 const filterStatus = ref('');
 const filterName = ref('');
 
-const token = localStorage.getItem('token');
+const token = localStorage.getItem('admin_token');
 const headers = { Authorization: `Bearer ${token}` };
 
 const pendingCount = computed(() => list.value.filter(v => v.status === 'pending').length);

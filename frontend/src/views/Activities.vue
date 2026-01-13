@@ -597,7 +597,7 @@ const copyCode = (code?: string) => {
 const exportCsv = async (id: number | null) => {
   if (!id) return;
   const resp = await fetch(`/api/activities/${id}/signups/export`, {
-    headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+    headers: { Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}` }
   });
   const blob = await resp.blob();
   const url = URL.createObjectURL(blob);

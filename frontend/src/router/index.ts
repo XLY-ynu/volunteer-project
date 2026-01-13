@@ -94,7 +94,6 @@ const router = createRouter({
 });
 
 router.beforeEach((to, _from, next) => {
-  const token = localStorage.getItem('token');
   const isPublic = to.meta.public;
   const isOrgLogin = to.path === '/org/login';
   const isAdminLogin = to.path === '/login';
@@ -105,15 +104,21 @@ router.beforeEach((to, _from, next) => {
     return;
   }
   
-  // 需要登录但没有token
-  if (!token) {
-    // 组织端路由跳转到组织登录
-    if (to.path.startsWith('/org')) {
+  // 根据路由检查对应的token
+  if (to.path.startsWith('/org')) {
+    // 组织端路由检查 org_token
+    const orgToken = localStorage.getItem('org_token');
+    if (!orgToken) {
       next('/org/login');
-    } else {
-      next('/login');
+      return;
     }
-    return;
+  } else {
+    // 管理员端路由检查 admin_token
+    const adminToken = localStorage.getItem('admin_token');
+    if (!adminToken) {
+      next('/login');
+      return;
+    }
   }
   
   next();

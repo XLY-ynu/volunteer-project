@@ -176,7 +176,7 @@ const roles = ref<any[]>([]);
 const dialogVisible = ref(false);
 const editingId = ref<number | null>(null);
 const form = ref({ username: '', password: '', nickname: '', roleCode: '', enabled: true });
-const currentUser = ref(localStorage.getItem('username') || '');
+const currentUser = ref(localStorage.getItem('admin_username') || '');
 
 const enabledCount = computed(() => list.value.filter(u => u.enabled).length);
 const disabledCount = computed(() => list.value.filter(u => !u.enabled).length);

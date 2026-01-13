@@ -51,7 +51,7 @@ const approvedList = ref<any[]>([]);
 
 // 动态获取 headers
 const getHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('org_token');
   return { Authorization: `Bearer ${token}` };
 };
 

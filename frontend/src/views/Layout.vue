@@ -41,8 +41,8 @@
       <el-header class="header">
         <div class="user">
           <el-button type="primary" link @click="goPortal">访问门户</el-button>
-          <el-avatar :size="32" class="avatar">{{ userStore.username?.charAt(0)?.toUpperCase() || 'U' }}</el-avatar>
-          <span class="user-info">{{ userStore.username || '未登录' }}</span>
+          <el-avatar :size="32" class="avatar">{{ adminUsername?.charAt(0)?.toUpperCase() || 'U' }}</el-avatar>
+          <span class="user-info">{{ adminUsername }}</span>
           <el-button type="danger" link @click="logout">退出登录</el-button>
         </div>
       </el-header>
@@ -56,23 +56,27 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
 import { computed } from 'vue';
-import { useUserStore } from '../stores/user';
 import {
   HomeFilled, UserFilled, List, Setting, Avatar
 } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const route = useRoute();
-const userStore = useUserStore();
 
 const active = computed(() => route.path);
+
+// 从 localStorage 获取管理员用户名
+const adminUsername = computed(() => localStorage.getItem('admin_username') || '未登录');
 
 const onSelect = (path: string) => {
   router.push(path);
 };
 
 const logout = () => {
-  userStore.logout();
+  // 清除管理员端的 token
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_username');
+  localStorage.removeItem('admin_role');
   router.push('/login');
 };
 

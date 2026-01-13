@@ -149,7 +149,6 @@
 import { onMounted, ref, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { createContent, deleteContent, fetchCategories, fetchContent, updateContent } from '../api';
-import { useUserStore } from '../stores/user';
 import { Plus, Search, Edit, Delete, Picture } from '@element-plus/icons-vue';
 
 const list = ref<any[]>([]);
@@ -160,8 +159,7 @@ const categories = ref<any[]>([]);
 const dialogVisible = ref(false);
 const editingId = ref<number | null>(null);
 const submitting = ref(false);
-const user = useUserStore();
-const uploadHeaders = computed(() => ({ Authorization: `Bearer ${user.token}` }));
+const uploadHeaders = computed(() => ({ Authorization: `Bearer ${localStorage.getItem('org_token') || ''}` }));
 
 const form = ref({
   title: '',

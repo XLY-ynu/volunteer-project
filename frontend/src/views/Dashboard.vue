@@ -95,7 +95,7 @@
             </div>
             <div class="info-item">
               <span class="info-label">当前用户</span>
-              <span class="info-value">{{ userStore.username }}</span>
+              <span class="info-value">{{ adminUsername }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">用户角色</span>
@@ -141,11 +141,10 @@
 
 <script setup lang="ts">
 import { onMounted, ref, markRaw } from 'vue';
-import { useUserStore } from '../stores/user';
 import { UserFilled, List, Setting, User } from '@element-plus/icons-vue';
 import axios from 'axios';
 
-const userStore = useUserStore();
+const adminUsername = ref(localStorage.getItem('admin_username') || '');
 const loginTime = ref(new Date().toLocaleString());
 
 const cards = ref([
@@ -158,7 +157,7 @@ const cards = ref([
 const roleStats = ref({ admin: 0, org: 0, volunteer: 0, user: 0 });
 const recentLogs = ref<any[]>([]);
 
-const token = localStorage.getItem('token');
+const token = localStorage.getItem('admin_token');
 const headers = { Authorization: `Bearer ${token}` };
 
 const load = async () => {
