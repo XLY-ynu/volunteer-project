@@ -2,11 +2,11 @@ package com.example.volunteer.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.example.volunteer.config.WebConfig;
 import com.example.volunteer.dto.MediaAssetRequest;
 import com.example.volunteer.entity.MediaAsset;
 import com.example.volunteer.mapper.MediaAssetMapper;
 import com.example.volunteer.service.MediaAssetService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,7 +14,6 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -24,11 +23,15 @@ import java.util.concurrent.TimeUnit;
 public class MediaAssetServiceImpl implements MediaAssetService {
 
     private final MediaAssetMapper mediaAssetMapper;
-    @Value("${app.storage.root:uploads}")
-    private String storageRoot;
+    private final WebConfig webConfig;
 
-    public MediaAssetServiceImpl(MediaAssetMapper mediaAssetMapper) {
+    public MediaAssetServiceImpl(MediaAssetMapper mediaAssetMapper, WebConfig webConfig) {
         this.mediaAssetMapper = mediaAssetMapper;
+        this.webConfig = webConfig;
+    }
+    
+    private Path getStorageRoot() {
+        return webConfig.getResolvedUploadPath();
     }
 
     @Override
@@ -67,7 +70,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         mediaAssetMapper.deleteById(id);
         if (asset != null && asset.getUrl() != null && asset.getUrl().startsWith("/uploads/")) {
             try {
-                Path root = Paths.get(storageRoot).toAbsolutePath();
+                Path root = getStorageRoot();
                 String filename = asset.getUrl().replaceFirst("^/uploads/", "");
                 Path dest = root.resolve(filename);
                 Files.deleteIfExists(dest);
@@ -88,7 +91,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
             String original = file.getOriginalFilename();
             String ext = (original != null && original.contains(".")) ? original.substring(original.lastIndexOf('.')) : "";
             String filename = UUID.randomUUID() + ext;
-            Path root = Paths.get(storageRoot).toAbsolutePath();
+            Path root = getStorageRoot();
             Files.createDirectories(root);
             Path dest = root.resolve(filename);
             file.transferTo(dest.toFile());
@@ -124,7 +127,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
             String original = file.getOriginalFilename();
             String ext = (original != null && original.contains(".")) ? original.substring(original.lastIndexOf('.')) : "";
             String filename = "thumb-" + UUID.randomUUID() + ext;
-            Path root = Paths.get(storageRoot).toAbsolutePath().resolve("thumbs");
+            Path root = getStorageRoot().resolve("thumbs");
             Files.createDirectories(root);
             Path dest = root.resolve(filename);
             file.transferTo(dest.toFile());
@@ -253,7 +256,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
             String original = file.getOriginalFilename();
             String ext = (original != null && original.contains(".")) ? original.substring(original.lastIndexOf('.')) : "";
             String filename = "cover-" + UUID.randomUUID() + ext;
-            Path root = Paths.get(storageRoot).toAbsolutePath().resolve("covers");
+            Path root = getStorageRoot().resolve("covers");
             Files.createDirectories(root);
             Path dest = root.resolve(filename);
             file.transferTo(dest.toFile());

@@ -68,34 +68,64 @@ mysql -u root -p volunteer < backend/src/main/resources/volunteer_complete.sql
 
 ### 3.3 修改数据库连接配置
 
-编辑 `backend/src/main/resources/application.yml`：
+**重要：不要直接修改 `application.yml`！** 请创建本地配置文件：
+
+1. 复制 `backend/src/main/resources/application-local.yml.example` 为 `application-local.yml`
+2. 修改 `application-local.yml` 中的数据库密码：
 
 ```yaml
+# 本地配置模板
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/volunteer?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8mb4
-    username: root
     password: 你的MySQL密码  # 修改为你的密码
 ```
 
+> 注意：`application-local.yml` 已被 `.gitignore` 忽略，不会被提交到 Git
+
 ---
 
-## 四、后端启动
+## 四、上传文件夹配置
 
-### 4.1 使用 IDEA
+### 4.1 创建上传目录
+
+项目需要 `uploads` 文件夹来存储上传的图片和视频。如果你是从 Git 克隆的项目，需要手动创建：
+
+```bash
+# 在 backend 目录下创建 uploads 文件夹及子目录
+cd backend
+mkdir uploads
+mkdir uploads\covers
+mkdir uploads\thumbs
+```
+
+或者直接复制项目负责人提供的 `uploads` 文件夹到 `backend` 目录下。
+
+### 4.2 上传路径说明
+
+系统使用相对路径 `uploads` 作为文件存储目录，会自动解析为 `backend/uploads/`。
+
+**常见问题：** 如果图片/视频显示 500 错误，请检查：
+1. `backend/uploads/` 文件夹是否存在
+2. 后端是否从 `backend` 目录启动（工作目录必须是 `backend`）
+
+---
+
+## 五、后端启动
+
+### 5.1 使用 IDEA
 
 1. 用 IDEA 打开 `backend` 文件夹
 2. 等待 Maven 自动下载依赖
 3. 找到 `VolunteerApplication.java`
 4. 右键 → Run
 
-### 4.2 使用 VS Code
+### 5.2 使用 VS Code
 
 1. 安装 Java 扩展包
 2. 打开 `backend` 文件夹
 3. 按 F5 运行
 
-### 4.3 使用命令行
+### 5.3 使用命令行
 
 ```bash
 cd backend
@@ -108,9 +138,9 @@ mvn clean spring-boot:run
 
 ---
 
-## 五、前端启动
+## 六、前端启动
 
-### 5.1 安装依赖
+### 6.1 安装依赖
 
 ```bash
 cd frontend
@@ -123,7 +153,7 @@ npm config set registry https://registry.npmmirror.com
 npm install
 ```
 
-### 5.2 启动开发服务器
+### 6.2 启动开发服务器
 
 ```bash
 npm run dev
@@ -133,7 +163,7 @@ npm run dev
 
 ---
 
-## 六、访问系统
+## 七、访问系统
 
 ### 四端架构说明
 
@@ -166,7 +196,7 @@ npm run dev
 
 ---
 
-## 七、常见问题
+## 八、常见问题
 
 ### Q1: Maven 下载依赖很慢
 
@@ -207,9 +237,16 @@ rm package-lock.json
 npm install
 ```
 
+### Q6: 图片/视频显示 500 错误
+
+1. 检查 `backend/uploads/` 文件夹是否存在
+2. 检查 `backend/uploads/covers/` 和 `backend/uploads/thumbs/` 子目录是否存在
+3. 确保后端从 `backend` 目录启动（工作目录必须是 `backend`）
+4. 如果使用 IDEA，检查 Run Configuration 的 Working Directory 是否设置为 `backend` 目录
+
 ---
 
-## 八、项目结构
+## 九、项目结构
 
 ```text
 volunteer-project/
@@ -242,7 +279,7 @@ volunteer-project/
 
 ---
 
-## 九、技术栈
+## 十、技术栈
 
 | 层级 | 技术 |
 |-----|------|
@@ -256,6 +293,6 @@ volunteer-project/
 
 ---
 
-## 十、联系方式
+## 十一、联系方式
 
 如有问题，请联系项目负责人。

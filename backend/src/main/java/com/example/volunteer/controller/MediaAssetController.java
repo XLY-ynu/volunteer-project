@@ -7,11 +7,11 @@ package com.example.volunteer.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.volunteer.common.ApiResponse;
+import com.example.volunteer.config.WebConfig;
 import com.example.volunteer.dto.MediaAssetRequest;
 import com.example.volunteer.entity.MediaAsset;
 import com.example.volunteer.service.MediaAssetService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -24,11 +24,11 @@ import org.springframework.web.multipart.MultipartFile;
 public class MediaAssetController {
 
     private final MediaAssetService mediaAssetService;
-    @Value("${app.storage.root:uploads}")
-    private String storageRoot;
+    private final WebConfig webConfig;
 
-    public MediaAssetController(MediaAssetService mediaAssetService) {
+    public MediaAssetController(MediaAssetService mediaAssetService, WebConfig webConfig) {
         this.mediaAssetService = mediaAssetService;
+        this.webConfig = webConfig;
     }
 
     @PostMapping
@@ -66,7 +66,7 @@ public class MediaAssetController {
         if (!asset.getUrl().startsWith("/uploads/")) {
             return ResponseEntity.badRequest().build();
         }
-        java.nio.file.Path path = java.nio.file.Paths.get(storageRoot).toAbsolutePath()
+        java.nio.file.Path path = webConfig.getResolvedUploadPath()
                 .resolve(asset.getUrl().replaceFirst("^/uploads/", ""));
         FileSystemResource resource = new FileSystemResource(path.toFile());
         if (!resource.exists()) {

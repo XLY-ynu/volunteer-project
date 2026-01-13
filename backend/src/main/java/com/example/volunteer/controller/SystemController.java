@@ -6,10 +6,10 @@
 package com.example.volunteer.controller;
 
 import com.example.volunteer.common.ApiResponse;
+import com.example.volunteer.config.WebConfig;
 import com.example.volunteer.mapper.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -37,8 +37,7 @@ import java.util.zip.ZipOutputStream;
 @RequestMapping("/api/ops")
 public class SystemController {
 
-    @Value("${app.storage.root:uploads}")
-    private String storageRoot;
+    private final WebConfig webConfig;
 
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
@@ -58,6 +57,7 @@ public class SystemController {
     private final ActivitySignupMapper activitySignupMapper;
 
     public SystemController(
+            WebConfig webConfig,
             UserMapper userMapper,
             RoleMapper roleMapper,
             MenuCategoryMapper menuCategoryMapper,
@@ -74,6 +74,7 @@ public class SystemController {
             VolunteerMapper volunteerMapper,
             ActivityMapper activityMapper,
             ActivitySignupMapper activitySignupMapper) {
+        this.webConfig = webConfig;
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.menuCategoryMapper = menuCategoryMapper;
@@ -99,7 +100,7 @@ public class SystemController {
         map.put("time", LocalDateTime.now().toString());
         map.put("java", System.getProperty("java.version"));
         map.put("os", System.getProperty("os.name"));
-        map.put("storageRoot", Paths.get(storageRoot).toAbsolutePath().toString());
+        map.put("storageRoot", webConfig.getResolvedUploadPath().toString());
         return ApiResponse.ok(map);
     }
 
@@ -154,7 +155,7 @@ public class SystemController {
             }
             
             // 3. 备份上传的媒体文件（包括子目录）
-            Path uploadPath = Paths.get(storageRoot).toAbsolutePath();
+            Path uploadPath = webConfig.getResolvedUploadPath();
             if (Files.exists(uploadPath)) {
                 addDirectoryToZip(zos, uploadPath, "uploads");
             }
