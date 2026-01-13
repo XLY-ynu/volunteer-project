@@ -512,17 +512,23 @@ INSERT INTO role (code, name, description) VALUES
 INSERT INTO user (username, password, nickname, role_code, enabled, created_at, updated_at) VALUES
 ('admin', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '系统管理员', 'ADMIN', 1, NOW(), NOW());
 
--- 3. 示例志愿者组织账号 (密码: admin123) - 3个组织
+-- 3. 示例志愿者组织账号 (密码: admin123) - 6个组织
 INSERT INTO user (username, password, nickname, role_code, enabled, created_at, updated_at) VALUES
 ('org1', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '阳光志愿服务队', 'ORG', 1, NOW(), NOW()),
 ('org2', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '爱心公益协会', 'ORG', 1, NOW(), NOW()),
-('org3', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '青年志愿者联盟', 'ORG', 1, NOW(), NOW());
+('org3', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '青年志愿者联盟', 'ORG', 1, NOW(), NOW()),
+('org4', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '社区服务中心', 'ORG', 1, NOW(), NOW()),
+('org5', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '绿色环保协会', 'ORG', 1, NOW(), NOW()),
+('org6', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '文化传承志愿团', 'ORG', 1, NOW(), NOW());
 
 -- 创建对应的组织信息
 INSERT INTO volunteer_org (id, name, code, description, contact_name, contact_phone, contact_email, address, user_id, created_at) VALUES
 (1, '阳光志愿服务队', 'sunshine', '致力于社区服务和公益活动的志愿者组织，成立于2015年，现有注册志愿者500余人', '张队长', '13800138001', 'sunshine@volunteer.org', '长沙市岳麓区麓山南路123号', 2, NOW()),
 (2, '爱心公益协会', 'loveheart', '专注于扶贫助困、关爱弱势群体的公益组织，累计帮助困难家庭超过1000户', '李会长', '13800138002', 'loveheart@volunteer.org', '长沙市天心区芙蓉路456号', 3, NOW()),
-(3, '青年志愿者联盟', 'youth', '由高校青年学生组成的志愿服务组织，主要开展支教、环保等公益活动', '王主席', '13800138003', 'youth@volunteer.org', '长沙市开福区中山路789号', 4, NOW());
+(3, '青年志愿者联盟', 'youth', '由高校青年学生组成的志愿服务组织，主要开展支教、环保等公益活动', '王主席', '13800138003', 'youth@volunteer.org', '长沙市开福区中山路789号', 4, NOW()),
+(4, '社区服务中心', 'community', '专注于社区居民服务，提供便民服务、老年关怀、儿童托管等志愿服务', '刘主任', '13800138004', 'community@volunteer.org', '长沙市雨花区韶山路321号', 5, NOW()),
+(5, '绿色环保协会', 'greenenv', '致力于环境保护和生态文明建设，开展植树造林、垃圾分类宣传等活动', '陈会长', '13800138005', 'greenenv@volunteer.org', '长沙市望城区雷锋大道567号', 6, NOW()),
+(6, '文化传承志愿团', 'culture', '传承和弘扬中华优秀传统文化，开展非遗保护、文化宣讲等志愿服务', '赵团长', '13800138006', 'culture@volunteer.org', '长沙市芙蓉区解放路890号', 7, NOW());
 
 -- 4. 六大主菜单分类
 INSERT INTO menu_category (id, name, code, parent_id, sort_order) VALUES
@@ -716,44 +722,46 @@ INSERT INTO activity (id, title, description, location, start_time, end_time, ca
 
 -- 9. 示例志愿者账号和数据 (密码: admin123)
 -- 志愿者用户账号（16个志愿者）
+-- 注意：ID从8开始，因为1是admin，2-7是org1-org6
 INSERT INTO user (id, username, password, nickname, role_code, enabled, created_at, updated_at) VALUES
-(5, '13800001111', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '张三', 'VOLUNTEER', 1, NOW(), NOW()),
-(6, '13800002222', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '李四', 'VOLUNTEER', 1, NOW(), NOW()),
-(7, '13800003333', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '王五', 'VOLUNTEER', 1, NOW(), NOW()),
-(8, '13800004444', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '赵六', 'VOLUNTEER', 1, NOW(), NOW()),
-(9, '13800005555', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '孙七', 'VOLUNTEER', 1, NOW(), NOW()),
-(10, '13800006666', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '周八', 'VOLUNTEER', 1, NOW(), NOW()),
-(11, '13800007777', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '吴九', 'VOLUNTEER', 1, NOW(), NOW()),
-(12, '13800008888', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '郑十', 'VOLUNTEER', 1, NOW(), NOW()),
+(8, '13800001111', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '张三', 'VOLUNTEER', 1, NOW(), NOW()),
+(9, '13800002222', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '李四', 'VOLUNTEER', 1, NOW(), NOW()),
+(10, '13800003333', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '王五', 'VOLUNTEER', 1, NOW(), NOW()),
+(11, '13800004444', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '赵六', 'VOLUNTEER', 1, NOW(), NOW()),
+(12, '13800005555', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '孙七', 'VOLUNTEER', 1, NOW(), NOW()),
+(13, '13800006666', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '周八', 'VOLUNTEER', 1, NOW(), NOW()),
+(14, '13800007777', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '吴九', 'VOLUNTEER', 1, NOW(), NOW()),
+(15, '13800008888', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '郑十', 'VOLUNTEER', 1, NOW(), NOW()),
 -- 新增8个志愿者用户
-(19, '13800009999', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '陈一', 'VOLUNTEER', 1, NOW(), NOW()),
-(20, '13800010000', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '林二', 'VOLUNTEER', 1, NOW(), NOW()),
-(21, '13800011111', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '黄三', 'VOLUNTEER', 1, NOW(), NOW()),
-(22, '13800012222', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '刘四', 'VOLUNTEER', 1, NOW(), NOW()),
-(23, '13800013333', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '杨五', 'VOLUNTEER', 1, NOW(), NOW()),
-(24, '13800014444', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '何六', 'VOLUNTEER', 1, NOW(), NOW()),
-(25, '13800015555', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '罗七', 'VOLUNTEER', 1, NOW(), NOW()),
-(26, '13800016666', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '高八', 'VOLUNTEER', 1, NOW(), NOW());
+(22, '13800009999', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '陈一', 'VOLUNTEER', 1, NOW(), NOW()),
+(23, '13800010000', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '林二', 'VOLUNTEER', 1, NOW(), NOW()),
+(24, '13800011111', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '黄三', 'VOLUNTEER', 1, NOW(), NOW()),
+(25, '13800012222', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '刘四', 'VOLUNTEER', 1, NOW(), NOW()),
+(26, '13800013333', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '杨五', 'VOLUNTEER', 1, NOW(), NOW()),
+(27, '13800014444', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '何六', 'VOLUNTEER', 1, NOW(), NOW()),
+(28, '13800015555', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '罗七', 'VOLUNTEER', 1, NOW(), NOW()),
+(29, '13800016666', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '高八', 'VOLUNTEER', 1, NOW(), NOW());
 
 -- 志愿者详细信息（16个志愿者）
+-- 注意：user_id对应新的用户ID（8-15, 22-29）
 INSERT INTO volunteer (id, user_id, name, phone, email, organization, id_card, status, created_at) VALUES
-(1, 5, '张三', '13800001111', 'zhangsan@example.com', '阳光志愿服务队', '430102199001011234', 'approved', NOW()),
-(2, 6, '李四', '13800002222', 'lisi@example.com', '阳光志愿服务队', '430102199002022345', 'approved', NOW()),
-(3, 7, '王五', '13800003333', 'wangwu@example.com', NULL, '430102199003033456', 'pending', NOW()),
-(4, 8, '赵六', '13800004444', 'zhaoliu@example.com', '阳光志愿服务队', '430102199504044567', 'approved', NOW()),
-(5, 9, '孙七', '13800005555', 'sunqi@example.com', '爱心公益协会', '430102199605055678', 'approved', NOW()),
-(6, 10, '周八', '13800006666', 'zhouba@example.com', '爱心公益协会', '430102199706066789', 'approved', NOW()),
-(7, 11, '吴九', '13800007777', 'wujiu@example.com', NULL, '430102199807077890', 'rejected', NOW()),
-(8, 12, '郑十', '13800008888', 'zhengshi@example.com', '青年志愿者联盟', '430102199908088901', 'approved', NOW()),
+(1, 8, '张三', '13800001111', 'zhangsan@example.com', '阳光志愿服务队', '430102199001011234', 'approved', NOW()),
+(2, 9, '李四', '13800002222', 'lisi@example.com', '阳光志愿服务队', '430102199002022345', 'approved', NOW()),
+(3, 10, '王五', '13800003333', 'wangwu@example.com', NULL, '430102199003033456', 'pending', NOW()),
+(4, 11, '赵六', '13800004444', 'zhaoliu@example.com', '阳光志愿服务队', '430102199504044567', 'approved', NOW()),
+(5, 12, '孙七', '13800005555', 'sunqi@example.com', '爱心公益协会', '430102199605055678', 'approved', NOW()),
+(6, 13, '周八', '13800006666', 'zhouba@example.com', '爱心公益协会', '430102199706066789', 'approved', NOW()),
+(7, 14, '吴九', '13800007777', 'wujiu@example.com', NULL, '430102199807077890', 'rejected', NOW()),
+(8, 15, '郑十', '13800008888', 'zhengshi@example.com', '青年志愿者联盟', '430102199908088901', 'approved', NOW()),
 -- 新增8个志愿者信息
-(9, 19, '陈一', '13800009999', 'chenyi@example.com', '阳光志愿服务队', '430102200001019012', 'approved', NOW()),
-(10, 20, '林二', '13800010000', 'liner@example.com', '阳光志愿服务队', '430102200002020123', 'approved', NOW()),
-(11, 21, '黄三', '13800011111', 'huangsan@example.com', '阳光志愿服务队', '430102200003031234', 'approved', NOW()),
-(12, 22, '刘四', '13800012222', 'liusi@example.com', NULL, '430102200004042345', 'pending', NOW()),
-(13, 23, '杨五', '13800013333', 'yangwu@example.com', NULL, '430102200005053456', 'pending', NOW()),
-(14, 24, '何六', '13800014444', 'heliu@example.com', NULL, '430102200006064567', 'pending', NOW()),
-(15, 25, '罗七', '13800015555', 'luoqi@example.com', NULL, '430102200007075678', 'pending', NOW()),
-(16, 26, '高八', '13800016666', 'gaoba@example.com', NULL, '430102200008086789', 'pending', NOW());
+(9, 22, '陈一', '13800009999', 'chenyi@example.com', '阳光志愿服务队', '430102200001019012', 'approved', NOW()),
+(10, 23, '林二', '13800010000', 'liner@example.com', '阳光志愿服务队', '430102200002020123', 'approved', NOW()),
+(11, 24, '黄三', '13800011111', 'huangsan@example.com', '阳光志愿服务队', '430102200003031234', 'approved', NOW()),
+(12, 25, '刘四', '13800012222', 'liusi@example.com', NULL, '430102200004042345', 'pending', NOW()),
+(13, 26, '杨五', '13800013333', 'yangwu@example.com', NULL, '430102200005053456', 'pending', NOW()),
+(14, 27, '何六', '13800014444', 'heliu@example.com', NULL, '430102200006064567', 'pending', NOW()),
+(15, 28, '罗七', '13800015555', 'luoqi@example.com', NULL, '430102200007075678', 'pending', NOW()),
+(16, 29, '高八', '13800016666', 'gaoba@example.com', NULL, '430102200008086789', 'pending', NOW());
 
 -- 志愿者加入组织（多个组织成员关系）
 -- org1(阳光志愿服务队): 已通过6人(1,2,4,9,10,11), 待审核6人(3,12,13,14,15,16)
@@ -802,24 +810,26 @@ INSERT INTO activity_signup (activity_id, volunteer_id, status, created_at) VALU
 (8, 8, 'applied', NOW());
 
 -- 10. 示例普通用户账号 (密码: admin123) - 6个普通用户
+-- 注意：ID从16开始
 INSERT INTO user (id, username, password, nickname, role_code, enabled, created_at, updated_at) VALUES
-(13, 'user1', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小明', 'USER', 1, NOW(), NOW()),
-(14, 'user2', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小红', 'USER', 1, NOW(), NOW()),
-(15, 'user3', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小刚', 'USER', 1, NOW(), NOW()),
-(16, 'user4', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小丽', 'USER', 1, NOW(), NOW()),
-(17, 'user5', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小华', 'USER', 1, NOW(), NOW()),
-(18, 'user6', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小强', 'USER', 1, NOW(), NOW());
+(16, 'user1', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小明', 'USER', 1, NOW(), NOW()),
+(17, 'user2', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小红', 'USER', 1, NOW(), NOW()),
+(18, 'user3', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小刚', 'USER', 1, NOW(), NOW()),
+(19, 'user4', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小丽', 'USER', 1, NOW(), NOW()),
+(20, 'user5', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小华', 'USER', 1, NOW(), NOW()),
+(21, 'user6', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '普通用户小强', 'USER', 1, NOW(), NOW());
 
 -- 示例求助信息（8条求助）
+-- 注意：user_id对应新的普通用户ID（16-21）
 INSERT INTO help_request (user_id, org_id, title, content, contact_name, contact_phone, address, status, reply, replied_at, created_at) VALUES
-(13, 1, '需要帮助搬运物资', '社区有一批捐赠物资需要搬运到仓库，希望能有志愿者帮忙。物资约有50箱，需要5-6名志愿者。', '小明', '13900001111', '幸福社区3栋1单元', 'pending', NULL, NULL, NOW()),
-(13, 1, '独居老人需要陪伴', '我家邻居是一位独居老人，今年85岁，希望能有志愿者定期上门陪伴聊天。', '小明', '13900001111', '幸福社区5栋2单元', 'replied', '已安排志愿者张三每周三、周六上门陪伴，请保持联系。', NOW(), NOW()),
-(14, 2, '残疾人出行帮助', '我父亲腿脚不便，需要定期去医院复查，希望能有志愿者协助出行。', '小红', '13900002222', '阳光小区8栋3单元', 'pending', NULL, NULL, NOW()),
-(15, 1, '课后辅导需求', '我家孩子上小学三年级，数学成绩不太好，希望能有志愿者帮忙辅导功课。', '小刚', '13900003333', '和平路社区12栋', 'replied', '已联系青年志愿者联盟的大学生志愿者，每周末可以上门辅导。', NOW(), NOW()),
-(16, 2, '社区环境整治', '我们小区绿化带杂草丛生，希望能组织志愿者帮忙清理整治。', '小丽', '13900004444', '翠苑小区', 'pending', NULL, NULL, NOW()),
-(17, 3, '图书捐赠收集', '我们学校想为山区孩子捐赠图书，需要志愿者帮忙收集和整理。', '小华', '13900005555', '长沙市第一中学', 'replied', '已安排本周六在学校门口设立捐赠点，届时会有志愿者协助。', NOW(), NOW()),
-(18, 1, '老人手机使用指导', '我奶奶想学习使用智能手机，希望能有耐心的志愿者教她。', '小强', '13900006666', '银杏社区2栋5单元', 'pending', NULL, NULL, NOW()),
-(13, 2, '社区义卖活动支持', '我们社区计划举办义卖活动，需要志愿者帮忙布置场地和维持秩序。', '小明', '13900001111', '幸福社区活动中心', 'replied', '活动定于下周六举行，已安排8名志愿者参与支持。', NOW(), NOW());
+(16, 1, '需要帮助搬运物资', '社区有一批捐赠物资需要搬运到仓库，希望能有志愿者帮忙。物资约有50箱，需要5-6名志愿者。', '小明', '13900001111', '幸福社区3栋1单元', 'pending', NULL, NULL, NOW()),
+(16, 1, '独居老人需要陪伴', '我家邻居是一位独居老人，今年85岁，希望能有志愿者定期上门陪伴聊天。', '小明', '13900001111', '幸福社区5栋2单元', 'replied', '已安排志愿者张三每周三、周六上门陪伴，请保持联系。', NOW(), NOW()),
+(17, 2, '残疾人出行帮助', '我父亲腿脚不便，需要定期去医院复查，希望能有志愿者协助出行。', '小红', '13900002222', '阳光小区8栋3单元', 'pending', NULL, NULL, NOW()),
+(18, 1, '课后辅导需求', '我家孩子上小学三年级，数学成绩不太好，希望能有志愿者帮忙辅导功课。', '小刚', '13900003333', '和平路社区12栋', 'replied', '已联系青年志愿者联盟的大学生志愿者，每周末可以上门辅导。', NOW(), NOW()),
+(19, 2, '社区环境整治', '我们小区绿化带杂草丛生，希望能组织志愿者帮忙清理整治。', '小丽', '13900004444', '翠苑小区', 'pending', NULL, NULL, NOW()),
+(20, 3, '图书捐赠收集', '我们学校想为山区孩子捐赠图书，需要志愿者帮忙收集和整理。', '小华', '13900005555', '长沙市第一中学', 'replied', '已安排本周六在学校门口设立捐赠点，届时会有志愿者协助。', NOW(), NOW()),
+(21, 1, '老人手机使用指导', '我奶奶想学习使用智能手机，希望能有耐心的志愿者教她。', '小强', '13900006666', '银杏社区2栋5单元', 'pending', NULL, NULL, NOW()),
+(16, 2, '社区义卖活动支持', '我们社区计划举办义卖活动，需要志愿者帮忙布置场地和维持秩序。', '小明', '13900001111', '幸福社区活动中心', 'replied', '活动定于下周六举行，已安排8名志愿者参与支持。', NOW(), NOW());
 
 -- 11. 示例终端数据（6个终端）
 INSERT INTO terminal (id, code, name, group_name, status, last_heartbeat, created_at, updated_at) VALUES
@@ -1056,6 +1066,9 @@ SELECT '【组织端】 /org/login' AS portal;
 SELECT '  org1 / admin123 (阳光志愿服务队)' AS account;
 SELECT '  org2 / admin123 (爱心公益协会)' AS account;
 SELECT '  org3 / admin123 (青年志愿者联盟)' AS account;
+SELECT '  org4 / admin123 (社区服务中心)' AS account;
+SELECT '  org5 / admin123 (绿色环保协会)' AS account;
+SELECT '  org6 / admin123 (文化传承志愿团)' AS account;
 SELECT '----------------------------------------' AS '';
 SELECT '【志愿者端】 /portal' AS portal;
 SELECT '  13800001111 / admin123 (张三-已审核)' AS account;

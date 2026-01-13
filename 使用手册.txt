@@ -46,8 +46,8 @@
 
     USE volunteer;
     SELECT COUNT(*) FROM role;            -- 应该返回 4
-    SELECT COUNT(*) FROM user;            -- 应该返回 26
-    SELECT COUNT(*) FROM volunteer_org;   -- 应该返回 3
+    SELECT COUNT(*) FROM user;            -- 应该返回 29
+    SELECT COUNT(*) FROM volunteer_org;   -- 应该返回 6
     SELECT COUNT(*) FROM volunteer;       -- 应该返回 16
     SELECT COUNT(*) FROM terminal;        -- 应该返回 6
     SELECT COUNT(*) FROM menu_category;   -- 应该返回 6
@@ -157,6 +157,9 @@
         - org1 / admin123（阳光志愿服务队）
         - org2 / admin123（爱心公益协会）
         - org3 / admin123（青年志愿者联盟）
+        - org4 / admin123（社区服务中心）
+        - org5 / admin123（绿色环保协会）
+        - org6 / admin123（文化传承志愿团）
     功能：内容管理、媒体管理、活动管理、志愿者审核、求助处理、终端发布
 
 【志愿者端】志愿者服务
@@ -607,7 +610,7 @@ volunteer-project/
 检查：
     1. 确认已执行 volunteer_complete.sql 导入数据
     2. 管理员账号：admin / admin123
-    3. 组织端账号：org1、org2、org3 / admin123
+    3. 组织端账号：org1、org2、org3、org4、org5、org6 / admin123
     4. 志愿者账号：13800001111~13800016666 / admin123（手机号登录）
     5. 用户端账号：user1~user6 / admin123
 
@@ -672,7 +675,7 @@ volunteer-project/
 大幅扩充演示数据，确保每个模块至少6条数据：
 
 新增/更新数据统计：
-    1. 志愿者组织 - 3个组织（阳光志愿服务队、爱心公益协会、青年志愿者联盟）
+    1. 志愿者组织 - 6个组织（阳光志愿服务队、爱心公益协会、青年志愿者联盟、社区服务中心、绿色环保协会、文化传承志愿团）
     2. 志愿者账号 - 16个演示志愿者（含已审核、待审核、已拒绝状态）
     3. 普通用户账号 - 6个演示用户
     4. 志愿活动 - 12个活动（关联不同组织，org1有6个活动）
@@ -701,6 +704,9 @@ volunteer-project/
         org1 / admin123（阳光志愿服务队）
         org2 / admin123（爱心公益协会）
         org3 / admin123（青年志愿者联盟）
+        org4 / admin123（社区服务中心）
+        org5 / admin123（绿色环保协会）
+        org6 / admin123（文化传承志愿团）
     
     【志愿者端】/portal
         13800001111 / admin123（张三-已审核）
