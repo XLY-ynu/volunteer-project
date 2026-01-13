@@ -82,25 +82,95 @@ body {
   justify-content: flex-end;
 }
 
-/* Element Plus 图片预览层级修复 */
+/* Element Plus 图片预览层级修复 - 解决预览变黑问题 */
 .el-image-viewer__wrapper {
-  z-index: 9999 !important;
+  z-index: 2147483647 !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .el-image-viewer__mask {
-  z-index: 9998 !important;
+  z-index: 1 !important;
+  position: absolute !important;
+  width: 100% !important;
+  height: 100% !important;
+  top: 0 !important;
+  left: 0 !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  opacity: 1 !important;
 }
 
-.el-image-viewer__btn {
-  z-index: 10000 !important;
+.el-image-viewer__canvas {
+  z-index: 2 !important;
+  position: absolute !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
+.el-image-viewer__img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* 关闭按钮 - 确保可点击 */
+.el-image-viewer__btn.el-image-viewer__close {
+  z-index: 10 !important;
+  position: absolute !important;
+  top: 40px !important;
+  right: 40px !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* 左右切换按钮 */
+.el-image-viewer__btn.el-image-viewer__prev,
+.el-image-viewer__btn.el-image-viewer__next {
+  z-index: 10 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* 底部操作栏 - 旋转、缩放等按钮 */
 .el-image-viewer__actions {
-  z-index: 10000 !important;
+  z-index: 10 !important;
+  position: absolute !important;
+  bottom: 30px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  pointer-events: auto !important;
 }
 
-.el-image-viewer__close {
-  z-index: 10000 !important;
+.el-image-viewer__actions__inner {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+.el-image-viewer__actions__inner .el-icon {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* 修复 teleported 模式下的预览问题 */
+body > .el-image-viewer__wrapper {
+  z-index: 2147483647 !important;
+}
+
+/* 确保预览图片可见 */
+.el-image__preview {
+  cursor: pointer;
+}
+
+.el-image__inner {
+  display: block !important;
 }
 
 /* 滚动条美化 */

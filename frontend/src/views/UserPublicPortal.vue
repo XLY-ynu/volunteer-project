@@ -70,9 +70,16 @@
       
       <h3>内容列表</h3>
       <div class="content-grid">
-        <div v-for="item in contents" :key="item.id" class="content-card" @click="showContentDetail(item)">
-          <img :src="item.coverUrl || 'https://picsum.photos/seed/' + item.id + '/300/200'" class="cover" />
-          <div class="info">
+        <div v-for="item in contents" :key="item.id" class="content-card">
+          <el-image 
+            :src="item.coverUrl || 'https://picsum.photos/seed/' + item.id + '/300/200'" 
+            :preview-src-list="[item.coverUrl || 'https://picsum.photos/seed/' + item.id + '/300/200']"
+            :preview-teleported="true"
+            fit="cover"
+            class="cover"
+            @click.stop
+          />
+          <div class="info" @click="showContentDetail(item)">
             <div class="title">{{ item.title }}</div>
             <div class="summary">{{ item.summary }}</div>
           </div>
@@ -280,7 +287,20 @@
     <!-- 内容详情弹窗 -->
     <el-dialog v-model="contentDetailVisible" :title="currentContent?.title" width="700px">
       <div v-if="currentContent">
-        <img v-if="currentContent.coverUrl" :src="currentContent.coverUrl" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px;" />
+        <el-image 
+          v-if="currentContent.coverUrl" 
+          :src="currentContent.coverUrl" 
+          :preview-src-list="[currentContent.coverUrl]"
+          :preview-teleported="true"
+          fit="cover"
+          style="width: 100%; max-height: 300px; border-radius: 8px; cursor: pointer;"
+        >
+          <template #placeholder>
+            <div style="display: flex; align-items: center; justify-content: center; height: 200px; background: #f5f7fa;">
+              加载中...
+            </div>
+          </template>
+        </el-image>
         <p style="margin-top: 16px; line-height: 1.8;">{{ currentContent.body || currentContent.summary }}</p>
       </div>
     </el-dialog>
@@ -592,10 +612,10 @@ onMounted(() => {
 .category-nav { margin-bottom: 20px; }
 
 .content-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-.content-card { background: #fff; border-radius: 12px; overflow: hidden; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s; }
+.content-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s; }
 .content-card:hover { transform: translateY(-4px); }
-.content-card .cover { width: 100%; height: 160px; object-fit: cover; }
-.content-card .info { padding: 15px; }
+.content-card .cover { width: 100%; height: 160px; display: block; cursor: pointer; }
+.content-card .info { padding: 15px; cursor: pointer; }
 .content-card .title { font-weight: bold; color: #333; margin-bottom: 8px; }
 .content-card .summary { font-size: 13px; color: #666; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
