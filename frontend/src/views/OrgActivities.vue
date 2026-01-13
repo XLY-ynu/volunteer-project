@@ -52,10 +52,10 @@
           <el-input v-model="form.location" />
         </el-form-item>
         <el-form-item label="开始时间">
-          <el-date-picker v-model="form.startTime" type="datetime" placeholder="选择开始时间" />
+          <el-date-picker v-model="form.startTime" type="datetime" placeholder="选择开始时间" value-format="YYYY-MM-DD HH:mm:ss" />
         </el-form-item>
         <el-form-item label="结束时间">
-          <el-date-picker v-model="form.endTime" type="datetime" placeholder="选择结束时间" />
+          <el-date-picker v-model="form.endTime" type="datetime" placeholder="选择结束时间" value-format="YYYY-MM-DD HH:mm:ss" />
         </el-form-item>
         <el-form-item label="人数上限">
           <el-input-number v-model="form.capacity" :min="1" :max="9999" />
@@ -237,6 +237,15 @@ const saveActivity = async () => {
   if (!form.value.title) {
     ElMessage.warning('请输入活动名称');
     return;
+  }
+  // 验证开始时间和结束时间
+  if (form.value.startTime && form.value.endTime) {
+    const start = new Date(form.value.startTime);
+    const end = new Date(form.value.endTime);
+    if (end <= start) {
+      ElMessage.warning('结束时间必须晚于开始时间');
+      return;
+    }
   }
   try {
     if (editingId.value) {

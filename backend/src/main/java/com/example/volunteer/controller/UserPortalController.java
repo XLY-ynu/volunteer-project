@@ -236,14 +236,33 @@ public class UserPortalController {
         User user = userMapper.selectById(userId);
         if (user == null) return ApiResponse.fail("用户不存在");
         
-        // 检查是否已经是志愿者
+        // 检查是否已经有志愿者记录
         Volunteer existing = volunteerMapper.selectOne(
                 new LambdaQueryWrapper<Volunteer>().eq(Volunteer::getUserId, userId));
+        
         if (existing != null) {
-            return ApiResponse.fail("您已经是志愿者了");
+            // 如果已经是审核通过的志愿者
+            if ("approved".equals(existing.getStatus())) {
+                return ApiResponse.fail("您已经是志愿者了");
+            }
+            // 如果正在审核中
+            if ("pending".equals(existing.getStatus())) {
+                return ApiResponse.fail("您的申请正在审核中，请耐心等待");
+            }
+            // 如果之前被拒绝，允许重新申请（更新原记录）
+            if ("rejected".equals(existing.getStatus())) {
+                existing.setName(body.getOrDefault("name", user.getNickname()));
+                existing.setPhone(body.get("phone"));
+                existing.setEmail(body.get("email"));
+                existing.setOrganization(body.get("organization"));
+                existing.setStatus("pending");
+                existing.setUpdatedAt(LocalDateTime.now());
+                volunteerMapper.updateById(existing);
+                return ApiResponse.ok(null);
+            }
         }
         
-        // 创建志愿者记录
+        // 创建新的志愿者记录
         Volunteer volunteer = new Volunteer();
         volunteer.setUserId(userId);
         volunteer.setName(body.getOrDefault("name", user.getNickname()));

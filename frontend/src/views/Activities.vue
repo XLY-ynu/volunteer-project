@@ -97,7 +97,7 @@
                 v-model="form.startTime"
                 type="datetime"
                 placeholder="选择开始时间"
-                value-format="YYYY-MM-DDTHH:mm:ss"
+                value-format="YYYY-MM-DD HH:mm:ss"
                 style="width: 100%"
               />
             </el-form-item>
@@ -108,7 +108,7 @@
                 v-model="form.endTime"
                 type="datetime"
                 placeholder="选择结束时间"
-                value-format="YYYY-MM-DDTHH:mm:ss"
+                value-format="YYYY-MM-DD HH:mm:ss"
                 style="width: 100%"
               />
             </el-form-item>
@@ -401,6 +401,15 @@ const submit = async () => {
   if (!form.value.title) {
     ElMessage.warning('请输入活动名称');
     return;
+  }
+  // 验证开始时间和结束时间
+  if (form.value.startTime && form.value.endTime) {
+    const start = new Date(form.value.startTime);
+    const end = new Date(form.value.endTime);
+    if (end <= start) {
+      ElMessage.warning('结束时间必须晚于开始时间');
+      return;
+    }
   }
   if (editingId.value) {
     await http.put(`/activities/${editingId.value}`, form.value);

@@ -208,6 +208,14 @@
           <p>请耐心等待管理员审核，审核通过后您将成为正式志愿者</p>
         </div>
         
+        <!-- 申请被拒绝 -->
+        <div v-else-if="volunteerStatus === 'rejected'" class="volunteer-status rejected">
+          <el-icon :size="48" color="#f56c6c"><CircleClose /></el-icon>
+          <h3>您的申请未通过审核</h3>
+          <p>您可以修改信息后重新申请</p>
+          <el-button type="primary" @click="volunteerStatus = null">重新申请</el-button>
+        </div>
+        
         <!-- 申请表单 -->
         <div v-else class="volunteer-form-section">
           <h3>填写志愿者申请信息</h3>
@@ -290,7 +298,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { User, CircleCheck, Clock, Plus, SwitchButton, InfoFilled } from '@element-plus/icons-vue';
+import { User, CircleCheck, CircleClose, Clock, Plus, SwitchButton, InfoFilled } from '@element-plus/icons-vue';
 import axios from 'axios';
 
 const tab = ref('home');
@@ -615,6 +623,7 @@ onMounted(() => {
 .volunteer-status p { color: #909399; margin-bottom: 20px; }
 .volunteer-status.success { background: #f0f9eb; border-radius: 12px; }
 .volunteer-status.pending { background: #fdf6ec; border-radius: 12px; }
+.volunteer-status.rejected { background: #fef0f0; border-radius: 12px; }
 
 /* 志愿者登录信息样式 */
 .volunteer-login-info {
