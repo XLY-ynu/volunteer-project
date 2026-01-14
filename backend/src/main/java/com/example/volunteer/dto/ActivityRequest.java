@@ -17,4 +17,5 @@ public class ActivityRequest {
     private String checkinCode;
     private Long orgId;
     private Boolean membersOnly;
+    private String coverUrl;
 }

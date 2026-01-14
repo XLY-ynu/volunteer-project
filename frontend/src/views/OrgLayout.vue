@@ -110,6 +110,9 @@ const logout = () => {
 };
 
 onMounted(async () => {
+  // 设置页面标题
+  document.title = '组织端 - 志愿者多媒体平台';
+  
   try {
     const token = localStorage.getItem('org_token');
     const resp = await axios.get('/api/org/info', {

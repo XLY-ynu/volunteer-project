@@ -21,6 +21,7 @@ public class Activity {
     private String checkinCode;
     private Long orgId;
     private Boolean membersOnly;
+    private String coverUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -87,6 +87,31 @@
         <el-form-item label="活动名称" required>
           <el-input v-model="form.title" placeholder="请输入活动名称" />
         </el-form-item>
+        <el-form-item label="活动封面">
+          <div class="cover-upload-wrapper">
+            <el-upload
+              class="cover-uploader"
+              action="/api/media/upload-cover"
+              :headers="uploadHeaders"
+              :show-file-list="false"
+              :on-success="handleCoverSuccess"
+              :before-upload="beforeCoverUpload"
+              accept="image/*"
+            >
+              <div v-if="form.coverUrl" class="cover-preview">
+                <img :src="form.coverUrl" alt="封面" />
+                <div class="cover-actions">
+                  <el-icon @click.stop="form.coverUrl = ''"><Delete /></el-icon>
+                </div>
+              </div>
+              <div v-else class="cover-placeholder">
+                <el-icon><Plus /></el-icon>
+                <span>上传封面</span>
+              </div>
+            </el-upload>
+            <div class="cover-tip">建议尺寸: 800x450px，支持 JPG/PNG 格式</div>
+          </div>
+        </el-form-item>
         <el-form-item label="活动地点">
           <el-input v-model="form.location" placeholder="请输入活动地点" />
         </el-form-item>
@@ -359,7 +384,7 @@ const signups = ref<any[]>([]);
 const stats = ref<{ total: number; checkedIn: number; checkinCode?: string }>({ total: 0, checkedIn: 0 });
 const currentActivityId = ref<number | null>(null);
 const editingId = ref<number | null>(null);
-const form = ref({ title: '', description: '', location: '', startTime: '', endTime: '', capacity: 0, checkinCode: '' });
+const form = ref({ title: '', description: '', location: '', startTime: '', endTime: '', capacity: 0, checkinCode: '', coverUrl: '' });
 const qrDialog = ref(false);
 const qrImage = ref('');
 const checkinUrl = ref('');
@@ -371,6 +396,36 @@ const reminderTotal = ref(0);
 const reminderStatus = ref('');
 const reminderType = ref('');
 const reminderActivityId = ref<number | null>(null);
+
+// 上传相关
+const uploadHeaders = computed(() => ({
+  Authorization: `Bearer ${localStorage.getItem('admin_token') || ''}`
+}));
+
+const handleCoverSuccess = (response: any) => {
+  // 后端返回格式: { success: true, message: "ok", data: { url: "..." } }
+  // upload-cover 接口只保存文件，不创建媒体资源记录
+  if (response.success && response.data?.url) {
+    form.value.coverUrl = response.data.url;
+    ElMessage.success('封面上传成功');
+  } else {
+    ElMessage.error(response.message || '上传失败');
+  }
+};
+
+const beforeCoverUpload = (file: File) => {
+  const isImage = file.type.startsWith('image/');
+  const isLt5M = file.size / 1024 / 1024 < 5;
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件');
+    return false;
+  }
+  if (!isLt5M) {
+    ElMessage.error('图片大小不能超过 5MB');
+    return false;
+  }
+  return true;
+};
 
 const progressPercent = computed(() => {
   if (!stats.value.total) return 0;
@@ -387,7 +442,7 @@ const load = async () => {
 
 const onCreate = () => {
   editingId.value = null;
-  form.value = { title: '', description: '', location: '', startTime: '', endTime: '', capacity: 0, checkinCode: '' };
+  form.value = { title: '', description: '', location: '', startTime: '', endTime: '', capacity: 0, checkinCode: '', coverUrl: '' };
   dialogVisible.value = true;
 };
 
@@ -871,5 +926,92 @@ onMounted(load);
   color: #606266;
   font-size: 13px;
   line-height: 1.6;
+}
+
+/* 封面上传样式 */
+.cover-upload-wrapper {
+  width: 100%;
+}
+
+.cover-uploader {
+  width: 200px;
+}
+
+.cover-uploader :deep(.el-upload) {
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.cover-uploader :deep(.el-upload:hover) {
+  border-color: #409eff;
+}
+
+.cover-preview {
+  width: 200px;
+  height: 112px;
+  position: relative;
+}
+
+.cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.cover-actions {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+  border-radius: 8px;
+}
+
+.cover-preview:hover .cover-actions {
+  opacity: 1;
+}
+
+.cover-actions .el-icon {
+  font-size: 24px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.cover-placeholder {
+  width: 200px;
+  height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8c939d;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.cover-placeholder .el-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.cover-placeholder span {
+  font-size: 12px;
+}
+
+.cover-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 8px;
 }
 </style>

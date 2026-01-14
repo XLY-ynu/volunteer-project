@@ -270,6 +270,7 @@ public class OrgController {
             map.put("checkinCode", act.getCheckinCode());
             map.put("orgId", act.getOrgId());
             map.put("membersOnly", act.getMembersOnly());
+            map.put("coverUrl", act.getCoverUrl());
             map.put("createdAt", act.getCreatedAt());
             map.put("updatedAt", act.getUpdatedAt());
             // 计算报名人数
@@ -328,6 +329,7 @@ public class OrgController {
         existing.setEndTime(activity.getEndTime());
         existing.setCapacity(activity.getCapacity());
         existing.setMembersOnly(activity.getMembersOnly());
+        existing.setCoverUrl(activity.getCoverUrl());
         if (activity.getCheckinCode() != null && !activity.getCheckinCode().trim().isEmpty()) {
             existing.setCheckinCode(activity.getCheckinCode());
         }

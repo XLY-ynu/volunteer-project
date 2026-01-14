@@ -80,6 +80,7 @@ public class ActivityController {
         a.setCheckinCode((code != null && !code.trim().isEmpty()) ? code : generateCode());
         a.setOrgId(request.getOrgId());
         a.setMembersOnly(request.getMembersOnly() != null ? request.getMembersOnly() : false);
+        a.setCoverUrl(request.getCoverUrl());
         a.setCreatedAt(LocalDateTime.now());
         a.setUpdatedAt(LocalDateTime.now());
         activityMapper.insert(a);
@@ -106,6 +107,7 @@ public class ActivityController {
         }
         a.setOrgId(request.getOrgId());
         a.setMembersOnly(request.getMembersOnly() != null ? request.getMembersOnly() : false);
+        a.setCoverUrl(request.getCoverUrl());
         a.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(a);
         return ApiResponse.ok(a);

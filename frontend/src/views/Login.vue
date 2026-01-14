@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { reactive, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { loginApi } from '../api';
@@ -78,6 +78,10 @@ import { Monitor, VideoPlay, Calendar } from '@element-plus/icons-vue';
 const router = useRouter();
 const form = reactive({ username: 'admin', password: 'admin123' });
 const loading = ref(false);
+
+onMounted(() => {
+  document.title = '管理员登录 - 志愿者多媒体平台';
+});
 
 const onSubmit = async () => {
   if (!form.username || !form.password) {

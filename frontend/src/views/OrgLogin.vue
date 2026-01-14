@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { reactive, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
@@ -46,6 +46,10 @@ import axios from 'axios';
 const router = useRouter();
 const form = reactive({ username: 'org1', password: 'admin123' });
 const loading = ref(false);
+
+onMounted(() => {
+  document.title = '组织端登录 - 志愿者多媒体平台';
+});
 
 const onSubmit = async () => {
   if (!form.username || !form.password) {

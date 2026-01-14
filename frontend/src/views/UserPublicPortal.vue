@@ -521,6 +521,9 @@ const goToVolunteerPortal = () => {
 };
 
 onMounted(() => {
+  // 设置页面标题
+  document.title = '用户端 - 志愿者多媒体平台';
+  
   loadOrgs();
   loadCategories();
   loadContents();

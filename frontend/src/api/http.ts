@@ -4,11 +4,17 @@ const http = axios.create({
   baseURL: '/api'
 });
 
-// 根据请求URL获取对应的token key
+// 根据请求URL和当前页面路径获取对应的token key
 const getTokenKey = (url: string): string => {
+  // 先检查URL前缀
   if (url.startsWith('/portal')) return 'portal_token';
   if (url.startsWith('/org')) return 'org_token';
   if (url.startsWith('/user-portal')) return 'userToken';
+  
+  // 检查当前页面路径，如果在组织端页面，使用org_token
+  const currentPath = window.location.pathname;
+  if (currentPath.startsWith('/org')) return 'org_token';
+  
   return 'admin_token'; // 默认管理员端
 };
 

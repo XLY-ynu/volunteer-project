@@ -55,13 +55,18 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import {
   HomeFilled, UserFilled, List, Setting, Avatar
 } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const route = useRoute();
+
+// 设置页面标题
+onMounted(() => {
+  document.title = '管理员端 - 志愿者多媒体平台';
+});
 
 const active = computed(() => route.path);
 

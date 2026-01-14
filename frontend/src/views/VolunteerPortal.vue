@@ -91,13 +91,28 @@
       </div>
       <div class="activities-grid">
         <el-card v-for="act in activities" :key="act.id" class="activity-card" shadow="hover">
-          <div class="activity-cover" @click="openActivityDetail(act)">
-            <img v-if="act.coverUrl" :src="act.coverUrl" :alt="act.title" />
-            <div v-else class="cover-placeholder">
+          <div class="activity-cover">
+            <el-image 
+              v-if="act.coverUrl" 
+              :src="act.coverUrl" 
+              :alt="act.title"
+              :preview-src-list="[act.coverUrl]"
+              preview-teleported
+              fit="cover"
+              class="cover-image"
+            >
+              <template #placeholder>
+                <div class="image-loading">加载中...</div>
+              </template>
+            </el-image>
+            <div v-else class="cover-placeholder" @click="openActivityDetail(act)">
               <el-icon :size="40"><Calendar /></el-icon>
             </div>
             <div class="activity-status" :class="getActivityStatus(act).class">
               {{ getActivityStatus(act).text }}
+            </div>
+            <div v-if="act.coverUrl" class="cover-zoom-hint">
+              <el-icon><ZoomIn /></el-icon>
             </div>
           </div>
           <div class="activity-info">
@@ -567,6 +582,10 @@
             :alt="currentActivityDetail.title"
             class="activity-cover-img"
           />
+          <div class="cover-zoom-hint">
+            <el-icon><ZoomIn /></el-icon>
+            点击放大
+          </div>
         </div>
         <div class="activity-detail-header">
           <div class="activity-detail-status" :class="getActivityStatus(currentActivityDetail).class">
@@ -1504,6 +1523,9 @@ const stopStatusCheck = () => {
 
 // 初始化
 onMounted(async () => {
+  // 设置页面标题
+  document.title = '志愿者端 - 志愿者多媒体平台';
+  
   const savedToken = localStorage.getItem('portalToken');
   if (savedToken) {
     portalToken.value = savedToken;
@@ -1750,12 +1772,55 @@ onUnmounted(() => {
   position: relative;
   height: 140px;
   background: linear-gradient(135deg, #667eea, #764ba2);
+  overflow: hidden;
+}
+
+.activity-cover .cover-image {
+  width: 100%;
+  height: 100%;
+}
+
+.activity-cover .cover-image :deep(.el-image__inner) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .activity-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.activity-cover .cover-zoom-hint {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.activity-cover:hover .cover-zoom-hint {
+  opacity: 1;
+}
+
+.activity-cover .image-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
 }
 
 .cover-placeholder {
@@ -2326,9 +2391,11 @@ onUnmounted(() => {
 
 /* 活动详情样式 */
 .activity-detail-cover {
+  position: relative;
   margin-bottom: 20px;
   border-radius: 8px;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .activity-detail-cover .activity-cover-img {
@@ -2340,6 +2407,26 @@ onUnmounted(() => {
   width: 100%;
   max-height: 300px;
   object-fit: cover;
+}
+
+.activity-detail-cover .cover-zoom-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.activity-detail-cover:hover .cover-zoom-hint {
+  opacity: 1;
 }
 
 .activity-detail-header {

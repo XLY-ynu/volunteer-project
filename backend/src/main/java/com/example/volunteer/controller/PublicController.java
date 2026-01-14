@@ -230,6 +230,8 @@ public class PublicController {
             dto.setStartTime(act.getStartTime());
             dto.setEndTime(act.getEndTime());
             dto.setCapacity(act.getCapacity());
+            dto.setMembersOnly(act.getMembersOnly());
+            dto.setCoverUrl(act.getCoverUrl());
             dto.setCreatedAt(act.getCreatedAt());
             dto.setUpdatedAt(act.getUpdatedAt());
             // 计算报名人数
