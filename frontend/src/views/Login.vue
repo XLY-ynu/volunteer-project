@@ -94,9 +94,9 @@ const onSubmit = async () => {
     // @ts-ignore
     const data = resp.data.data;
     // 管理员端使用 admin_token
-    localStorage.setItem('admin_token', data.token);
-    localStorage.setItem('admin_username', data.username);
-    if (data.role) localStorage.setItem('admin_role', data.role);
+    sessionStorage.setItem('admin_token', data.token);
+    sessionStorage.setItem('admin_username', data.username);
+    if (data.role) sessionStorage.setItem('admin_role', data.role);
     ElMessage.success('登录成功');
     router.push('/dashboard');
   } catch (e: any) {

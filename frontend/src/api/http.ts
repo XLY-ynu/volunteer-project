@@ -21,7 +21,7 @@ const getTokenKey = (url: string): string => {
 http.interceptors.request.use((config) => {
   const url = config.url || '';
   const tokenKey = getTokenKey(url);
-  const token = localStorage.getItem(tokenKey);
+  const token = sessionStorage.getItem(tokenKey);
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -35,19 +35,19 @@ http.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       const url = error.config?.url || '';
       if (url.startsWith('/portal')) {
-        localStorage.removeItem('portal_token');
-        localStorage.removeItem('portal_profile');
+        sessionStorage.removeItem('portal_token');
+        sessionStorage.removeItem('portal_profile');
       } else if (url.startsWith('/org')) {
-        localStorage.removeItem('org_token');
-        localStorage.removeItem('org_username');
-        localStorage.removeItem('org_role');
+        sessionStorage.removeItem('org_token');
+        sessionStorage.removeItem('org_username');
+        sessionStorage.removeItem('org_role');
         window.location.href = '/org/login';
       } else if (url.startsWith('/user-portal')) {
-        localStorage.removeItem('userToken');
+        sessionStorage.removeItem('userToken');
       } else {
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_username');
-        localStorage.removeItem('admin_role');
+        sessionStorage.removeItem('admin_token');
+        sessionStorage.removeItem('admin_username');
+        sessionStorage.removeItem('admin_role');
         window.location.href = '/login';
       }
     }

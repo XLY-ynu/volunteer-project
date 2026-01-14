@@ -796,7 +796,7 @@ const handleUserCommand = (cmd: string) => {
     isLoggedIn.value = false;
     profile.value = null;
     portalToken.value = '';
-    localStorage.removeItem('portalToken');
+    sessionStorage.removeItem('portalToken');
     stopStatusCheck(); // 退出时停止检查
     ElMessage.success('已退出登录');
   } else if (cmd === 'profile') {
@@ -829,7 +829,7 @@ const handleLogin = async () => {
     const res: any = await portalLogin(loginForm.value.phone, loginForm.value.password);
     if (res.data?.success) {
       portalToken.value = res.data.data.token;
-      localStorage.setItem('portalToken', portalToken.value);
+      sessionStorage.setItem('portalToken', portalToken.value);
       isLoggedIn.value = true;
       showLoginDialog.value = false;
       ElMessage.success('登录成功');
@@ -941,7 +941,8 @@ const submitSignup = async () => {
     if (res.data?.success) {
       ElMessage.success('报名成功');
       showSignupDialog.value = false;
-      // 刷新活动列表以更新报名人数
+      // 刷新活动列表以更新报名人数（重置到第一页）
+      activityPage.value = 1;
       await loadActivities();
       if (isLoggedIn.value) await loadMyData();
     } else {
@@ -979,7 +980,7 @@ const handleAccountDisabled = (msg: string) => {
   isLoggedIn.value = false;
   profile.value = null;
   portalToken.value = '';
-  localStorage.removeItem('portalToken');
+  sessionStorage.removeItem('portalToken');
   stopStatusCheck(); // 停止状态检查
 };
 
@@ -1357,6 +1358,8 @@ const handleCancelSignup = async (act: any) => {
     const res: any = await cancelActivitySignup(act.id, portalToken.value);
     if (res.data?.success) {
       ElMessage.success('已取消报名');
+      // 重置到第一页再刷新
+      activityPage.value = 1;
       await loadActivities();
       await loadMyData();
     } else {
@@ -1526,7 +1529,7 @@ onMounted(async () => {
   // 设置页面标题
   document.title = '志愿者端 - 志愿者多媒体平台';
   
-  const savedToken = localStorage.getItem('portalToken');
+  const savedToken = sessionStorage.getItem('portalToken');
   if (savedToken) {
     portalToken.value = savedToken;
     isLoggedIn.value = true;

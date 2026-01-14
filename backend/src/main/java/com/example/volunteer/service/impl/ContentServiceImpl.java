@@ -138,6 +138,11 @@ public class ContentServiceImpl implements ContentService {
 
     @Override
     public Page<ContentItem> page(int page, int size, Long categoryId, Boolean published, String keyword) {
+        return page(page, size, categoryId, published, keyword, "desc");
+    }
+
+    @Override
+    public Page<ContentItem> page(int page, int size, Long categoryId, Boolean published, String keyword, String sortOrder) {
         LambdaQueryWrapper<ContentItem> wrapper = new LambdaQueryWrapper<>();
         if (categoryId != null) {
             wrapper.eq(ContentItem::getCategoryId, categoryId);
@@ -148,10 +153,12 @@ public class ContentServiceImpl implements ContentService {
         if (keyword != null && !keyword.isEmpty()) {
             wrapper.and(w -> w.like(ContentItem::getTitle, keyword).or().like(ContentItem::getSummary, keyword));
         }
-        wrapper.orderByDesc(ContentItem::getHeadline)
-                .orderByDesc(ContentItem::getRecommended)
-                .orderByAsc(ContentItem::getSortOrder)
-                .orderByDesc(ContentItem::getPublishTime);
+        // 根据 sortOrder 参数决定排序方向
+        if ("asc".equalsIgnoreCase(sortOrder)) {
+            wrapper.orderByAsc(ContentItem::getPublishTime);
+        } else {
+            wrapper.orderByDesc(ContentItem::getPublishTime);
+        }
         Page<ContentItem> p = new Page<>(page, size);
         contentItemMapper.selectPage(p, wrapper);
         return p;

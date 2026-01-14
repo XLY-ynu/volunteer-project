@@ -98,7 +98,7 @@ const list = ref<any[]>([]);
 const page = ref(1);
 const size = ref(10);
 const total = ref(0);
-const uploadHeaders = computed(() => ({ Authorization: `Bearer ${localStorage.getItem('org_token') || ''}` }));
+const uploadHeaders = computed(() => ({ Authorization: `Bearer ${sessionStorage.getItem('org_token') || ''}` }));
 const previewVisible = ref(false);
 const previewItem = ref<any>(null);
 const thumbDialogVisible = ref(false);

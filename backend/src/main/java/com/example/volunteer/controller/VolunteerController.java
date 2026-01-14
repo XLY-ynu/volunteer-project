@@ -36,6 +36,8 @@ public class VolunteerController {
         LambdaQueryWrapper<Volunteer> w = new LambdaQueryWrapper<>();
         if (name != null && !name.isEmpty()) w.like(Volunteer::getName, name);
         if (status != null && !status.isEmpty()) w.eq(Volunteer::getStatus, status);
+        // 按创建时间倒序排列，最新的在前面
+        w.orderByDesc(Volunteer::getCreatedAt);
         Page<Volunteer> p = new Page<>(page, size);
         volunteerMapper.selectPage(p, w);
         return ApiResponse.ok(p);

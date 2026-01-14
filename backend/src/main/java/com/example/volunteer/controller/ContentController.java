@@ -119,8 +119,9 @@ public class ContentController {
                                                @RequestParam(defaultValue = "10") int size,
                                                @RequestParam(required = false) Long categoryId,
                                                @RequestParam(required = false) Boolean published,
-                                               @RequestParam(required = false) String keyword) {
-        return ApiResponse.ok(contentService.page(page, size, categoryId, published, keyword));
+                                               @RequestParam(required = false) String keyword,
+                                               @RequestParam(required = false, defaultValue = "desc") String sortOrder) {
+        return ApiResponse.ok(contentService.page(page, size, categoryId, published, keyword, sortOrder));
     }
 
     @DeleteMapping("/{id}")

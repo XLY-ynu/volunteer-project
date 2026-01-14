@@ -93,7 +93,7 @@ import axios from 'axios';
 
 const router = useRouter();
 const route = useRoute();
-const username = ref(localStorage.getItem('org_username') || '');
+const username = ref(sessionStorage.getItem('org_username') || '');
 const orgName = ref('');
 
 const active = computed(() => route.path);
@@ -103,9 +103,9 @@ const onSelect = (path: string) => {
 };
 
 const logout = () => {
-  localStorage.removeItem('org_token');
-  localStorage.removeItem('org_username');
-  localStorage.removeItem('org_role');
+  sessionStorage.removeItem('org_token');
+  sessionStorage.removeItem('org_username');
+  sessionStorage.removeItem('org_role');
   router.push('/org/login');
 };
 
@@ -114,7 +114,7 @@ onMounted(async () => {
   document.title = '组织端 - 志愿者多媒体平台';
   
   try {
-    const token = localStorage.getItem('org_token');
+    const token = sessionStorage.getItem('org_token');
     const resp = await axios.get('/api/org/info', {
       headers: { Authorization: `Bearer ${token}` }
     });

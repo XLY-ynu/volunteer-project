@@ -88,7 +88,7 @@ const loading = ref(false);
 const list = ref<any[]>([]);
 const total = ref(0);
 const page = ref(1);
-const size = ref(10);
+const size = ref(20);
 const filterStatus = ref('');
 const filterName = ref('');
 

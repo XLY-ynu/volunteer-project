@@ -70,8 +70,8 @@ onMounted(() => {
 
 const active = computed(() => route.path);
 
-// 从 localStorage 获取管理员用户名
-const adminUsername = computed(() => localStorage.getItem('admin_username') || '未登录');
+// 从 sessionStorage 获取管理员用户名
+const adminUsername = computed(() => sessionStorage.getItem('admin_username') || '未登录');
 
 const onSelect = (path: string) => {
   router.push(path);
@@ -79,9 +79,9 @@ const onSelect = (path: string) => {
 
 const logout = () => {
   // 清除管理员端的 token
-  localStorage.removeItem('admin_token');
-  localStorage.removeItem('admin_username');
-  localStorage.removeItem('admin_role');
+  sessionStorage.removeItem('admin_token');
+  sessionStorage.removeItem('admin_username');
+  sessionStorage.removeItem('admin_role');
   router.push('/login');
 };
 

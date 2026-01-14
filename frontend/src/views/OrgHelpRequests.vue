@@ -59,20 +59,57 @@
     </el-tabs>
     
     <!-- 详情弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="currentRequest?.title" width="600px">
-      <el-descriptions :column="1" border v-if="currentRequest">
-        <el-descriptions-item label="联系人">{{ currentRequest.contactName }}</el-descriptions-item>
-        <el-descriptions-item label="联系电话">{{ currentRequest.contactPhone }}</el-descriptions-item>
-        <el-descriptions-item label="地址">{{ currentRequest.address }}</el-descriptions-item>
-        <el-descriptions-item label="求助内容">{{ currentRequest.content }}</el-descriptions-item>
-        <el-descriptions-item label="提交时间">{{ formatTime(currentRequest.createdAt) }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="statusType(currentRequest.status)">{{ statusText(currentRequest.status) }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="回复内容" v-if="currentRequest.reply">{{ currentRequest.reply }}</el-descriptions-item>
-      </el-descriptions>
+    <el-dialog v-model="dialogVisible" :title="currentRequest?.title" width="650px">
+      <div class="detail-content" v-if="currentRequest">
+        <div class="detail-section">
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">联系人</span>
+              <span class="detail-value">{{ currentRequest.contactName || '未填写' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">联系电话</span>
+              <span class="detail-value">{{ currentRequest.contactPhone || '未填写' }}</span>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item full">
+              <span class="detail-label">地址</span>
+              <span class="detail-value">{{ currentRequest.address || '未填写' }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <div class="detail-item full">
+            <span class="detail-label">求助内容</span>
+            <div class="detail-content-box">{{ currentRequest.content }}</div>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">提交时间</span>
+              <span class="detail-value">{{ formatTime(currentRequest.createdAt) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">状态</span>
+              <el-tag :type="statusType(currentRequest.status)" size="small">{{ statusText(currentRequest.status) }}</el-tag>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-section" v-if="currentRequest.reply">
+          <div class="detail-item full">
+            <span class="detail-label">回复内容</span>
+            <div class="detail-content-box reply">{{ currentRequest.reply }}</div>
+          </div>
+        </div>
+      </div>
       
-      <div v-if="currentRequest?.status !== 'completed'" style="margin-top: 20px;">
+      <div v-if="currentRequest?.status !== 'completed'" class="reply-section">
+        <div class="reply-label">回复内容</div>
         <el-input v-model="replyContent" type="textarea" :rows="3" placeholder="请输入回复内容..." />
       </div>
       
@@ -106,7 +143,7 @@ const replyContent = ref('');
 
 // 动态获取 headers
 const getHeaders = () => {
-  const token = localStorage.getItem('org_token');
+  const token = sessionStorage.getItem('org_token');
   return { Authorization: `Bearer ${token}` };
 };
 
@@ -159,4 +196,84 @@ onMounted(loadData);
 
 <style scoped>
 .page h2 { margin: 0 0 20px; color: #2c5282; }
+
+/* 详情弹窗样式 */
+.detail-content {
+  padding: 0;
+}
+
+.detail-section {
+  padding: 16px 0;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.detail-section:last-child {
+  border-bottom: none;
+}
+
+.detail-row {
+  display: flex;
+  gap: 24px;
+}
+
+.detail-item {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.detail-item.full {
+  flex: 1 1 100%;
+}
+
+.detail-label {
+  flex-shrink: 0;
+  width: 70px;
+  color: #909399;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.detail-value {
+  flex: 1;
+  color: #303133;
+  font-size: 14px;
+  line-height: 22px;
+  word-break: break-all;
+}
+
+.detail-content-box {
+  flex: 1;
+  padding: 12px 16px;
+  background: #f5f7fa;
+  border-radius: 6px;
+  color: #303133;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.detail-content-box.reply {
+  background: #f0f9eb;
+  color: #67c23a;
+}
+
+.reply-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed #dcdfe6;
+}
+
+.reply-label {
+  margin-bottom: 10px;
+  color: #606266;
+  font-size: 14px;
+  font-weight: 500;
+}
 </style>

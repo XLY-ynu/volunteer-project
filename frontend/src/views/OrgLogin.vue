@@ -60,9 +60,9 @@ const onSubmit = async () => {
   try {
     const resp = await axios.post('/api/org/login', form);
     const data = resp.data.data;
-    localStorage.setItem('org_token', data.token);
-    localStorage.setItem('org_username', data.username);
-    localStorage.setItem('org_role', data.role);
+    sessionStorage.setItem('org_token', data.token);
+    sessionStorage.setItem('org_username', data.username);
+    sessionStorage.setItem('org_role', data.role);
     ElMessage.success('登录成功');
     router.push('/org/dashboard');
   } catch (e: any) {

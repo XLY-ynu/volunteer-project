@@ -13,6 +13,7 @@ public interface ContentService {
     java.util.List<ContentItem> listRecommended();
     java.util.List<ContentItem> listHeadlines();
     Page<ContentItem> page(int page, int size, Long categoryId, Boolean published, String keyword);
+    Page<ContentItem> page(int page, int size, Long categoryId, Boolean published, String keyword, String sortOrder);
     void delete(Long id);
     ContentItem findById(Long id);
 }

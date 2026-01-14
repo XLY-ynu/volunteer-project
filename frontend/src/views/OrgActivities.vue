@@ -224,13 +224,13 @@ const checkinStats = ref<any>(null);
 
 // 动态获取 headers，确保每次请求都使用最新的 token
 const getHeaders = () => {
-  const token = localStorage.getItem('org_token');
+  const token = sessionStorage.getItem('org_token');
   return { Authorization: `Bearer ${token}` };
 };
 
 // 上传组件使用的 headers（计算属性）
 const uploadHeaders = computed(() => {
-  const token = localStorage.getItem('org_token');
+  const token = sessionStorage.getItem('org_token');
   return { Authorization: `Bearer ${token}` };
 });
 

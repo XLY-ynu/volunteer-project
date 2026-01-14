@@ -104,17 +104,17 @@ router.beforeEach((to, _from, next) => {
     return;
   }
   
-  // 根据路由检查对应的token
+  // 根据路由检查对应的token (使用sessionStorage)
   if (to.path.startsWith('/org')) {
     // 组织端路由检查 org_token
-    const orgToken = localStorage.getItem('org_token');
+    const orgToken = sessionStorage.getItem('org_token');
     if (!orgToken) {
       next('/org/login');
       return;
     }
   } else {
     // 管理员端路由检查 admin_token
-    const adminToken = localStorage.getItem('admin_token');
+    const adminToken = sessionStorage.getItem('admin_token');
     if (!adminToken) {
       next('/login');
       return;

@@ -54,7 +54,12 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="名称" required>
-              <el-input v-model="form.name" placeholder="播放列表名称" />
+              <div class="name-input-row">
+                <el-input v-model="form.name" placeholder="播放列表名称" style="flex: 1" />
+                <el-button v-if="!editingId" type="warning" plain size="small" @click="fillDemoData" style="margin-left: 10px">
+                  <el-icon><MagicStick /></el-icon>填充示范
+                </el-button>
+              </div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -204,7 +209,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { createPlaylist, deletePlaylist, fetchContent, fetchLayouts, fetchMedia, fetchPlaylistItems, fetchPlaylistPreview, fetchPlaylists, updatePlaylist } from '../api';
-import { Plus, Picture, Document, VideoPlay, Delete, Edit, Rank, Close } from '@element-plus/icons-vue';
+import { Plus, Picture, Document, VideoPlay, Delete, Edit, Rank, Close, MagicStick } from '@element-plus/icons-vue';
 import draggable from 'vuedraggable';
 
 interface SelectedItem {
@@ -232,6 +237,26 @@ const previewDialog = ref(false);
 const previewData = ref<any | null>(null);
 const mediaTableRef = ref<any>(null);
 const contentTableRef = ref<any>(null);
+
+// 示范数据列表
+const demoDataList = [
+  { name: '志愿服务宣传轮播', description: '展示志愿服务活动精彩瞬间和感人故事' },
+  { name: '公益活动集锦', description: '汇集各类公益活动的精彩视频和图片' },
+  { name: '志愿者风采展示', description: '展示优秀志愿者的服务风采和感人事迹' },
+  { name: '爱心传递专题', description: '传递爱心正能量，弘扬志愿服务精神' },
+  { name: '社区服务纪实', description: '记录社区志愿服务的点点滴滴' },
+  { name: '环保公益宣传', description: '倡导绿色生活，共建美丽家园' }
+];
+let demoDataIndex = 0;
+
+// 填充示范数据
+const fillDemoData = () => {
+  const demo = demoDataList[demoDataIndex % demoDataList.length];
+  form.name = demo.name;
+  form.description = demo.description;
+  demoDataIndex++;
+  ElMessage.success('已填充示范数据，请选择媒体资源后创建');
+};
 
 const loadMedia = async () => {
   const resp = await fetchMedia(1, 200);
@@ -482,6 +507,7 @@ onMounted(() => { loadMedia(); loadContent(); loadPlaylists(); loadLayouts(); })
 
 /* 对话框样式 */
 .dialog-form { margin-bottom: 16px; }
+.name-input-row { display: flex; align-items: center; width: 100%; }
 .resource-section { margin-bottom: 16px; }
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .section-title { font-weight: 600; font-size: 14px; color: #303133; }

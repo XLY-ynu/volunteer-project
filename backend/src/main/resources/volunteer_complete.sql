@@ -704,10 +704,10 @@ INSERT INTO content_item (id, category_id, title, summary, body, cover_url, publ
 INSERT INTO activity (id, title, description, location, start_time, end_time, capacity, checkin_code, org_id, members_only, cover_url, created_at, updated_at) VALUES
 -- 正在进行中的活动（可演示签到功能）
 (1, '情暖三湘·志愿同行', '聚焦老年人尤其是空巢、独居老人的急难愁盼问题，开展慰问陪护、清洁卫生等志愿服务。', 
-'敬老院、养老院等', '2026-01-15 07:30:00', '2026-01-15 12:00:00', 50, '382388', 1, 0, '/uploads/covers/cover-159b8308-26af-44f6-9593-416e7e09a731.jpeg', NOW(), NOW()),
+'敬老院、养老院等', '2026-01-14 07:30:00', '2026-01-15 12:00:00', 50, '382388', 1, 0, '/uploads/covers/cover-159b8308-26af-44f6-9593-416e7e09a731.jpeg', NOW(), NOW()),
 -- 即将开始的活动（演示当天）
 (2, '环保志愿行动', '组织志愿者参与城市环境清洁、垃圾分类宣传等活动，提升市民环保意识。', 
-'市民广场', '2026-01-15 09:00:00', '2026-01-15 12:00:00', 30, '123456', 1, 0, '/uploads/covers/cover-2729e0ed-f65b-45d7-80dc-90bcfffd85e5.jpg', NOW(), NOW()),
+'市民广场', '2026-01-15 14:00:00', '2026-01-15 17:00:00', 30, '123456', 1, 0, '/uploads/covers/cover-2729e0ed-f65b-45d7-80dc-90bcfffd85e5.jpg', NOW(), NOW()),
 (3, '组织内部培训', '仅限阳光志愿服务队成员参与的内部培训活动，学习志愿服务技能。', 
 '组织会议室', '2026-01-15 14:00:00', '2026-01-15 17:00:00', 20, '888888', 1, 1, '/uploads/covers/cover-39a85d0d-cc66-4371-8b4d-ebb72fab1ddd.jpg', NOW(), NOW()),
 -- 已结束的活动（历史记录）
@@ -751,10 +751,12 @@ INSERT INTO user (id, username, password, nickname, role_code, enabled, created_
 (26, '13800013333', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '杨五', 'VOLUNTEER', 1, NOW(), NOW()),
 (27, '13800014444', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '何六', 'VOLUNTEER', 1, NOW(), NOW()),
 (28, '13800015555', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '罗七', 'VOLUNTEER', 1, NOW(), NOW()),
-(29, '13800016666', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '高八', 'VOLUNTEER', 1, NOW(), NOW());
+(29, '13800016666', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '高八', 'VOLUNTEER', 1, NOW(), NOW()),
+-- 演示用空账号（无组织，已报名活动1）
+(30, '18890470633', '$2a$10$z/YRhCxrFtHwHkDHjNbEeeM4oMhPszzZSgPokP7qzX0WhonkfWKSO', '演示志愿者', 'VOLUNTEER', 1, NOW(), NOW());
 
--- 志愿者详细信息（16个志愿者）
--- 注意：user_id对应新的用户ID（8-15, 22-29）
+-- 志愿者详细信息（17个志愿者）
+-- 注意：user_id对应新的用户ID（8-15, 22-30）
 INSERT INTO volunteer (id, user_id, name, phone, email, organization, id_card, status, created_at) VALUES
 (1, 8, '张三', '13800001111', 'zhangsan@example.com', '阳光志愿服务队', '430102199001011234', 'approved', NOW()),
 (2, 9, '李四', '13800002222', 'lisi@example.com', '阳光志愿服务队', '430102199002022345', 'approved', NOW()),
@@ -772,7 +774,9 @@ INSERT INTO volunteer (id, user_id, name, phone, email, organization, id_card, s
 (13, 26, '杨五', '13800013333', 'yangwu@example.com', NULL, '430102200005053456', 'pending', NOW()),
 (14, 27, '何六', '13800014444', 'heliu@example.com', NULL, '430102200006064567', 'pending', NOW()),
 (15, 28, '罗七', '13800015555', 'luoqi@example.com', NULL, '430102200007075678', 'pending', NOW()),
-(16, 29, '高八', '13800016666', 'gaoba@example.com', NULL, '430102200008086789', 'pending', NOW());
+(16, 29, '高八', '13800016666', 'gaoba@example.com', NULL, '430102200008086789', 'pending', NOW()),
+-- 演示用空账号（无组织，已报名活动1）
+(17, 30, '演示志愿者', '18890470633', 'demo@example.com', NULL, NULL, 'approved', NOW());
 
 -- 志愿者加入组织（多个组织成员关系）
 -- org1(阳光志愿服务队): 已通过6人(1,2,4,9,10,11), 待审核6人(3,12,13,14,15,16)
@@ -795,7 +799,7 @@ INSERT INTO volunteer_org_member (volunteer_id, org_id, status, joined_at, creat
 (7, 2, 'rejected', NULL, NOW());
 
 -- 活动报名记录（更多报名）
--- 活动1(正在进行): 志愿者1,2,4,5已报名
+-- 活动1(正在进行): 志愿者1,2,4,5,17已报名
 -- 活动2(即将开始): 志愿者1,2,4,6已报名
 -- 活动3(仅限成员): 志愿者1,2已报名
 -- 活动4,5,6(已结束): 有签到记录
@@ -805,6 +809,7 @@ INSERT INTO activity_signup (activity_id, volunteer_id, status, checked_in, chec
 (1, 2, 'applied', 0, NULL, '2026-01-14 11:00:00'),
 (1, 4, 'applied', 0, NULL, '2026-01-14 14:00:00'),
 (1, 5, 'applied', 0, NULL, '2026-01-14 15:00:00'),
+(1, 17, 'applied', 0, NULL, '2026-01-14 08:00:00'),
 -- 活动2：即将开始
 (2, 1, 'applied', 0, NULL, '2026-01-13 09:00:00'),
 (2, 2, 'applied', 0, NULL, '2026-01-13 10:00:00'),
@@ -985,9 +990,9 @@ INSERT INTO layout_template (id, name, description, layout_json, tags, cover_url
 -- 消息时间基于演示日期 2026-01-15
 INSERT INTO volunteer_message (volunteer_id, activity_id, title, content, type, is_read, created_at) VALUES
 -- 志愿者1（张三）的消息
-(1, 1, '活动报名成功', '您已成功报名"情暖三湘·志愿同行"活动，请准时参加。活动地点：敬老院，时间：2026年1月15日7:30。', 'signup', 1, '2026-01-14 10:00:00'),
-(1, 1, '活动即将开始', '"情暖三湘·志愿同行"活动将于明天早上7:30开始，请做好准备，记得携带志愿者证。', 'reminder', 0, '2026-01-14 18:00:00'),
-(1, 2, '活动报名成功', '您已成功报名"环保志愿行动"活动，活动地点：市民广场，时间：1月15日9:00。', 'signup', 1, '2026-01-13 09:00:00'),
+(1, 1, '活动报名成功', '您已成功报名"情暖三湘·志愿同行"活动，请准时参加。活动地点：敬老院，时间：2026年1月14日7:30。', 'signup', 1, '2026-01-13 10:00:00'),
+(1, 1, '活动即将开始', '"情暖三湘·志愿同行"活动将于明天早上7:30开始，请做好准备，记得携带志愿者证。', 'reminder', 0, '2026-01-13 18:00:00'),
+(1, 2, '活动报名成功', '您已成功报名"环保志愿行动"活动，活动地点：市民广场，时间：1月15日14:00。', 'signup', 1, '2026-01-13 09:00:00'),
 (1, 6, '活动签到成功', '您已成功签到"文明交通劝导"活动，感谢您的参与！', 'checkin', 1, '2026-01-12 07:35:00'),
 (1, NULL, '服务时长更新', '您本月累计服务时长已达17.5小时，感谢您的付出！', 'system', 0, '2026-01-13 09:00:00'),
 (1, NULL, '志愿者等级提升', '恭喜您！您的志愿者等级已提升为"银牌志愿者"，继续加油！', 'system', 0, '2026-01-12 10:00:00'),
@@ -1124,6 +1129,7 @@ SELECT '  13800013333 / admin123 (杨五-待审核)' AS account;
 SELECT '  13800014444 / admin123 (何六-待审核)' AS account;
 SELECT '  13800015555 / admin123 (罗七-待审核)' AS account;
 SELECT '  13800016666 / admin123 (高八-待审核)' AS account;
+SELECT '  18890470633 / admin123 (演示志愿者-已审核-已报名活动1)' AS account;
 SELECT '----------------------------------------' AS '';
 SELECT '【用户端】 /user-portal' AS portal;
 SELECT '  user1 / admin123 (小明)' AS account;

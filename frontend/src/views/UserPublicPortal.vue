@@ -139,6 +139,7 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" @click="submitHelp" :disabled="!isLoggedIn">提交求助</el-button>
+            <el-button @click="fillDemoData" style="margin-left: 10px;">填充演示数据</el-button>
             <span v-if="!isLoggedIn" style="color: #999; margin-left: 10px;">请先登录后再提交</span>
           </el-form-item>
         </el-form>
@@ -243,6 +244,7 @@
               <el-button type="primary" @click="submitVolunteerApplication" :loading="applyLoading">
                 提交申请
               </el-button>
+              <el-button @click="fillVolunteerDemoData" style="margin-left: 10px;">填充演示数据</el-button>
             </el-form-item>
           </el-form>
         </div>
@@ -251,12 +253,12 @@
     
     <!-- 登录弹窗 -->
     <el-dialog v-model="showLogin" title="用户登录" width="400px">
-      <el-form :model="loginForm">
+      <el-form :model="loginForm" autocomplete="on">
         <el-form-item label="用户名">
-          <el-input v-model="loginForm.username" />
+          <el-input v-model="loginForm.username" id="user_login_username" name="username" autocomplete="username" />
         </el-form-item>
         <el-form-item label="密码">
-          <el-input v-model="loginForm.password" type="password" />
+          <el-input v-model="loginForm.password" type="password" id="user_login_password" name="password" autocomplete="current-password" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -325,7 +327,7 @@ const tab = ref('home');
 const mediaTab = ref('image');
 
 // 用户状态
-const userToken = ref(localStorage.getItem('userToken'));
+const userToken = ref(sessionStorage.getItem('userToken'));
 const isLoggedIn = computed(() => !!userToken.value);
 const userInfo = ref<any>(null);
 const showLogin = ref(false);
@@ -360,7 +362,7 @@ const imagePreviewVisible = ref(false);
 const previewImageUrl = ref('');
 
 const getHeaders = () => {
-  const token = localStorage.getItem('userToken');
+  const token = sessionStorage.getItem('userToken');
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
@@ -413,7 +415,7 @@ const doLogin = async () => {
   try {
     const resp = await axios.post('/api/user-portal/login', loginForm.value);
     const token = resp.data.data.token;
-    localStorage.setItem('userToken', token);
+    sessionStorage.setItem('userToken', token);
     userToken.value = token;
     userInfo.value = resp.data.data;
     showLogin.value = false;
@@ -437,7 +439,7 @@ const doRegister = async () => {
 };
 
 const logout = () => {
-  localStorage.removeItem('userToken');
+  sessionStorage.removeItem('userToken');
   userToken.value = null;
   userInfo.value = null;
   volunteerStatus.value = null;
@@ -458,6 +460,30 @@ const submitHelp = async () => {
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || '提交失败');
   }
+};
+
+// 填充演示数据
+const fillDemoData = () => {
+  helpForm.value = {
+    orgId: 1, // 阳光志愿服务队
+    title: '社区义卖活动需要志愿者支援',
+    content: '我们社区计划在本周六（1月18日）上午9点至12点举办一场爱心义卖活动，所得款项将全部捐给贫困学生。活动地点在社区广场，预计需要8-10名志愿者协助布置场地、维持秩序、收银记账等工作。希望有爱心的志愿者能够参与支援，活动结束后会提供午餐和志愿服务时长证明。',
+    contactName: '张主任',
+    contactPhone: '13987654321',
+    address: '昆明市盘龙区金星社区服务中心'
+  };
+  ElMessage.success('演示数据已填充');
+};
+
+// 填充志愿者申请演示数据
+const fillVolunteerDemoData = () => {
+  volunteerForm.value = {
+    name: '王小明',
+    phone: '13812345678',
+    email: 'wangxiaoming@example.com',
+    organization: '云南大学'
+  };
+  ElMessage.success('演示数据已填充');
 };
 
 const showContentDetail = (item: any) => {
