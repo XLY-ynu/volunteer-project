@@ -532,9 +532,9 @@ INSERT INTO volunteer_org (id, name, code, description, contact_name, contact_ph
 
 -- 4. 六大主菜单分类
 INSERT INTO menu_category (id, name, code, parent_id, sort_order) VALUES
-(1, '文明XX', 'wenming', NULL, 1),
-(2, 'XX志愿者APP', 'app', NULL, 2),
-(3, 'XX志愿者网', 'web', NULL, 3),
+(1, '文明昆明', 'wenming', NULL, 1),
+(2, '昆明志愿者APP', 'app', NULL, 2),
+(3, '昆明志愿者网', 'web', NULL, 3),
 (4, '雷锋热线', 'leifeng', NULL, 4),
 (5, '公益活动', 'gongyi', NULL, 5),
 (6, '公益广告', 'ad', NULL, 6);
@@ -566,7 +566,7 @@ INSERT INTO media_asset (id, name, type, url, thumb_url, size_bytes, duration_se
 -- 7. 示例内容数据 (每个分类6条，共36条)
 -- 注意：封面图片使用实际上传的文件路径
 
--- 分类1: 文明XX（6条）
+-- 分类1: 文明昆明（6条）
 INSERT INTO content_item (id, category_id, title, summary, body, cover_url, published, publish_time, created_at, updated_at, headline, recommended, recommend_weight) VALUES
 (1, 1, '我市荣获全国文明城市称号', '经过全市人民共同努力，我市成功创建全国文明城市', 
 '近日，中央文明办公布了新一届全国文明城市名单，我市凭借优异的创建成绩，成功入选全国文明城市。这是全市人民共同努力的结果，也是城市文明程度的重要体现。',
@@ -587,7 +587,7 @@ INSERT INTO content_item (id, category_id, title, summary, body, cover_url, publ
 '我市持续推进文明餐桌行动，倡导节约粮食、杜绝浪费，光盘行动已成为市民新风尚。',
 '/uploads/covers/cover-fb148687-b61d-412e-abb1-8e687e799e33.png', 1, NOW(), NOW(), NOW(), 0, 0, 0);
 
--- 分类2: XX志愿者APP（6条）
+-- 分类2: 昆明志愿者APP（6条）
 INSERT INTO content_item (id, category_id, title, summary, body, cover_url, published, publish_time, created_at, updated_at, headline, recommended, recommend_weight) VALUES
 (4, 2, '志愿者APP全新上线', '一键报名，轻松参与志愿服务', 
 '志愿者APP是我市官方志愿服务移动平台，集活动报名、签到打卡、时长统计于一体，让志愿服务更加便捷。',
@@ -608,7 +608,7 @@ INSERT INTO content_item (id, category_id, title, summary, body, cover_url, publ
 '志愿者APP积分商城正式上线，志愿者可以用服务积分兑换各类精美礼品，感谢您的付出。',
 '/uploads/covers/cover-0df81acf-720c-4dc7-9a12-69c485d9362f.png', 1, NOW(), NOW(), NOW(), 0, 1, 75);
 
--- 分类3: XX志愿者网（6条）
+-- 分类3: 昆明志愿者网（6条）
 INSERT INTO content_item (id, category_id, title, summary, body, cover_url, published, publish_time, created_at, updated_at, headline, recommended, recommend_weight) VALUES
 (7, 3, '志愿者网平台介绍', '官方志愿服务信息发布平台', 
 '志愿者网是我市志愿服务工作的官方门户网站，提供志愿者注册、活动发布、时长查询等功能。',
